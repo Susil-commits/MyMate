@@ -263,41 +263,6 @@ App
 5. Toast notifications for actions
 6. Responsive design throughout
 
----
-
-## Key Dependencies
-
-### Backend (`package.json`)
-```json
-{
-  "dependencies": {
-    "express": "^4.21.0",
-    "mongoose": "^8.8.0",
-    "jsonwebtoken": "^9.0.2",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express-validator": "^7.2.0",
-    "multer": "^1.4.5-lts.1",
-    "stripe": "^17.5.0"
-  }
-}
-```
-
-### Frontend (additions to existing)
-```json
-{
-  "dependencies": {
-    "react-router-dom": "^7.1.0",
-    "axios": "^1.7.0",
-    "react-icons": "^5.3.0",
-    "react-hot-toast": "^2.4.1"
-  }
-}
-```
-
----
-
 ## Key Design Decisions
 - **Separate User/Driver models** rather than a single model with roles — they have fundamentally different fields
 - **Separate auth pages** — `/user/login`, `/user/register`, `/driver/login`, `/driver/register` with dedicated forms
@@ -308,16 +273,3 @@ App
 - **Hire types**: "temporary" uses hourly rate, "permanent" uses daily rate, calculated on booking creation
 - **Payments via Stripe**: Stripe PaymentIntent created server-side, confirmed client-side with Stripe Elements
 - **File uploads** for license images stored locally in `backend/uploads/`, served as static files
-
----
-
-## `.env` Configuration
-```
-MONGO_URI=mongodb://localhost:27017/mymate
-JWT_SECRET=your_jwt_secret_here
-PORT=5000
-NODE_ENV=development
-STRIPE_SECRET_KEY=sk_test_xxxx
-STRIPE_WEBHOOK_SECRET=whsec_xxxx
-CLIENT_URL=http://localhost:5173
-```
