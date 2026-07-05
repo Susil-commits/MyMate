@@ -3,6 +3,7 @@ import {
   createBooking,
   getUserBookings,
   getDriverBookings,
+  getDriverStats,
   updateBookingStatus,
   getBookingById,
 } from "../controllers/bookingController.js";
@@ -13,6 +14,7 @@ const router = Router();
 
 router.post("/", protect, authorizeUser, bookingValidator, createBooking);
 router.get("/user", protect, authorizeUser, getUserBookings);
+router.get("/driver/stats", protect, getDriverStats);
 router.get("/driver", protect, getDriverBookings);
 router.get("/:id", protect, getBookingById);
 router.put("/:id/status", protect, updateBookingStatus);

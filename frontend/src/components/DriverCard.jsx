@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 
 const DriverCard = ({ driver }) => {
   return (
-    <Link to={`/drivers/${driver._id}`} className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition block">
+ <Link to={`/drivers/${driver._id}`} className="bg-white rounded-xl shadow-sm p-6 hover:text-gray-700 transition block">
       <div className="flex items-start justify-between mb-3">
         <div>
           <h3 className="text-lg font-semibold text-gray-900">{driver.name}</h3>

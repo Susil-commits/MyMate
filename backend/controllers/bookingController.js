@@ -2,6 +2,19 @@ import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
+import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
+
+const ACTIVE_STATUSES = ["accepted", "ongoing", "completed"];
+
+const sanitizeBooking = (booking) => {
+  const obj = booking.toObject ? booking.toObject() : { ...booking };
+  if (obj.driver) {
+    obj.driver = sanitizeDriver(obj.driver, {
+      withContact: ACTIVE_STATUSES.includes(obj.status),
+    });
+  }
+  return obj;
+};
 
 export const createBooking = async (req, res, next) => {
   try {
@@ -56,7 +69,7 @@ export const createBooking = async (req, res, next) => {
       link: `/driver/bookings`,
     }).catch(() => {});
 
-    res.status(201).json({ booking });
+    res.status(201).json({ booking: sanitizeBooking(booking) });
   } catch (error) {
     next(error);
   }
@@ -65,23 +78,24 @@ export const createBooking = async (req, res, next) => {
 export const getUserBookings = async (req, res, next) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
+    const safeLimit = clampLimit(limit, 10, 50);
     const query = { user: req.user._id };
     if (status) query.status = status;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * safeLimit;
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate({ path: "driver", select: "-password" })
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(safeLimit),
       Booking.countDocuments(query),
     ]);
 
     res.json({
-      bookings,
-      pagination: { page: Number(page), pages: Math.ceil(total / Number(limit)), total },
+      bookings: bookings.map(sanitizeBooking),
+      pagination: { page: Number(page), pages: Math.ceil(total / safeLimit), total },
     });
   } catch (error) {
     next(error);
@@ -91,23 +105,24 @@ export const getUserBookings = async (req, res, next) => {
 export const getDriverBookings = async (req, res, next) => {
   try {
     const { status, page = 1, limit = 10 } = req.query;
+    const safeLimit = clampLimit(limit, 10, 50);
     const query = { driver: req.user._id };
     if (status) query.status = status;
 
-    const skip = (Number(page) - 1) * Number(limit);
+    const skip = (Number(page) - 1) * safeLimit;
 
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate({ path: "user", select: "name email phone" })
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(Number(limit)),
+        .limit(safeLimit),
       Booking.countDocuments(query),
     ]);
 
     res.json({
-      bookings,
-      pagination: { page: Number(page), pages: Math.ceil(total / Number(limit)), total },
+      bookings: bookings.map(sanitizeBooking),
+      pagination: { page: Number(page), pages: Math.ceil(total / safeLimit), total },
     });
   } catch (error) {
     next(error);
@@ -164,6 +179,7 @@ export const updateBookingStatus = async (req, res, next) => {
     }
 
     booking.status = status;
+    booking.cancellationReason = ["cancelled", "rejected"].includes(status) ? (req.body.reason || "") : "";
     await booking.save();
 
     await booking.populate([
@@ -171,19 +187,38 @@ export const updateBookingStatus = async (req, res, next) => {
       { path: "driver", select: "-password" },
     ]);
 
-    if (status === "accepted" || status === "rejected" || status === "completed" || status === "cancelled") {
-      sendBookingStatusUpdate(booking.user, booking.driver, booking, status).catch(() => {});
+    const statusMessages = {
+      accepted: { title: "Booking Accepted", message: `${booking.driver.name || "Driver"} accepted your booking request.` },
+      rejected: { title: "Booking Rejected", message: `${booking.driver.name || "Driver"} declined your booking request.` },
+      ongoing: { title: "Trip Started", message: `${booking.driver.name || "Driver"} has started your trip.` },
+      completed: { title: "Trip Completed", message: "Your trip is complete. Please leave a review." },
+    };
+
+    if (req.userRole === "driver" && statusMessages[status]) {
       createNotification({
         userId: booking.user._id,
         userModel: "User",
-        title: `Booking ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-        message: `${booking.driver.name} has ${status} your booking`,
+        title: statusMessages[status].title,
+        message: statusMessages[status].message,
         type: "booking",
         link: `/bookings/${booking._id}`,
       }).catch(() => {});
     }
 
-    res.json({ booking });
+    if (req.userRole === "user" && status === "cancelled") {
+      createNotification({
+        userId: booking.driver._id,
+        userModel: "Driver",
+        title: "Booking Cancelled",
+        message: `${booking.user.name || "Customer"} cancelled a booking.`,
+        type: "booking",
+        link: `/driver/bookings`,
+      }).catch(() => {});
+    }
+
+    sendBookingStatusUpdate(booking.user, booking.driver, booking, status).catch(() => {});
+
+    res.json({ booking: sanitizeBooking(booking) });
   } catch (error) {
     next(error);
   }
@@ -207,7 +242,44 @@ export const getBookingById = async (req, res, next) => {
       return res.status(403).json({ message: "Not authorized" });
     }
 
-    res.json({ booking });
+    res.json({ booking: sanitizeBooking(booking) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDriverStats = async (req, res, next) => {
+  try {
+    const driverId = req.user._id;
+
+    const [counts, earningsAgg] = await Promise.all([
+      Booking.aggregate([
+        { $match: { driver: driverId } },
+        { $group: { _id: "$status", count: { $sum: 1 } } },
+      ]),
+      Booking.aggregate([
+        {
+          $match: {
+            driver: driverId,
+            status: "completed",
+            paymentStatus: "paid",
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+      ]),
+    ]);
+
+    const statusMap = {};
+    counts.forEach((c) => (statusMap[c._id] = c.count));
+
+    res.json({
+      totalBookings: Object.values(statusMap).reduce((a, b) => a + b, 0),
+      pendingBookings: statusMap["pending"] || 0,
+      activeBookings: (statusMap["accepted"] || 0) + (statusMap["ongoing"] || 0),
+      completedBookings: statusMap["completed"] || 0,
+      cancelledBookings: (statusMap["cancelled"] || 0) + (statusMap["rejected"] || 0),
+      earnings: earningsAgg[0]?.total || 0,
+    });
   } catch (error) {
     next(error);
   }

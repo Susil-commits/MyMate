@@ -31,7 +31,7 @@ export default class ErrorBoundary extends Component {
                 this.setState({ hasError: false, error: null });
                 window.location.href = "/";
               }}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 transition-all duration-200"
+ className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:text-gray-700 transition-all duration-200"
             >
               Go Home
             </button>

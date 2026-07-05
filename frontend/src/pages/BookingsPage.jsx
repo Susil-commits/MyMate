@@ -51,13 +51,13 @@ export default function BookingsPage() {
     <div className="animate-fade-in">
       <BackButton to="/drivers" label="Back to Drivers" />
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white">
+ <h1 className="text-3xl font-extrabold text-gray-900 ">
           My <span className="gradient-text">Bookings</span>
         </h1>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200"
+ className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -71,7 +71,7 @@ export default function BookingsPage() {
       {loading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6">
+ <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6">
               <div className="space-y-3">
                 <div className="skeleton h-5 w-40 rounded" />
                 <div className="skeleton h-4 w-60 rounded" />
@@ -82,32 +82,32 @@ export default function BookingsPage() {
         </div>
       ) : bookings.length === 0 ? (
         <div className="text-center py-16 animate-fade-up">
-          <HiClipboardList className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <p className="text-gray-500 dark:text-gray-400 text-lg">No bookings found.</p>
-          <Link to="/drivers" className="mt-2 inline-block text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold text-sm">
+ <HiClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+ <p className="text-gray-500 text-lg">No bookings found.</p>
+ <Link to="/drivers" className="mt-2 inline-block text-blue-600 hover:text-blue-700 font-semibold text-sm">
             Find a driver
           </Link>
         </div>
       ) : (
         <div className="space-y-4 stagger-1">
           {bookings.map((booking) => (
-            <div key={booking._id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 card-hover animate-scale-in">
+ <div key={booking._id} className="bg-white rounded-2xl border border-gray-100 p-6 card-hover animate-scale-in">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                     {booking.driver?.name?.charAt(0)}
                   </div>
                   <div>
-                    <Link to={`/drivers/${booking.driver?._id}`} className="text-lg font-bold text-gray-900 dark:text-white hover:text-blue-600 transition-colors">
+ <Link to={`/drivers/${booking.driver?._id}`} className="text-lg font-bold text-gray-900 hover:text-gray-700 transition-colors">
                       {booking.driver?.name}
                     </Link>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+ <p className="text-sm text-gray-500 mt-0.5">
                       {booking.hireType === "temporary" ? "Temporary" : "Permanent"} &middot;{" "}
                       {new Date(booking.startDate).toLocaleDateString()}
                       {booking.endDate && ` → ${new Date(booking.endDate).toLocaleDateString()}`}
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{booking.pickupLocation} {booking.dropLocation && `→ ${booking.dropLocation}`}</p>
-                    <p className="text-sm font-bold text-green-600 dark:text-green-400 mt-1">${booking.totalAmount}</p>
+ <p className="text-sm text-gray-500 ">{booking.pickupLocation} {booking.dropLocation && `→ ${booking.dropLocation}`}</p>
+ <p className="text-sm font-bold text-green-600 mt-1">${booking.totalAmount}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -117,14 +117,14 @@ export default function BookingsPage() {
                   {(booking.status === "pending" || booking.status === "accepted") && (
                     <button
                       onClick={() => setConfirmCancel(booking._id)}
-                      className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium transition-colors"
+ className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
                     >
                       Cancel
                     </button>
                   )}
                   <Link
                     to={`/bookings/${booking._id}`}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors"
+ className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
                   >
                     View Details →
                   </Link>

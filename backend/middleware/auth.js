@@ -24,6 +24,10 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" });
     }
 
+    if (req.userRole === "driver" && req.user.kycStatus === "approved" && !req.user.isActive) {
+      return res.status(401).json({ message: "Your account has been deactivated" });
+    }
+
     req.userRole = decoded.role;
     next();
   } catch (error) {

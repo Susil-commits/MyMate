@@ -7,6 +7,7 @@ const driverSchema = new mongoose.Schema(
     name: { type: String, trim: true, default: "" },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true, minlength: 6 },
+    avatar: { url: { type: String, default: "" }, publicId: { type: String, default: "" } },
     gender: { type: String, enum: ["male", "female", "other", ""], default: "" },
     phone: { type: String, trim: true, default: "" },
     nationality: { type: String, trim: true, default: "" },

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import BackButton from "../components/BackButton";
+import Avatar from "../components/Avatar";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { vehicleTypes } from "../utils/constants";
@@ -20,26 +21,28 @@ export default function DriverProfileEdit() {
     vehicleTypes: [],
     languages: "",
   });
+  const [prevUser, setPrevUser] = useState(user);
   const [licenseFile, setLicenseFile] = useState(null);
+  const [avatarFile, setAvatarFile] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setForm({
-        name: user.name || "",
-        phone: user.phone || "",
-        nationality: user.nationality || "",
-        locality: user.locality || "",
-        experienceYears: user.experienceYears || "",
-        hourlyRate: user.hourlyRate || "",
-        dailyRate: user.dailyRate || "",
-        bio: user.bio || "",
-        availability: user.availability || "available",
-        vehicleTypes: user.vehicleTypes || [],
-        languages: (user.languages || []).join(", "),
-      });
-    }
-  }, [user]);
+  if (user !== prevUser) {
+    setPrevUser(user);
+    setForm({
+      name: user.name || "",
+      phone: user.phone || "",
+      nationality: user.nationality || "",
+      locality: user.locality || "",
+      experienceYears: user.experienceYears || "",
+      hourlyRate: user.hourlyRate || "",
+      dailyRate: user.dailyRate || "",
+      bio: user.bio || "",
+      availability: user.availability || "available",
+      vehicleTypes: user.vehicleTypes || [],
+      languages: (user.languages || []).join(", "),
+    });
+  }
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -53,6 +56,17 @@ export default function DriverProfileEdit() {
         ? prev.vehicleTypes.filter((t) => t !== type)
         : [...prev.vehicleTypes, type],
     }));
+  };
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -73,11 +87,16 @@ export default function DriverProfileEdit() {
         formData.append("licenseImage", licenseFile);
         formData.append("resubmitKyc", "true");
       }
+      if (avatarFile) {
+        formData.append("avatar", avatarFile);
+      }
 
       await api.put("/drivers/profile", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       await loadUser();
+      setAvatarFile(null);
+      setAvatarPreview(null);
       toast.success("Profile updated");
     } catch (err) {
       toast.error(err.response?.data?.message || "Update failed");
@@ -123,16 +142,20 @@ export default function DriverProfileEdit() {
 
       <form onSubmit={handleSubmit} className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
         <div className="flex items-center gap-4 pb-5 border-b border-gray-100">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-2xl font-bold">
-            {user?.name?.charAt(0)}
-          </div>
+          <label className="cursor-pointer relative group">
+            <Avatar src={avatarPreview || user?.avatar} name={user?.name} size="lg" className="from-green-500 to-teal-600" />
+            <div className="absolute inset-0 rounded-2xl bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <span className="text-white text-xs font-semibold">Change</span>
+            </div>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarChange} className="hidden" />
+          </label>
           <div>
             <p className="text-lg font-bold text-gray-900">{user?.name}</p>
             <p className="text-sm text-gray-500">{user?.email}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 md gap-4">
           <Field label="Name" name="name" value={form.name} onChange={handleChange} />
           <Field label="Phone" name="phone" value={form.phone} onChange={handleChange} />
           <Field label="Nationality" name="nationality" value={form.nationality} onChange={handleChange} />
@@ -146,7 +169,7 @@ export default function DriverProfileEdit() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Availability</label>
-          <select name="availability" value={form.availability} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition-all duration-200">
+ <select name="availability" value={form.availability} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
             <option value="available">Available</option>
             <option value="busy">Busy</option>
             <option value="offline">Offline</option>
@@ -161,7 +184,7 @@ export default function DriverProfileEdit() {
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
                   form.vehicleTypes.includes(type)
                     ? "bg-green-600 text-white border-green-600 shadow-sm"
-                    : "bg-white text-gray-600 border-gray-200 hover:border-green-400 hover:text-green-600"
+ : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                 }`}>
                 {type}
               </button>
@@ -171,15 +194,15 @@ export default function DriverProfileEdit() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Update License Image</label>
-          <input type="file" accept="image/*,.pdf" onChange={(e) => setLicenseFile(e.target.files[0])} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100" />
+ <input type="file" accept="image/*,.pdf" onChange={(e) => setLicenseFile(e.target.files[0])} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bio</label>
-          <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none resize-none transition-all duration-200" />
+ <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" />
         </div>
 
-        <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 hover:shadow-lg hover:shadow-green-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
+ <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
           {saving ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -198,7 +221,7 @@ function Field({ label, name, type = "text", value, onChange }) {
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-      <input type={type} name={name} value={value} onChange={onChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 outline-none transition-all duration-200" />
+ <input type={type} name={name} value={value} onChange={onChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
     </div>
   );
 }

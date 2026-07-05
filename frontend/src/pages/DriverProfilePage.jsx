@@ -1,16 +1,15 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiBadgeCheck, HiCalendar } from "react-icons/hi";
+import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiBadgeCheck, HiCalendar, HiChat } from "react-icons/hi";
 import { FaCar, FaLanguage } from "react-icons/fa";
 import BackButton from "../components/BackButton";
+import FavoriteButton from "../components/FavoriteButton";
 import api from "../api/axios";
 import { hireTypes } from "../utils/constants";
-import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
 export default function DriverProfilePage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [driver, setDriver] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -25,6 +24,7 @@ export default function DriverProfilePage() {
     purpose: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [messaging, setMessaging] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,7 +35,7 @@ export default function DriverProfilePage() {
         ]);
         setDriver(driverRes.data.driver);
         setReviews(reviewsRes.data.reviews);
-      } catch (err) {
+      } catch {
         toast.error("Failed to load driver profile");
       } finally {
         setLoading(false);
@@ -56,6 +56,18 @@ export default function DriverProfilePage() {
       toast.error(err.response?.data?.message || "Booking failed");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleStartConversation = async () => {
+    setMessaging(true);
+    try {
+      const { data } = await api.post("/messages/conversations", { recipientId: id });
+      navigate(`/messages/${data.conversation._id}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Could not start conversation");
+    } finally {
+      setMessaging(false);
     }
   };
 
@@ -87,7 +99,7 @@ export default function DriverProfilePage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="h-32 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600" />
         <div className="px-8 pb-8">
-          <div className="flex flex-col sm:flex-row items-start gap-6 -mt-12">
+ <div className="flex flex-col sm items-start gap-6 -mt-12">
             <div className="w-28 h-28 rounded-2xl bg-white shadow-lg border-4 border-white flex items-center justify-center text-4xl font-extrabold text-blue-600">
               {driver.name.charAt(0)}
             </div>
@@ -100,14 +112,23 @@ export default function DriverProfilePage() {
                     {driver.locality} &middot; {driver.nationality}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${availabilityColor[driver.availability]}`}>
                     {driver.availability}
                   </span>
+                  <FavoriteButton driverId={driver._id} />
+                  <button
+                    onClick={handleStartConversation}
+                    disabled={messaging}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
+                  >
+                    <HiChat className="w-4 h-4" />
+                    Message
+                  </button>
                   <button
                     onClick={() => setShowBooking(true)}
                     disabled={driver.availability !== "available"}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 hover:-translate-y-0.5"
+                    className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5"
                   >
                     {driver.availability === "available" ? "Book Now" : "Not Available"}
                   </button>
@@ -127,7 +148,7 @@ export default function DriverProfilePage() {
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+ <div className="mt-8 grid grid-cols-2 md gap-4">
             <Stat icon={<HiClock />} label="Experience" value={`${driver.experienceYears} years`} />
             <Stat icon={<HiBadgeCheck />} label="Verification" value={driver.documentsVerified ? "Verified" : "Pending"} color={driver.documentsVerified ? "text-green-600" : "text-yellow-600"} />
             <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`$${driver.hourlyRate}`} />
@@ -162,7 +183,7 @@ export default function DriverProfilePage() {
                 <select
                   value={bookingForm.hireType}
                   onChange={(e) => setBookingForm({ ...bookingForm, hireType: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200"
+ className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 >
                   {hireTypes.map((h) => (
                     <option key={h.value} value={h.value}>{h.label}</option>
@@ -172,22 +193,22 @@ export default function DriverProfilePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
-                  <input type="date" required value={bookingForm.startDate} onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200" />
+ <input type="date" required value={bookingForm.startDate} onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">End Date</label>
-                  <input type="date" value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200" />
+ <input type="date" value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
                 </div>
               </div>
               <Field label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} required />
               <Field label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Purpose</label>
-                <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
+ <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">Cancel</button>
-                <button type="submit" disabled={submitting} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300">
+              <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">Cancel</button>
+                <button type="submit" disabled={submitting} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300">
                   {submitting ? "Sending..." : "Send Request"}
                 </button>
               </div>
@@ -247,7 +268,7 @@ function Field({ label, value, onChange, required }) {
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
-      <input type="text" required={required} value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all duration-200" />
+ <input type="text" required={required} value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
     </div>
   );
 }

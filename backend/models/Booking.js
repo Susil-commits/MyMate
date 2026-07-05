@@ -20,6 +20,7 @@ const bookingSchema = new mongoose.Schema(
     dropLocation: { type: String, trim: true, default: "" },
     purpose: { type: String, required: true, trim: true },
     totalAmount: { type: Number, default: 0 },
+    cancellationReason: { type: String, default: "", trim: true },
     paymentStatus: {
       type: String,
       enum: ["pending", "paid", "refunded"],

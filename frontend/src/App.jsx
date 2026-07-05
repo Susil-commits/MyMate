@@ -1,12 +1,11 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
 import { Toaster } from "react-hot-toast";
-import ErrorBoundary from "./components/ErrorBoundary";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
 import UserLayout from "./layouts/UserLayout";
 import DriverLayout from "./layouts/DriverLayout";
 import AdminLayout from "./layouts/AdminLayout";
+import RoleLayout from "./layouts/RoleLayout";
 import LandingPage from "./pages/LandingPage";
 import UserLoginPage from "./pages/UserLoginPage";
 import UserRegisterPage from "./pages/UserRegisterPage";
@@ -20,6 +19,8 @@ import DriverProfilePage from "./pages/DriverProfilePage";
 import BookingsPage from "./pages/BookingsPage";
 import BookingDetailPage from "./pages/BookingDetailPage";
 import UserProfilePage from "./pages/UserProfilePage";
+import FavoritesPage from "./pages/FavoritesPage";
+import MessagesPage from "./pages/MessagesPage";
 import DriverDashboard from "./pages/DriverDashboard";
 import DriverProfileEdit from "./pages/DriverProfileEdit";
 import DriverBookingsPage from "./pages/DriverBookingsPage";
@@ -33,10 +34,8 @@ import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AuthProvider>
-          <BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
           <Toaster position="top-right" />
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -55,8 +54,16 @@ export default function App() {
                 <Route path="/drivers" element={<DriverSearchPage />} />
                 <Route path="/drivers/:id" element={<DriverProfilePage />} />
                 <Route path="/bookings" element={<BookingsPage />} />
-                <Route path="/bookings/:id" element={<BookingDetailPage />} />
+                <Route path="/favorites" element={<FavoritesPage />} />
                 <Route path="/profile" element={<UserProfilePage />} />
+              </Route>
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRole={["user", "driver"]} />}>
+              <Route element={<RoleLayout />}>
+                <Route path="/bookings/:id" element={<BookingDetailPage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/messages/:conversationId" element={<MessagesPage />} />
               </Route>
             </Route>
 
@@ -82,6 +89,5 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ThemeProvider>
-  </ErrorBoundary>
-);
+  );
+}

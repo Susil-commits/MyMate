@@ -6,15 +6,12 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
   const loadUser = useCallback(async () => {
     const token = localStorage.getItem("token");
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+    if (!token) return;
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
@@ -30,6 +27,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
+    // loadUser is async; all setState calls are deferred after await
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUser();
   }, [loadUser]);
 
@@ -83,8 +82,9 @@ export function AuthProvider({ children }) {
   );
 }
 
-export function useAuth() {
+// eslint-disable-next-line react-refresh/only-export-components
+export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
-}
+};

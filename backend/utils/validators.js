@@ -63,6 +63,11 @@ export const forgotPasswordValidator = [
   body("role").isIn(["user", "driver"]).withMessage("Role must be user or driver"),
 ];
 
+export const changePasswordValidator = [
+  body("currentPassword").notEmpty().withMessage("Current password is required"),
+  body("newPassword").isLength({ min: 6 }).withMessage("New password must be at least 6 characters"),
+];
+
 export const resetPasswordValidator = [
   body("token").notEmpty().withMessage("Reset token is required"),
   body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 characters"),

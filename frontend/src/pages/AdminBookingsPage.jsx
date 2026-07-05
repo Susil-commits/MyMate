@@ -1,57 +1,88 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
+import { WindowedPagination } from "../components/WindowedPagination";
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("");
 
   useEffect(() => {
+    let active = true;
     const fetch = async () => {
       setLoading(true);
       try {
-        const { data } = await api.get(`/admin/bookings?page=${page}&limit=20`);
+        const params = new URLSearchParams({ page, limit: 20 });
+        if (statusFilter) params.set("status", statusFilter);
+        const { data } = await api.get(`/admin/bookings?${params}`);
+        if (!active) return;
         setBookings(data.bookings);
         setPagination(data.pagination);
       } catch (err) {
-        console.error(err);
+        if (active) console.error(err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetch();
-  }, [page]);
+    return () => {
+      active = false;
+    };
+  }, [page, statusFilter]);
+
+  const handleFilterChange = (val) => {
+    setStatusFilter(val);
+    setPage(1);
+  };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" /></div>;
 
   return (
     <div className="animate-fade-in">
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-6">All Bookings</h1>
-      <div className="space-y-4 stagger-1">
-        {bookings.map((b) => (
-          <div key={b._id} className="bg-white rounded-2xl border border-gray-100 p-5 card-hover animate-scale-in">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-bold">{b.user?.name} → {b.driver?.name}</p>
-                <p className="text-sm text-gray-500">{b.hireType} &middot; {new Date(b.startDate).toLocaleDateString()} &middot; ${b.totalAmount}</p>
-                <p className="text-sm text-gray-500">{b.pickupLocation} &middot; {b.purpose}</p>
-              </div>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${bookingStatusColors[b.status]}`}>{b.status}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-      {pagination.pages > 1 && (
-        <div className="mt-6 flex justify-center gap-2">
-          <button disabled={pagination.page <= 1} onClick={() => setPage(page - 1)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-          {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => setPage(p)} className={`px-4 py-2 rounded-xl text-sm font-semibold ${p === pagination.page ? "bg-purple-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{p}</button>
-          ))}
-          <button disabled={pagination.page >= pagination.pages} onClick={() => setPage(page + 1)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <div>
+          <h1 className="text-3xl font-extrabold text-gray-900">All Bookings</h1>
+          <p className="text-sm text-gray-500 mt-1">{pagination.total} bookings</p>
         </div>
-      )}
+        <select value={statusFilter} onChange={(e) => handleFilterChange(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all duration-200">
+          <option value="">All Status</option>
+          <option value="pending">Pending</option>
+          <option value="accepted">Accepted</option>
+          <option value="ongoing">Ongoing</option>
+          <option value="completed">Completed</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="rejected">Rejected</option>
+        </select>
+      </div>
+      <div className="space-y-4 stagger-1">
+        {bookings.length === 0 ? (
+          <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
+            <p className="text-gray-500">No bookings found.</p>
+          </div>
+        ) : (
+          bookings.map((b) => (
+            <div key={b._id} className="bg-white rounded-2xl border border-gray-100 p-5 animate-scale-in">
+              <div className="flex items-start justify-between flex-wrap gap-3">
+                <div className="min-w-0">
+                  <p className="font-bold text-gray-900">{b.user?.name} → {b.driver?.name}</p>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {b.hireType === "temporary" ? "Temporary" : "Permanent"} &middot; {new Date(b.startDate).toLocaleDateString()} &middot; ${b.totalAmount}
+                  </p>
+                  <p className="text-sm text-gray-500">{b.pickupLocation}{b.dropLocation ? ` → ${b.dropLocation}` : ""} &middot; {b.purpose}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${bookingStatusColors[b.status]}`}>{b.status}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${b.paymentStatus === "paid" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{b.paymentStatus}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+      <WindowedPagination page={pagination.page} pages={pagination.pages} onChange={setPage} accent="purple" />
     </div>
   );
 }

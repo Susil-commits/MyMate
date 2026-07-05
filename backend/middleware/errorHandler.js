@@ -29,7 +29,9 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(401).json({ message: "Token expired" });
   }
 
+  const isProduction = process.env.NODE_ENV === "production";
+
   res.status(err.status || 500).json({
-    message: err.message || "Internal server error",
+    message: isProduction && (err.status || 500) === 500 ? "Internal server error" : err.message || "Internal server error",
   });
 };

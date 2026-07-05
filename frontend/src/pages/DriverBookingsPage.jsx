@@ -4,6 +4,7 @@ import { HiClipboardList } from "react-icons/hi";
 import BackButton from "../components/BackButton";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
+import toast from "react-hot-toast";
 
 export default function DriverBookingsPage() {
   const [bookings, setBookings] = useState([]);
@@ -30,8 +31,9 @@ export default function DriverBookingsPage() {
     try {
       const { data } = await api.put(`/bookings/${bookingId}/status`, { status });
       setBookings((prev) => prev.map((b) => (b._id === bookingId ? data.booking : b)));
+      toast.success(`Booking ${status}`);
     } catch (err) {
-      console.error("Failed to update:", err);
+      toast.error(err.response?.data?.message || "Failed to update");
     }
   };
 
@@ -42,7 +44,7 @@ export default function DriverBookingsPage() {
         <h1 className="text-3xl font-extrabold text-gray-900">
           Booking <span className="gradient-text">Requests</span>
         </h1>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-green-500 outline-none transition-all duration-200">
+ <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
           <option value="">All</option>
           <option value="pending">Pending</option>
           <option value="accepted">Accepted</option>
@@ -98,21 +100,21 @@ export default function DriverBookingsPage() {
                   <div className="flex gap-2 mt-2">
                     {booking.status === "pending" && (
                       <>
-                        <button onClick={() => handleAction(booking._id, "accepted")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200 hover:shadow-sm">
+                        <button onClick={() => handleAction(booking._id, "accepted")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200">
                           Accept
                         </button>
-                        <button onClick={() => handleAction(booking._id, "rejected")} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-all duration-200 hover:shadow-sm">
+                        <button onClick={() => handleAction(booking._id, "rejected")} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-all duration-200">
                           Reject
                         </button>
                       </>
                     )}
                     {booking.status === "accepted" && (
-                      <button onClick={() => handleAction(booking._id, "ongoing")} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all duration-200 hover:shadow-sm">
+                      <button onClick={() => handleAction(booking._id, "ongoing")} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all duration-200">
                         Start Trip
                       </button>
                     )}
                     {booking.status === "ongoing" && (
-                      <button onClick={() => handleAction(booking._id, "completed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200 hover:shadow-sm">
+                      <button onClick={() => handleAction(booking._id, "completed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-700 transition-all duration-200">
                         Complete
                       </button>
                     )}

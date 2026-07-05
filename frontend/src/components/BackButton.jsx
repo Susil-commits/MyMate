@@ -15,7 +15,7 @@ export default function BackButton({ to, label = "Back" }) {
   return (
     <button
       onClick={handleClick}
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-4 group"
+ className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors mb-4 group"
     >
       <HiArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
       {label}

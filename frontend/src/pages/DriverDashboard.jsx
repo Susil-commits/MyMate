@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { HiCurrencyDollar, HiClipboardList, HiStar, HiCheck, HiUsers } from "react-icons/hi";
+import { HiCurrencyDollar, HiClipboardList, HiCheck, HiUsers } from "react-icons/hi";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 
@@ -10,26 +10,26 @@ export default function DriverDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchData = async () => {
       try {
-        const { data } = await api.get("/bookings/driver?limit=5");
-        const allBookings = data.bookings;
-        const completed = allBookings.filter((b) => b.status === "completed");
-        const pending = allBookings.filter((b) => b.status === "pending");
-        setRecentBookings(allBookings);
-        setStats({
-          totalBookings: data.pagination.total,
-          pendingBookings: pending.length,
-          completedBookings: completed.length,
-          earnings: completed.reduce((sum, b) => sum + b.totalAmount, 0),
-        });
+        const [statsRes, bookingsRes] = await Promise.all([
+          api.get("/bookings/driver/stats"),
+          api.get("/bookings/driver?limit=5"),
+        ]);
+        if (!active) return;
+        setStats(statsRes.data);
+        setRecentBookings(bookingsRes.data.bookings);
       } catch (err) {
-        console.error("Failed to load dashboard:", err);
+        if (active) console.error("Failed to load dashboard:", err);
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     fetchData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (loading) {
@@ -46,7 +46,7 @@ export default function DriverDashboard() {
         <span className="gradient-text">Dashboard</span>
       </h1>
 
-      <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+ <div className="mt-6 grid grid-cols-2 md gap-4">
         <StatCard icon={<HiClipboardList />} label="Total Bookings" value={stats.totalBookings} bg="bg-blue-500" />
         <StatCard icon={<HiUsers />} label="Pending" value={stats.pendingBookings} bg="bg-yellow-500" />
         <StatCard icon={<HiCheck />} label="Completed" value={stats.completedBookings} bg="bg-green-500" />

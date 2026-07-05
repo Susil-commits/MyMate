@@ -11,6 +11,9 @@ const router = Router();
 
 router.get("/", getDrivers);
 router.get("/:id", getDriverById);
-router.put("/profile", protect, authorizeDriver, upload.single("licenseImage"), updateDriverProfile);
+router.put("/profile", protect, authorizeDriver, upload.fields([
+  { name: "licenseImage", maxCount: 1 },
+  { name: "avatar", maxCount: 1 },
+]), updateDriverProfile);
 
 export default router;

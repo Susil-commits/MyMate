@@ -12,7 +12,7 @@ const reviewSchema = new mongoose.Schema(
 );
 
 reviewSchema.index({ driver: 1 });
-reviewSchema.index({ user: 1, driver: 1 }, { unique: true });
+reviewSchema.index({ user: 1, booking: 1 }, { unique: true });
 
 reviewSchema.statics.updateDriverRating = async function (driverId) {
   const result = await this.aggregate([

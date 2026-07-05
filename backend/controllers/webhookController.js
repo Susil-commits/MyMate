@@ -3,18 +3,26 @@ import Payment from "../models/Payment.js";
 import Booking from "../models/Booking.js";
 import logger from "../config/logger.js";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+let stripeClient;
+const getStripe = () => {
+  if (!stripeClient) {
+    stripeClient = new Stripe(process.env.STRIPE_SECRET_KEY || "");
+  }
+  return stripeClient;
+};
 
 export const handleWebhook = async (req, res) => {
   const sig = req.headers["stripe-signature"];
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!sig || !secret) {
+    logger.warn("Stripe webhook received without signature or secret");
+    return res.status(400).json({ message: "Webhook not configured" });
+  }
 
   let event;
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
+    event = getStripe().webhooks.constructEvent(req.body, sig, secret);
   } catch (err) {
     logger.error("Webhook signature verification failed", { error: err.message });
     return res.status(400).json({ message: "Webhook signature verification failed" });

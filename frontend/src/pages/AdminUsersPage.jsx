@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
+import Avatar from "../components/Avatar";
+import { WindowedPagination } from "../components/WindowedPagination";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -32,8 +34,7 @@ export default function AdminUsersPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b">
-              <th className="text-left px-6 py-3 font-semibold">Name</th>
-              <th className="text-left px-6 py-3 font-semibold">Email</th>
+              <th className="text-left px-6 py-3 font-semibold">User</th>
               <th className="text-left px-6 py-3 font-semibold">Phone</th>
               <th className="text-left px-6 py-3 font-semibold">Locality</th>
               <th className="text-left px-6 py-3 font-semibold">Joined</th>
@@ -41,9 +42,16 @@ export default function AdminUsersPage() {
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u._id} className="border-b last:border-0 hover:bg-gray-50/50">
-                <td className="px-6 py-4 font-medium">{u.name || "—"}</td>
-                <td className="px-6 py-4 text-gray-500">{u.email}</td>
+              <tr key={u._id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar src={u.avatar} name={u.name} size="sm" />
+                    <div>
+                      <p className="font-medium text-gray-900">{u.name || "—"}</p>
+                      <p className="text-xs text-gray-400">{u.email}</p>
+                    </div>
+                  </div>
+                </td>
                 <td className="px-6 py-4 text-gray-500">{u.phone || "—"}</td>
                 <td className="px-6 py-4 text-gray-500">{u.locality || "—"}</td>
                 <td className="px-6 py-4 text-gray-500">{new Date(u.createdAt).toLocaleDateString()}</td>
@@ -52,15 +60,7 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
-      {pagination.pages > 1 && (
-        <div className="mt-6 flex justify-center gap-2">
-          <button disabled={pagination.page <= 1} onClick={() => setPage(page - 1)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Prev</button>
-          {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((p) => (
-            <button key={p} onClick={() => setPage(p)} className={`px-4 py-2 rounded-xl text-sm font-semibold ${p === pagination.page ? "bg-purple-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>{p}</button>
-          ))}
-          <button disabled={pagination.page >= pagination.pages} onClick={() => setPage(page + 1)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
-        </div>
-      )}
+      <WindowedPagination page={pagination.page} pages={pagination.pages} onChange={setPage} accent="purple" />
     </div>
   );
 }

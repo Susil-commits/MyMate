@@ -3,6 +3,11 @@ import { useAuth } from "../context/AuthContext";
 
 export function ProtectedRoute({ allowedRole }) {
   const { user, role, loading, needsProfileCompletion } = useAuth();
+  const allowed = allowedRole
+    ? Array.isArray(allowedRole)
+      ? allowedRole
+      : [allowedRole]
+    : null;
 
   if (loading) {
     return (
@@ -13,12 +18,14 @@ export function ProtectedRoute({ allowedRole }) {
   }
 
   if (!user) {
-    if (allowedRole === "driver") return <Navigate to="/driver/login" replace />;
-    if (allowedRole === "admin") return <Navigate to="/user/login" replace />;
+    if (allowed?.length === 1 && allowed[0] === "driver")
+      return <Navigate to="/driver/login" replace />;
+    if (allowed?.length === 1 && allowed[0] === "admin")
+      return <Navigate to="/user/login" replace />;
     return <Navigate to="/user/login" replace />;
   }
 
-  if (allowedRole && role !== allowedRole) {
+  if (allowed && !allowed.includes(role)) {
     if (role === "driver") return <Navigate to="/driver/dashboard" replace />;
     if (role === "admin") return <Navigate to="/admin/dashboard" replace />;
     return <Navigate to="/drivers" replace />;

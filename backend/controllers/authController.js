@@ -108,6 +108,10 @@ export const driverLogin = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    if (driver.kycStatus === "approved" && !driver.isActive) {
+      return res.status(403).json({ message: "Your account has been deactivated. Please contact support." });
+    }
+
     const token = generateToken(driver._id, "driver");
     res.json({ driver, token, needsProfileCompletion: !driver.profileCompleted });
   } catch (error) {
