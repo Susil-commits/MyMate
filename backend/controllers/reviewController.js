@@ -2,9 +2,15 @@ import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import { createNotification } from "../models/Notification.js";
 import { clampLimit } from "../utils/sanitize.js";
+import { validationResult } from "express-validator";
 
 export const createReview = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     const { bookingId, driverId, rating, comment } = req.body;
 
     const booking = await Booking.findById(bookingId);
@@ -18,6 +24,10 @@ export const createReview = async (req, res, next) => {
 
     if (booking.status !== "completed") {
       return res.status(400).json({ message: "Can only review completed bookings" });
+    }
+
+    if (booking.totalAmount > 0 && booking.paymentStatus !== "paid") {
+      return res.status(400).json({ message: "Payment must be completed before reviewing" });
     }
 
     if (booking.driver.toString() !== driverId) {
@@ -90,8 +100,9 @@ export const getBookingReview = async (req, res, next) => {
       return res.status(404).json({ message: "Booking not found" });
     }
     const isOwner =
-      booking.user.toString() === req.user._id.toString() ||
-      booking.driver.toString() === req.user._id.toString();
+      req.userRole === "admin" ||
+      booking.user.toString() === req.user._id?.toString() ||
+      booking.driver.toString() === req.user._id?.toString();
     if (!isOwner) {
       return res.status(403).json({ message: "Not authorized" });
     }

@@ -16,7 +16,6 @@ import favoriteRoutes from "./routes/favoriteRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
-import webhookRoutes from "./routes/webhookRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { generalLimiter, authLimiter, paymentLimiter } from "./middleware/rateLimiter.js";
 
@@ -33,8 +32,6 @@ app.use(helmet({
   frameguard: { action: "deny" },
 }));
 app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
-
-app.use("/api/webhooks", webhookRoutes);
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));

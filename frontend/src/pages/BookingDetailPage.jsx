@@ -1,68 +1,98 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } from "react-icons/hi";
-import { loadStripe } from "@stripe/stripe-js";
-import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../api/axios";
-import { bookingStatusColors, paymentStatusColors, STRIPE_PUBLISHABLE_KEY } from "../utils/constants";
+import { bookingStatusColors, paymentStatusColors, RAZORPAY_KEY_ID, formatINR } from "../utils/constants";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
-const stripePromise = loadStripe(STRIPE_PUBLISHABLE_KEY);
-
 function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
-  const stripe = useStripe();
-  const elements = useElements();
   const [processing, setProcessing] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
+  const handlePay = async () => {
+    if (typeof window === "undefined" || !window.Razorpay) {
+      toast.error("Payment gateway failed to load. Check your connection and try again.");
+      return;
+    }
 
     setProcessing(true);
     try {
-      const { data } = await api.post("/payments/create-intent", { bookingId });
+      const { data } = await api.post("/payments/create-order", { bookingId });
 
-      const { error, paymentIntent } = await stripe.confirmCardPayment(data.clientSecret, {
-        payment_method: { card: elements.getElement(CardElement) },
+      const options = {
+        key: data.keyId || RAZORPAY_KEY_ID,
+        amount: Math.round(amount * 100),
+        currency: "INR",
+        name: "MyMate",
+        description: "Driver booking payment",
+        order_id: data.orderId,
+        handler: async (response) => {
+          try {
+            await api.post("/payments/verify", {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            toast.success("Payment successful!");
+            onSuccess();
+          } catch (err) {
+            toast.error(err.response?.data?.message || "Payment verification failed");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setProcessing(false);
+            toast.error("Payment cancelled");
+          },
+        },
+        theme: { color: "#4f46e5" },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on("payment.failed", (resp) => {
+        toast.error(resp.error?.description || "Payment failed");
+        setProcessing(false);
       });
-
-      if (error) {
-        toast.error(error.message);
-      } else if (paymentIntent.status === "succeeded") {
-        await api.post("/payments/confirm", { paymentIntentId: paymentIntent.id });
-        toast.success("Payment successful!");
-        onSuccess();
-      }
+      rzp.open();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Payment failed");
-    } finally {
+      toast.error(err.response?.data?.message || "Could not start payment");
       setProcessing(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mt-6">
-      <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
-        <CardElement
-          options={{
-            style: {
-              base: { fontSize: "16px", color: "#374151", "::placeholder": { color: "#9CA3AF" } },
-            },
-          }}
-        />
-      </div>
-      <div className="flex gap-3 mt-4">
-        <button type="button" onClick={onCancel} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">
-          Cancel
-        </button>
-        <button type="submit" disabled={!stripe || processing} className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all duration-200">
-          {processing ? "Processing..." : `Pay $${amount}`}
-        </button>
-      </div>
-    </form>
+    <div className="mt-6">
+      {!RAZORPAY_KEY_ID ? (
+        <div className="p-4 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-800">
+          Online payments are not configured on this server. Please contact support to complete payment for this booking.
+        </div>
+      ) : (
+        <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
+          <p className="text-sm text-gray-600 mb-4">
+            Pay <span className="font-bold text-gray-900">{formatINR(amount)}</span> securely via Razorpay (UPI, cards, netbanking, wallets).
+          </p>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onCancel}
+              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handlePay}
+              disabled={processing}
+              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all duration-200"
+            >
+              {processing ? "Processing..." : `Pay ${formatINR(amount)}`}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -244,7 +274,7 @@ export default function BookingDetailPage() {
           {booking.endDate && <Detail icon={<HiCalendar />} label="End Date" value={new Date(booking.endDate).toLocaleDateString()} />}
           <Detail icon={<HiLocationMarker />} label="Pickup" value={booking.pickupLocation} />
           {booking.dropLocation && <Detail icon={<HiLocationMarker />} label="Drop" value={booking.dropLocation} />}
-          <Detail icon={<HiCash />} label="Total Amount" value={`$${booking.totalAmount}`} />
+          <Detail icon={<HiCash />} label="Total Amount" value={formatINR(booking.totalAmount)} />
           {booking.cancellationReason && (
             <Detail icon={<HiCash />} label="Cancel Reason" value={booking.cancellationReason} />
           )}
@@ -285,7 +315,7 @@ export default function BookingDetailPage() {
           )}
           {role === "user" && booking.status === "accepted" && booking.paymentStatus === "pending" && (
             <button onClick={() => setShowPayment(true)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all duration-200">
-              Pay ${booking.totalAmount}
+              Pay {formatINR(booking.totalAmount)}
             </button>
           )}
           {canReview && !showReview && (
@@ -311,14 +341,12 @@ export default function BookingDetailPage() {
         </div>
 
         {showPayment && (
-          <Elements stripe={stripePromise}>
-            <PaymentForm
-              bookingId={id}
-              amount={booking.totalAmount}
-              onSuccess={handlePaymentSuccess}
-              onCancel={() => setShowPayment(false)}
-            />
-          </Elements>
+          <PaymentForm
+            bookingId={id}
+            amount={booking.totalAmount}
+            onSuccess={handlePaymentSuccess}
+            onCancel={() => setShowPayment(false)}
+          />
         )}
       </div>
 

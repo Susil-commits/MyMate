@@ -112,8 +112,9 @@ MyMate/
 | driver | ObjectId | ref: Driver |
 | amount | Number | total paid |
 | currency | String | "usd" / "inr" |
-| paymentMethod | String | "stripe" / "razorpay" |
-| paymentIntentId | String | Stripe PaymentIntent ID or Razorpay Order ID |
+| paymentMethod | String | "razorpay" |
+| razorpayOrderId | String | Razorpay Order ID |
+| razorpayPaymentId | String | Razorpay Payment ID |
 | status | String | "pending" / "completed" / "failed" / "refunded" |
 | paidAt | Date | |
 | createdAt | Date | |
@@ -148,8 +149,8 @@ MyMate/
 - `DELETE /:id` — delete review
 
 ### Payments (`/api/payments`)
-- `POST /create-intent` — create Stripe PaymentIntent or Razorpay order
-- `POST /confirm` — confirm payment after client-side completion
+- `POST /create-order` — create Razorpay order
+- `POST /verify` — verify Razorpay payment signature
 - `GET /booking/:bookingId` — get payment status for a booking
 
 ### Users (`/api/users`)
@@ -204,7 +205,7 @@ App
 │   │   │   └── BookingCard[]
 │   │   ├── BookingDetailPage
 │   │   │   ├── BookingStatusTracker
-│   │   │   ├── PaymentSection (Stripe/Razorpay)
+│   │   │   ├── PaymentSection (Razorpay Checkout)
 │   │   │   └── ReviewForm (shown after completion)
 │   │   └── UserProfilePage
 │   └── DriverLayout (protected - driver)
@@ -229,7 +230,7 @@ App
 1. Driver routes & controllers (CRUD, search with filters, pagination)
 2. Booking routes & controllers (create, status updates, listing)
 3. Review routes & controllers (CRUD, linked to completed bookings)
-4. Payment routes & controllers (Stripe PaymentIntent creation, webhook/confirmation)
+4. Payment routes & controllers (Razorpay order creation, signature verification)
 5. User profile routes
 6. File upload middleware for driver license
 
@@ -247,7 +248,7 @@ App
 4. Driver Search page with filters (locality input, experience range, rating, vehicle type, hire type) + card grid
 5. Driver Profile page (full details, reviews, "Book Now" button)
 6. Booking flow modal (date picker, hire type selection, purpose, pickup/drop location inputs)
-7. Payment page (Stripe Elements for card input, amount display from calculated rates)
+7. Payment page (Razorpay Checkout popup, amount display from calculated rates)
 8. User's Bookings page (list with status badges: pending/accepted/ongoing/completed)
 9. Booking detail page with status tracker + payment section + review form (post-completion)
 10. User profile/settings page
@@ -271,5 +272,5 @@ App
 - **Booking flow**: User sends request → Driver accepts/rejects → Booking confirmed → Payment → Trip → Review
 - **Rating** is computed on driver model (updated on each new review) to avoid expensive aggregations
 - **Hire types**: "temporary" uses hourly rate, "permanent" uses daily rate, calculated on booking creation
-- **Payments via Stripe**: Stripe PaymentIntent created server-side, confirmed client-side with Stripe Elements
+- **Payments via Razorpay**: Razorpay order created server-side; client opens Razorpay Checkout (UPI/cards/netbanking/wallets); payment confirmed by verifying the HMAC signature server-side
 - **File uploads** for license images stored locally in `backend/uploads/`, served as static files

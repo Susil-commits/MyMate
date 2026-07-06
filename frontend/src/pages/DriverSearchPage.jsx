@@ -264,7 +264,7 @@ export default function DriverSearchPage() {
           <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4 animate-slide-in-left">
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
-                Min Rate ({filters.hireType === "temporary" ? "$/hr" : "$/day"})
+                Min Rate ({filters.hireType === "temporary" ? "₹/hr" : "₹/day"})
               </label>
               <input
                 type="number"
@@ -277,7 +277,7 @@ export default function DriverSearchPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
-                Max Rate ({filters.hireType === "temporary" ? "$/hr" : "$/day"})
+                Max Rate ({filters.hireType === "temporary" ? "₹/hr" : "₹/day"})
               </label>
               <input
                 type="number"
@@ -364,7 +364,7 @@ export default function DriverSearchPage() {
                   </div>
                   <div className="flex items-center gap-1 text-green-600 font-bold">
                     <HiCurrencyDollar className="w-4 h-4" />
-                    ${driver.hourlyRate}/hr
+                    ₹{driver.hourlyRate}/hr
                   </div>
                 </div>
               </Link>

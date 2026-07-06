@@ -46,7 +46,7 @@ export const sendBookingConfirmation = async (user, driver, booking) => {
         <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Booking ID</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${booking._id}</td></tr>
         <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Driver</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${driver.name}</td></tr>
         <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Hire Type</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${booking.hireType}</td></tr>
-        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Amount</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">$${booking.totalAmount}</td></tr>
+        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Amount</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">₹${booking.totalAmount}</td></tr>
       </table>
       <p>You'll be notified when the driver responds.</p>
     </div>
@@ -71,7 +71,7 @@ export const sendBookingStatusUpdate = async (user, driver, booking, status) => 
       <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
         <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Driver</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${driver.name}</td></tr>
         <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Status</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">${status.charAt(0).toUpperCase() + status.slice(1)}</td></tr>
-        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Amount</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">$${booking.totalAmount}</td></tr>
+        <tr><td style="padding: 8px; border-bottom: 1px solid #eee;"><strong>Amount</strong></td><td style="padding: 8px; border-bottom: 1px solid #eee;">₹${booking.totalAmount}</td></tr>
       </table>
       ${status === "completed" ? '<p><a href="' + process.env.CLIENT_URL + '/bookings" style="background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 8px;">Leave a Review</a></p>' : ""}
     </div>
@@ -109,4 +109,17 @@ export const sendKycStatusEmail = async (driver, status) => {
     </div>
   `;
   await sendEmail({ to: driver.email, subject: `KYC ${status.charAt(0).toUpperCase() + status.slice(1)} - MyMate`, html });
+};
+
+export const sendVerificationEmail = async (email, token, role) => {
+  const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${token}&role=${role}`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb;">Verify Your Email</h2>
+      <p>Welcome to MyMate! Please verify your email address to activate your account.</p>
+      <a href="${verifyUrl}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; margin: 20px 0;">Verify Email</a>
+      <p style="color: #666; font-size: 12px;">This link expires in 24 hours. If you didn't create an account, please ignore this email.</p>
+    </div>
+  `;
+  await sendEmail({ to: email, subject: "Verify Your Email - MyMate", html });
 };

@@ -30,6 +30,7 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 import AdminBookingsPage from "./pages/AdminBookingsPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
 import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/admin/login" element={<AdminLoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+            <Route path="/verify-email" element={<VerifyEmailPage />} />
 
             <Route element={<ProtectedRoute allowedRole="user" />}>
               <Route element={<UserLayout />}>
@@ -59,7 +61,7 @@ export default function App() {
               </Route>
             </Route>
 
-            <Route element={<ProtectedRoute allowedRole={["user", "driver"]} />}>
+            <Route element={<ProtectedRoute allowedRole={["user", "driver", "admin"]} />}>
               <Route element={<RoleLayout />}>
                 <Route path="/bookings/:id" element={<BookingDetailPage />} />
                 <Route path="/messages" element={<MessagesPage />} />

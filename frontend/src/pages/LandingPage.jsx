@@ -21,7 +21,7 @@ const floatingParticles = Array.from({ length: 20 }, () => ({
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
-  const [statsData, setStatsData] = useState({ driverCount: 0, tripCount: 0, cityCount: 0 });
+  const [statsData, setStatsData] = useState({ driverCount: 0, tripCount: 0, cityCount: 0, averageRating: 0 });
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -30,8 +30,8 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    api.get("/drivers?limit=1").then(({ data }) => {
-      setStatsData((prev) => ({ ...prev, driverCount: data.pagination?.total || 0 }));
+    api.get("/drivers/stats").then(({ data }) => {
+      setStatsData(data);
     }).catch(() => {});
   }, []);
 
@@ -167,7 +167,7 @@ function FeaturesSection() {
     { icon: <HiShieldCheck className="w-7 h-7" />, title: "Document Verified", desc: "Every driver submits license documents. Verified by our team before activation.", gradient: "from-green-500 to-emerald-600" },
     { icon: <HiClock className="w-7 h-7" />, title: "Flexible Hiring", desc: "Temporary drivers for a few hours or permanent drivers for long-term needs.", gradient: "from-purple-500 to-violet-600" },
     { icon: <HiCurrencyDollar className="w-7 h-7" />, title: "Transparent Pricing", desc: "Hourly and daily rates displayed upfront. No hidden charges or surprises.", gradient: "from-rose-500 to-pink-600" },
-    { icon: <FaHandshake className="w-7 h-7" />, title: "Secure Payments", desc: "Payments processed securely through Stripe with full buyer protection.", gradient: "from-indigo-500 to-blue-600" },
+    { icon: <FaHandshake className="w-7 h-7" />, title: "Secure Payments", desc: "Payments processed securely through Razorpay with UPI, cards, and netbanking.", gradient: "from-indigo-500 to-blue-600" },
   ];
 
   return (
@@ -208,7 +208,7 @@ function StatsSection({ stats }) {
             { value: `${driverCount.toLocaleString()}+`, label: "Verified Drivers", icon: FaUserTie, delay: 0 },
             { value: `${tripCount.toLocaleString()}+`, label: "Completed Trips", icon: FaRoad, delay: 100 },
             { value: `${cityCount.toLocaleString()}+`, label: "Cities Covered", icon: HiLocationMarker, delay: 200 },
-            { value: stats.driverCount > 0 ? "4.8" : "—", label: "Average Rating", icon: HiStar, delay: 300 },
+            { value: stats.averageRating > 0 ? stats.averageRating.toFixed(1) : "—", label: "Average Rating", icon: HiStar, delay: 300 },
           ].map((item) => {
             const Icon = item.icon;
             return (
@@ -230,7 +230,7 @@ function HowItWorksSection() {
   const steps = [
     { icon: <HiUserGroup className="w-8 h-8" />, title: "Create Account", desc: "Sign up as a user looking for drivers or register as a driver to start earning.", gradient: "from-blue-500 to-indigo-500", shadow: "shadow-blue-500/25" },
     { icon: <HiSearch className="w-8 h-8" />, title: "Search & Filter", desc: "Browse drivers by locality, experience level, vehicle type, ratings, and more.", gradient: "from-purple-500 to-pink-500", shadow: "shadow-purple-500/25" },
-    { icon: <FaHandshake className="w-8 h-8" />, title: "Book & Pay", desc: "Send a booking request. Once accepted, pay securely through Stripe. That's it!", gradient: "from-green-500 to-teal-500", shadow: "shadow-green-500/25" },
+    { icon: <FaHandshake className="w-8 h-8" />, title: "Book & Pay", desc: "Send a booking request. Once accepted, pay securely via Razorpay. That's it!", gradient: "from-green-500 to-teal-500", shadow: "shadow-green-500/25" },
     { icon: <FaRoad className="w-8 h-8" />, title: "Hit the Road", desc: "Your driver arrives, the trip begins. Rate your experience once completed.", gradient: "from-orange-500 to-red-500", shadow: "shadow-orange-500/25" },
   ];
 
@@ -319,7 +319,7 @@ function AboutSection() {
                 { icon: <HiBadgeCheck className="w-5 h-5 text-green-400" />, text: "All drivers go through document verification" },
                 { icon: <HiStar className="w-5 h-5 text-yellow-400" />, text: "Genuine reviews from completed bookings only" },
                 { icon: <HiLocationMarker className="w-5 h-5 text-blue-400" />, text: "Locality-based search for the best match" },
-                { icon: <HiShieldCheck className="w-5 h-5 text-purple-400" />, text: "Secure payments with Stripe protection" },
+                { icon: <HiShieldCheck className="w-5 h-5 text-purple-400" />, text: "Secure payments via Razorpay (UPI, cards, netbanking)" },
               ].map((p) => (
                 <div key={p.text} className="flex items-start gap-3 group">
                   <div className="flex-shrink-0 mt-0.5 p-1.5 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors">{p.icon}</div>

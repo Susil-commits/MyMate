@@ -12,7 +12,7 @@ const driverSchema = new mongoose.Schema(
     phone: { type: String, trim: true, default: "" },
     nationality: { type: String, trim: true, default: "" },
     locality: { type: String, trim: true, default: "" },
-    licenseNumber: { type: String, trim: true, default: "", sparse: true },
+    licenseNumber: { type: String, trim: true, default: "", sparse: true, unique: true },
     licenseImage: {
       url: { type: String, default: "" },
       publicId: { type: String, default: "" },
@@ -38,6 +38,10 @@ const driverSchema = new mongoose.Schema(
       default: "pending",
     },
     isActive: { type: Boolean, default: false },
+    tokenVersion: { type: Number, default: 0 },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: String,
+    emailVerificationExpire: Date,
     averageRating: { type: Number, default: 0, min: 0, max: 5 },
     totalReviews: { type: Number, default: 0 },
     role: { type: String, default: "driver", enum: ["driver"] },
@@ -69,6 +73,8 @@ driverSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpire;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpire;
   return obj;
 };
 

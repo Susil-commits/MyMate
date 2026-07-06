@@ -7,6 +7,7 @@ import {
   getAllUsers,
   getAllBookings,
   toggleDriverActive,
+  toggleUserActive,
   getDashboardStats,
 } from "../controllers/adminController.js";
 import { protect, authorizeAdmin } from "../middleware/auth.js";
@@ -22,6 +23,7 @@ router.get("/drivers/:id", getDriverDetail);
 router.put("/drivers/:id/verify", verifyDriver);
 router.put("/drivers/:id/toggle-active", toggleDriverActive);
 router.get("/users", getAllUsers);
+router.put("/users/:id/toggle-active", toggleUserActive);
 router.get("/bookings", getAllBookings);
 
 export default router;

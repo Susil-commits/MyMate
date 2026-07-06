@@ -47,6 +47,22 @@ export const bookingValidator = [
   body("driverId").isMongoId().withMessage("Valid driver ID is required"),
   body("hireType").isIn(["temporary", "permanent"]).withMessage("Hire type must be temporary or permanent"),
   body("startDate").isISO8601().withMessage("Valid start date is required"),
+  body("startDate")
+    .custom((value) => {
+      if (new Date(value) < new Date(new Date().setHours(0, 0, 0, 0))) {
+        throw new Error("Start date cannot be in the past");
+      }
+      return true;
+    }),
+  body("endDate").optional().isISO8601().withMessage("Valid end date is required"),
+  body("endDate")
+    .optional()
+    .custom((value, { req }) => {
+      if (value && new Date(value) < new Date(req.body.startDate)) {
+        throw new Error("End date cannot be before start date");
+      }
+      return true;
+    }),
   body("pickupLocation").trim().notEmpty().withMessage("Pickup location is required"),
   body("purpose").trim().notEmpty().withMessage("Purpose is required"),
 ];

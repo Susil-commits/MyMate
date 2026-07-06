@@ -1,4 +1,9 @@
-export const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || "";
+export const RAZORPAY_KEY_ID = import.meta.env.VITE_RAZORPAY_KEY_ID || "";
+
+export const formatINR = (amount) => {
+  const num = Number(amount) || 0;
+  return `₹${num.toLocaleString("en-IN")}`;
+};
 
 export const getImageUrl = (licenseImage) => {
   if (!licenseImage) return "";

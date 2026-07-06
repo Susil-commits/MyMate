@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { HiClipboardList } from "react-icons/hi";
 import BackButton from "../components/BackButton";
+import { WindowedPagination } from "../components/WindowedPagination";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -10,14 +11,18 @@ export default function DriverBookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ pages: 1, total: 0 });
 
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
       try {
-        const params = statusFilter ? `?status=${statusFilter}` : "";
-        const { data } = await api.get(`/bookings/driver${params}`);
+        const params = new URLSearchParams({ page, limit: 10 });
+        if (statusFilter) params.set("status", statusFilter);
+        const { data } = await api.get(`/bookings/driver?${params.toString()}`);
         setBookings(data.bookings);
+        setPagination(data.pagination);
       } catch (err) {
         console.error("Failed to load bookings:", err);
       } finally {
@@ -25,7 +30,12 @@ export default function DriverBookingsPage() {
       }
     };
     fetchBookings();
-  }, [statusFilter]);
+  }, [statusFilter, page]);
+
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
 
   const handleAction = async (bookingId, status) => {
     try {
@@ -44,7 +54,7 @@ export default function DriverBookingsPage() {
         <h1 className="text-3xl font-extrabold text-gray-900">
           Booking <span className="gradient-text">Requests</span>
         </h1>
- <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
+      <select value={statusFilter} onChange={(e) => handleStatusFilterChange(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
           <option value="">All</option>
           <option value="pending">Pending</option>
           <option value="accepted">Accepted</option>
@@ -90,7 +100,7 @@ export default function DriverBookingsPage() {
                     </p>
                     <p className="text-sm text-gray-500">{booking.pickupLocation}</p>
                     <p className="text-sm text-gray-500">{booking.purpose}</p>
-                    <p className="text-sm font-bold text-green-600 mt-1">${booking.totalAmount}</p>
+                    <p className="text-sm font-bold text-green-600 mt-1">₹{booking.totalAmount}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -128,6 +138,13 @@ export default function DriverBookingsPage() {
           ))}
         </div>
       )}
+
+      <WindowedPagination
+        page={page}
+        pages={pagination.pages}
+        onChange={setPage}
+        accent="green"
+      />
     </div>
   );
 }

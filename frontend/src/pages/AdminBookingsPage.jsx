@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import api from "../api/axios";
-import { bookingStatusColors } from "../utils/constants";
+import { bookingStatusColors, paymentStatusColors, formatINR } from "../utils/constants";
 import { WindowedPagination } from "../components/WindowedPagination";
+import toast from "react-hot-toast";
 
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState([]);
@@ -9,6 +10,7 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -36,6 +38,35 @@ export default function AdminBookingsPage() {
   const handleFilterChange = (val) => {
     setStatusFilter(val);
     setPage(1);
+  };
+
+  const handleStatus = async (bookingId, status) => {
+    setActionLoading(`${bookingId}-${status}`);
+    try {
+      const { data } = await api.put(`/bookings/${bookingId}/status`, { status });
+      setBookings((prev) => prev.map((b) => (b._id === bookingId ? data.booking : b)));
+      toast.success(`Booking ${status}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to update");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRefund = async (bookingId) => {
+    if (!confirm("Refund this payment? This will reverse the Razorpay payment.")) return;
+    setActionLoading(`${bookingId}-refund`);
+    try {
+      await api.post("/payments/refund", { bookingId });
+      setBookings((prev) =>
+        prev.map((b) => (b._id === bookingId ? { ...b, paymentStatus: "refunded" } : b))
+      );
+      toast.success("Refund processed");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Refund failed");
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" /></div>;
@@ -69,13 +100,33 @@ export default function AdminBookingsPage() {
                 <div className="min-w-0">
                   <p className="font-bold text-gray-900">{b.user?.name} → {b.driver?.name}</p>
                   <p className="text-sm text-gray-500 mt-0.5">
-                    {b.hireType === "temporary" ? "Temporary" : "Permanent"} &middot; {new Date(b.startDate).toLocaleDateString()} &middot; ${b.totalAmount}
+                    {b.hireType === "temporary" ? "Temporary" : "Permanent"} &middot; {new Date(b.startDate).toLocaleDateString()} &middot; {formatINR(b.totalAmount)}
                   </p>
                   <p className="text-sm text-gray-500">{b.pickupLocation}{b.dropLocation ? ` → ${b.dropLocation}` : ""} &middot; {b.purpose}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${bookingStatusColors[b.status]}`}>{b.status}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${b.paymentStatus === "paid" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>{b.paymentStatus}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize ${paymentStatusColors[b.paymentStatus] || "bg-gray-100 text-gray-500"}`}>{b.paymentStatus}</span>
                   </div>
+                </div>
+                <div className="flex flex-wrap gap-2 flex-shrink-0">
+                  {b.status === "pending" && (
+                    <>
+                      <button disabled={actionLoading === `${b._id}-accepted`} onClick={() => handleStatus(b._id, "accepted")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-200">Accept</button>
+                      <button disabled={actionLoading === `${b._id}-rejected`} onClick={() => handleStatus(b._id, "rejected")} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50 transition-all duration-200">Reject</button>
+                    </>
+                  )}
+                  {b.status === "accepted" && (
+                    <button disabled={actionLoading === `${b._id}-ongoing`} onClick={() => handleStatus(b._id, "ongoing")} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-200">Start</button>
+                  )}
+                  {b.status === "ongoing" && (
+                    <button disabled={actionLoading === `${b._id}-completed`} onClick={() => handleStatus(b._id, "completed")} className="px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-200">Complete</button>
+                  )}
+                  {["pending", "accepted", "ongoing"].includes(b.status) && (
+                    <button disabled={actionLoading === `${b._id}-cancelled`} onClick={() => handleStatus(b._id, "cancelled")} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50 transition-all duration-200">Cancel</button>
+                  )}
+                  {b.paymentStatus === "paid" && (
+                    <button disabled={actionLoading === `${b._id}-refund`} onClick={() => handleRefund(b._id)} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition-all duration-200">Refund</button>
+                  )}
                 </div>
               </div>
             </div>

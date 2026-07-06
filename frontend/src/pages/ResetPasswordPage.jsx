@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
+import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiLockClosed } from "react-icons/hi";
 import { FaCar } from "react-icons/fa";
 import toast from "react-hot-toast";
@@ -18,6 +19,7 @@ const particleColors = ["#2563eb", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "
 export default function ResetPasswordPage() {
   const { token } = useParams();
   const navigate = useNavigate();
+  const { loadUser } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState("user");
@@ -33,6 +35,7 @@ export default function ResetPasswordPage() {
     try {
       const { data } = await api.post("/auth/reset-password", { token, password, role });
       localStorage.setItem("token", data.token);
+      await loadUser();
       toast.success("Password reset successfully");
       navigate(role === "driver" ? "/driver/dashboard" : "/drivers");
     } catch (err) {

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { HiClipboardList } from "react-icons/hi";
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { WindowedPagination } from "../components/WindowedPagination";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -11,6 +12,8 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ pages: 1, total: 0 });
   const [confirmCancel, setConfirmCancel] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
@@ -18,9 +21,11 @@ export default function BookingsPage() {
     const fetchBookings = async () => {
       setLoading(true);
       try {
-        const params = statusFilter ? `?status=${statusFilter}` : "";
-        const { data } = await api.get(`/bookings/user${params}`);
+        const params = new URLSearchParams({ page, limit: 10 });
+        if (statusFilter) params.set("status", statusFilter);
+        const { data } = await api.get(`/bookings/user?${params.toString()}`);
         setBookings(data.bookings);
+        setPagination(data.pagination);
       } catch (err) {
         console.error("Failed to load bookings:", err);
       } finally {
@@ -28,7 +33,7 @@ export default function BookingsPage() {
       }
     };
     fetchBookings();
-  }, [statusFilter]);
+  }, [statusFilter, page]);
 
   const handleConfirmCancel = async () => {
     if (!confirmCancel) return;
@@ -47,6 +52,11 @@ export default function BookingsPage() {
     }
   };
 
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
   return (
     <div className="animate-fade-in">
       <BackButton to="/drivers" label="Back to Drivers" />
@@ -56,8 +66,8 @@ export default function BookingsPage() {
         </h1>
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
- className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+          onChange={(e) => handleStatusFilterChange(e.target.value)}
+          className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
         >
           <option value="">All Status</option>
           <option value="pending">Pending</option>
@@ -107,7 +117,7 @@ export default function BookingsPage() {
                       {booking.endDate && ` → ${new Date(booking.endDate).toLocaleDateString()}`}
                     </p>
  <p className="text-sm text-gray-500 ">{booking.pickupLocation} {booking.dropLocation && `→ ${booking.dropLocation}`}</p>
- <p className="text-sm font-bold text-green-600 mt-1">${booking.totalAmount}</p>
+  <p className="text-sm font-bold text-green-600 mt-1">₹{booking.totalAmount}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -134,6 +144,13 @@ export default function BookingsPage() {
           ))}
         </div>
       )}
+
+      <WindowedPagination
+        page={page}
+        pages={pagination.pages}
+        onChange={setPage}
+        accent="blue"
+      />
 
       <ConfirmDialog
         open={!!confirmCancel}

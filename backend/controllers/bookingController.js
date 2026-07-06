@@ -3,6 +3,7 @@ import Driver from "../models/Driver.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
 import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
+import { validationResult } from "express-validator";
 
 const ACTIVE_STATUSES = ["accepted", "ongoing", "completed"];
 
@@ -18,11 +19,16 @@ const sanitizeBooking = (booking) => {
 
 export const createBooking = async (req, res, next) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
     const { driverId, hireType, startDate, endDate, pickupLocation, dropLocation, purpose } =
       req.body;
 
     const driver = await Driver.findById(driverId);
-    if (!driver || !driver.isActive) {
+    if (!driver || !driver.isActive || driver.kycStatus !== "approved") {
       return res.status(404).json({ message: "Driver not found or inactive" });
     }
 
@@ -33,6 +39,13 @@ export const createBooking = async (req, res, next) => {
     const start = new Date(startDate);
     const end = endDate ? new Date(endDate) : null;
 
+    if (isNaN(start.getTime()) || (end && isNaN(end.getTime()))) {
+      return res.status(400).json({ message: "Invalid date(s)" });
+    }
+    if (end && end < start) {
+      return res.status(400).json({ message: "End date cannot be before start date" });
+    }
+
     let totalAmount = 0;
     if (hireType === "temporary") {
       const hours = end ? Math.ceil((end - start) / (1000 * 60 * 60)) : 1;
@@ -40,6 +53,23 @@ export const createBooking = async (req, res, next) => {
     } else {
       const days = end ? Math.ceil((end - start) / (1000 * 60 * 60 * 24)) : 30;
       totalAmount = days * driver.dailyRate;
+    }
+
+    if (!Number.isFinite(totalAmount) || totalAmount < 0) {
+      return res.status(400).json({ message: "Invalid booking amount" });
+    }
+
+    const overlapQuery = {
+      driver: driverId,
+      status: { $in: ["pending", "accepted", "ongoing"] },
+      startDate: { $lt: end || new Date(start.getTime() + 24 * 60 * 60 * 1000) },
+    };
+    if (end) {
+      overlapQuery.$or = [{ endDate: { $gte: start } }, { endDate: null }];
+    }
+    const conflictingBooking = await Booking.findOne(overlapQuery);
+    if (conflictingBooking) {
+      return res.status(409).json({ message: "Driver already has a booking for these dates" });
     }
 
     const booking = await Booking.create({
@@ -160,6 +190,16 @@ export const updateBookingStatus = async (req, res, next) => {
         });
       }
 
+      if (
+        status === "ongoing" &&
+        booking.totalAmount > 0 &&
+        booking.paymentStatus !== "paid"
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Payment must be completed before starting the trip" });
+      }
+
       if (status === "accepted" || status === "ongoing") {
         await Driver.findByIdAndUpdate(booking.driver, { availability: "busy" });
       }
@@ -175,6 +215,30 @@ export const updateBookingStatus = async (req, res, next) => {
     if (req.userRole === "user" && status === "cancelled") {
       if (!["pending", "accepted"].includes(booking.status)) {
         return res.status(400).json({ message: "Cannot cancel this booking" });
+      }
+      if (booking.status === "accepted") {
+        await Driver.findByIdAndUpdate(booking.driver, { availability: "available" });
+      }
+    }
+
+    if (req.userRole === "admin") {
+      const adminTransitions = {
+        accepted: ["pending"],
+        rejected: ["pending"],
+        ongoing: ["accepted"],
+        completed: ["ongoing"],
+        cancelled: ["pending", "accepted", "ongoing"],
+      };
+      if (!adminTransitions[status]?.includes(booking.status)) {
+        return res.status(400).json({
+          message: `Cannot transition from ${booking.status} to ${status}`,
+        });
+      }
+      if (status === "accepted" || status === "ongoing") {
+        await Driver.findByIdAndUpdate(booking.driver, { availability: "busy" });
+      }
+      if (status === "completed" || status === "cancelled" || status === "rejected") {
+        await Driver.findByIdAndUpdate(booking.driver, { availability: "available" });
       }
     }
 
@@ -194,7 +258,7 @@ export const updateBookingStatus = async (req, res, next) => {
       completed: { title: "Trip Completed", message: "Your trip is complete. Please leave a review." },
     };
 
-    if (req.userRole === "driver" && statusMessages[status]) {
+    if ((req.userRole === "driver" || req.userRole === "admin") && statusMessages[status]) {
       createNotification({
         userId: booking.user._id,
         userModel: "User",
@@ -235,11 +299,14 @@ export const getBookingById = async (req, res, next) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    if (
-      booking.user._id.toString() !== req.user._id.toString() &&
-      booking.driver._id.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ message: "Not authorized" });
+    if (req.userRole !== "admin") {
+      const userId = req.user._id.toString();
+      if (
+        booking.user._id.toString() !== userId &&
+        booking.driver._id.toString() !== userId
+      ) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
     }
 
     res.json({ booking: sanitizeBooking(booking) });

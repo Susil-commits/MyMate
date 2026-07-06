@@ -71,7 +71,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-green-50 text-sm font-medium">Platform Revenue</p>
-              <p className="text-4xl font-extrabold mt-1">${stats.revenue}</p>
+              <p className="text-4xl font-extrabold mt-1">₹{stats.revenue.toLocaleString()}</p>
               <p className="text-green-100 text-xs mt-2">From {stats.completedBookings} completed bookings</p>
             </div>
             <HiCurrencyDollar className="w-12 h-12 text-green-200" />
@@ -101,7 +101,7 @@ export default function AdminDashboard() {
                 <div key={b._id} className="flex items-center justify-between text-sm">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{b.user?.name} → {b.driver?.name}</p>
-                    <p className="text-xs text-gray-500">${b.totalAmount}</p>
+                    <p className="text-xs text-gray-500">₹{b.totalAmount}</p>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-semibold capitalize flex-shrink-0 ${
                     b.status === "completed" ? "bg-green-100 text-green-700" :
@@ -132,7 +132,7 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">{driver.email} &middot; {driver.phone}</p>
                     <p className="text-sm text-gray-500">{driver.locality}, {driver.nationality}</p>
                     <p className="text-sm text-gray-500">License: {driver.licenseNumber}</p>
-                    <p className="text-sm text-gray-500">{driver.experienceYears}y exp &middot; ${driver.hourlyRate}/hr &middot; ${driver.dailyRate}/day</p>
+                    <p className="text-sm text-gray-500">{driver.experienceYears}y exp &middot; ₹{driver.hourlyRate}/hr &middot; ₹{driver.dailyRate}/day</p>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {driver.vehicleTypes?.map((v) => (
                         <span key={v} className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-md">{v}</span>

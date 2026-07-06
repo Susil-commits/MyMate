@@ -12,6 +12,11 @@ const userSchema = new mongoose.Schema(
     phone: { type: String, trim: true, default: "" },
     locality: { type: String, trim: true, default: "" },
     profileCompleted: { type: Boolean, default: false },
+    isActive: { type: Boolean, default: true },
+    tokenVersion: { type: Number, default: 0 },
+    isEmailVerified: { type: Boolean, default: false },
+    emailVerificationToken: String,
+    emailVerificationExpire: Date,
     role: { type: String, default: "user", enum: ["user"] },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
@@ -41,6 +46,8 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpire;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpire;
   return obj;
 };
 

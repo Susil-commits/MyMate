@@ -80,8 +80,8 @@ export default function CompleteDriverProfile() {
             </div>
             <div className="grid grid-cols-3 gap-4">
               <Field label="Experience (yrs)" name="experienceYears" type="number" value={form.experienceYears} onChange={handleChange} required />
-              <Field label="Hourly Rate ($)" name="hourlyRate" type="number" value={form.hourlyRate} onChange={handleChange} required />
-              <Field label="Daily Rate ($)" name="dailyRate" type="number" value={form.dailyRate} onChange={handleChange} required />
+              <Field label="Hourly Rate (₹)" name="hourlyRate" type="number" value={form.hourlyRate} onChange={handleChange} required />
+              <Field label="Daily Rate (₹)" name="dailyRate" type="number" value={form.dailyRate} onChange={handleChange} required />
             </div>
             <Field label="Languages (comma separated)" name="languages" value={form.languages} onChange={handleChange} />
             <div>

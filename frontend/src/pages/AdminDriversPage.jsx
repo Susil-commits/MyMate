@@ -193,8 +193,8 @@ export default function AdminDriversPage() {
                   <Info label="Nationality" value={selected.nationality} />
                   <Info label="Experience" value={`${selected.experienceYears} years`} />
                   <Info label="License No." value={selected.licenseNumber} />
-                  <Info label="Hourly Rate" value={`$${selected.hourlyRate}`} />
-                  <Info label="Daily Rate" value={`$${selected.dailyRate}`} />
+                  <Info label="Hourly Rate" value={`₹${selected.hourlyRate}`} />
+                  <Info label="Daily Rate" value={`₹${selected.dailyRate}`} />
                   <Info label="Rating" value={`${selected.averageRating} (${selected.totalReviews})`} />
                   <Info label="KYC Status" value={selected.kycStatus} />
                 </div>

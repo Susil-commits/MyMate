@@ -1,6 +1,41 @@
 import Driver from "../models/Driver.js";
+import Booking from "../models/Booking.js";
 import { uploadToCloudinary, deleteFromCloudinary } from "../middleware/upload.js";
 import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
+
+const normalizeList = (val) =>
+  Array.isArray(val)
+    ? val
+    : typeof val === "string"
+      ? val.split(",").map((s) => s.trim()).filter(Boolean)
+      : [];
+
+const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const getPublicStats = async (req, res, next) => {
+  try {
+    const [driverCount, completedTrips, cityAgg, ratingAgg] = await Promise.all([
+      Driver.countDocuments({ isActive: true, kycStatus: "approved" }),
+      Booking.countDocuments({ status: "completed" }),
+      Driver.distinct("locality", { isActive: true, kycStatus: "approved", locality: { $ne: "" } }),
+      Driver.aggregate([
+        { $match: { isActive: true, kycStatus: "approved", totalReviews: { $gt: 0 } } },
+        { $group: { _id: null, avgRating: { $avg: "$averageRating" } } },
+      ]),
+    ]);
+
+    res.json({
+      driverCount,
+      tripCount: completedTrips,
+      cityCount: cityAgg.length,
+      averageRating: ratingAgg[0]?.avgRating
+        ? Math.round(ratingAgg[0].avgRating * 10) / 10
+        : 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getDrivers = async (req, res, next) => {
   try {
@@ -21,10 +56,10 @@ export const getDrivers = async (req, res, next) => {
 
     const safeLimit = clampLimit(limit, 12, 50);
 
-    const query = { isActive: true, profileCompleted: true, kycStatus: "approved", availability: { $ne: "offline" } };
+    const query = { isActive: true, profileCompleted: true, kycStatus: "approved", availability: "available" };
 
     if (locality) {
-      query.locality = { $regex: locality, $options: "i" };
+      query.locality = { $regex: escapeRegex(locality), $options: "i" };
     }
     if (minExperience || maxExperience) {
       query.experienceYears = {};
@@ -83,13 +118,7 @@ export const getDrivers = async (req, res, next) => {
 
 export const getDriverById = async (req, res, next) => {
   try {
-    const driver = await Driver.findById(req.params.id)
-      .select("-password")
-      .populate({
-        path: "reviews",
-        options: { sort: { createdAt: -1 }, limit: 10 },
-        populate: { path: "user", select: "name" },
-      });
+    const driver = await Driver.findById(req.params.id).select("-password");
 
     if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
@@ -120,7 +149,11 @@ export const updateDriverProfile = async (req, res, next) => {
 
     allowedFields.forEach((field) => {
       if (req.body[field] !== undefined) {
-        updates[field] = req.body[field];
+        if (field === "languages" || field === "vehicleTypes") {
+          updates[field] = normalizeList(req.body[field]);
+        } else {
+          updates[field] = req.body[field];
+        }
       }
     });
 
@@ -136,8 +169,10 @@ export const updateDriverProfile = async (req, res, next) => {
       }
       const result = await uploadToCloudinary(file, "mymate/licenses");
       updates.licenseImage = { url: result.secure_url, publicId: result.public_id };
-      if (req.body.resubmitKyc === "true") {
+      if (existing.kycStatus === "approved" || req.body.resubmitKyc === "true") {
         updates.kycStatus = "pending";
+        updates.isActive = false;
+        updates.availability = "offline";
       }
     }
 
@@ -148,6 +183,18 @@ export const updateDriverProfile = async (req, res, next) => {
       }
       const result = await uploadToCloudinary(file, "mymate/avatars");
       updates.avatar = { url: result.secure_url, publicId: result.public_id };
+    }
+
+    if (existing.kycStatus === "approved") {
+      const kycFields = ["licenseNumber", "experienceYears", "hourlyRate", "dailyRate"];
+      const kycChanged = kycFields.some(
+        (f) => updates[f] !== undefined && String(updates[f]) !== String(existing[f])
+      );
+      if (kycChanged) {
+        updates.kycStatus = "pending";
+        updates.isActive = false;
+        updates.availability = "offline";
+      }
     }
 
     const driver = await Driver.findByIdAndUpdate(req.user._id, updates, {

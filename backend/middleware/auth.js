@@ -24,11 +24,20 @@ export const protect = async (req, res, next) => {
       return res.status(401).json({ message: "User not found" });
     }
 
-    if (req.userRole === "driver" && req.user.kycStatus === "approved" && !req.user.isActive) {
-      return res.status(401).json({ message: "Your account has been deactivated" });
+    req.userRole = decoded.role;
+
+    if (req.userRole !== "admin") {
+      if (decoded.tv !== undefined && decoded.tv !== req.user.tokenVersion) {
+        return res.status(401).json({ message: "Session expired. Please log in again." });
+      }
+      if (req.userRole === "driver" && req.user.kycStatus === "approved" && !req.user.isActive) {
+        return res.status(401).json({ message: "Your account has been deactivated" });
+      }
+      if (req.userRole === "user" && req.user.isActive === false) {
+        return res.status(401).json({ message: "Your account has been deactivated" });
+      }
     }
 
-    req.userRole = decoded.role;
     next();
   } catch (error) {
     return res.status(401).json({ message: "Not authorized, token invalid" });
@@ -52,6 +61,13 @@ export const authorizeAdmin = (req, res, next) => {
 export const authorizeDriver = (req, res, next) => {
   if (req.userRole !== "driver") {
     return res.status(403).json({ message: "Access denied. Drivers only." });
+  }
+  next();
+};
+
+export const authorizeUserOrDriver = (req, res, next) => {
+  if (req.userRole !== "user" && req.userRole !== "driver") {
+    return res.status(403).json({ message: "Access denied." });
   }
   next();
 };

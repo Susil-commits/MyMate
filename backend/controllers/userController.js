@@ -1,5 +1,6 @@
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
+import jwt from "jsonwebtoken";
 import { uploadToCloudinary, deleteFromCloudinary } from "../middleware/upload.js";
 
 export const getUserProfile = async (req, res, next) => {
@@ -53,8 +54,16 @@ export const changePassword = async (req, res, next) => {
     }
 
     user.password = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
-    res.json({ message: "Password changed successfully" });
+
+    const newToken = jwt.sign(
+      { id: user._id, role: req.userRole, tv: user.tokenVersion },
+      process.env.JWT_SECRET,
+      { expiresIn: "30d" }
+    );
+
+    res.json({ message: "Password changed successfully", token: newToken });
   } catch (error) {
     next(error);
   }

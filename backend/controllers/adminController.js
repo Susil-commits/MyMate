@@ -119,8 +119,7 @@ export const getDriverDetail = async (req, res, next) => {
     if (!driver) {
       return res.status(404).json({ message: "Driver not found" });
     }
-    const reviewCount = await Booking.countDocuments({ driver: driver._id, status: "completed" });
-    res.json({ driver, reviewCount });
+    res.json({ driver });
   } catch (error) {
     next(error);
   }
@@ -136,6 +135,7 @@ export const toggleDriverActive = async (req, res, next) => {
     driver.isActive = !driver.isActive;
     if (!driver.isActive) {
       driver.availability = "offline";
+      driver.tokenVersion = (driver.tokenVersion || 0) + 1;
     } else if (driver.kycStatus === "approved") {
       driver.availability = "available";
     }
@@ -153,6 +153,36 @@ export const toggleDriverActive = async (req, res, next) => {
     }).catch(() => {});
 
     res.json({ driver });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const toggleUserActive = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.isActive = !user.isActive;
+    if (!user.isActive) {
+      user.tokenVersion = (user.tokenVersion || 0) + 1;
+    }
+    await user.save();
+
+    createNotification({
+      userId: user._id,
+      userModel: "User",
+      title: user.isActive ? "Account Activated" : "Account Deactivated",
+      message: user.isActive
+        ? "Your account is now active."
+        : "Your account has been deactivated by an admin.",
+      type: "system",
+      link: "/profile",
+    }).catch(() => {});
+
+    res.json({ user });
   } catch (error) {
     next(error);
   }

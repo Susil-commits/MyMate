@@ -35,8 +35,8 @@ export function AuthProvider({ children }) {
   const login = async (endpoint, credentials) => {
     const { data } = await api.post(endpoint, credentials);
     localStorage.setItem("token", data.token);
-    setUser(data.user || { role: data.role });
-    setRole(data.role || data.user?.role);
+    setUser(data.user || data.driver || { role: data.role });
+    setRole(data.role || data.user?.role || (data.driver ? "driver" : null));
     setNeedsProfileCompletion(data.needsProfileCompletion || false);
     return data;
   };

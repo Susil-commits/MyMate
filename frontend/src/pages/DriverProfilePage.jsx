@@ -93,6 +93,20 @@ export default function DriverProfilePage() {
     offline: "bg-gray-100 text-gray-500",
   };
 
+  const estimatedAmount = (() => {
+    if (!driver || !bookingForm.startDate) return 0;
+    const start = new Date(bookingForm.startDate);
+    const end = bookingForm.endDate ? new Date(bookingForm.endDate) : null;
+    if (isNaN(start.getTime()) || (end && isNaN(end.getTime()))) return 0;
+    if (end && end < start) return 0;
+    if (bookingForm.hireType === "temporary") {
+      const hours = end ? Math.ceil((end - start) / (1000 * 60 * 60)) : 1;
+      return hours * (driver.hourlyRate || 0);
+    }
+    const days = end ? Math.ceil((end - start) / (1000 * 60 * 60 * 24)) : 30;
+    return days * (driver.dailyRate || 0);
+  })();
+
   return (
     <div className="max-w-4xl mx-auto animate-fade-in">
       <BackButton to="/drivers" label="Back to Drivers" />
@@ -151,8 +165,8 @@ export default function DriverProfilePage() {
  <div className="mt-8 grid grid-cols-2 md gap-4">
             <Stat icon={<HiClock />} label="Experience" value={`${driver.experienceYears} years`} />
             <Stat icon={<HiBadgeCheck />} label="Verification" value={driver.documentsVerified ? "Verified" : "Pending"} color={driver.documentsVerified ? "text-green-600" : "text-yellow-600"} />
-            <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`$${driver.hourlyRate}`} />
-            <Stat icon={<HiCurrencyDollar />} label="Daily" value={`$${driver.dailyRate}`} />
+            <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`₹${driver.hourlyRate}`} />
+            <Stat icon={<HiCurrencyDollar />} label="Daily" value={`₹${driver.dailyRate}`} />
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
@@ -197,15 +211,28 @@ export default function DriverProfilePage() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">End Date</label>
- <input type="date" value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+  <input type="date" min={bookingForm.startDate || undefined} value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
                 </div>
               </div>
               <Field label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} required />
               <Field label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Purpose</label>
- <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
+  <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
               </div>
+              {bookingForm.startDate && estimatedAmount > 0 && (
+                <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-blue-700">Estimated Total</span>
+                    <span className="text-xl font-extrabold text-blue-900">₹{estimatedAmount.toLocaleString("en-IN")}</span>
+                  </div>
+                  <p className="text-xs text-blue-500 mt-1">
+                    {bookingForm.hireType === "temporary"
+                      ? `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60)) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
+                      : `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60 * 24)) : 30} day(s) × ₹${driver.dailyRate}/day`}
+                  </p>
+                </div>
+              )}
               <div className="flex gap-3 pt-2">
               <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">Cancel</button>
                 <button type="submit" disabled={submitting} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300">

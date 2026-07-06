@@ -1,15 +1,17 @@
 import { Router } from "express";
 import {
-  createPaymentIntent,
-  confirmPayment,
+  createOrder,
+  verifyPayment,
   getPaymentStatus,
+  refundPayment,
 } from "../controllers/paymentController.js";
-import { protect, authorizeUser } from "../middleware/auth.js";
+import { protect, authorizeUser, authorizeAdmin } from "../middleware/auth.js";
 
 const router = Router();
 
-router.post("/create-intent", protect, authorizeUser, createPaymentIntent);
-router.post("/confirm", protect, authorizeUser, confirmPayment);
+router.post("/create-order", protect, authorizeUser, createOrder);
+router.post("/verify", protect, authorizeUser, verifyPayment);
 router.get("/booking/:bookingId", protect, getPaymentStatus);
+router.post("/refund", protect, authorizeAdmin, refundPayment);
 
 export default router;

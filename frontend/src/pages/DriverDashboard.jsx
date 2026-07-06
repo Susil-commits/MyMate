@@ -50,7 +50,7 @@ export default function DriverDashboard() {
         <StatCard icon={<HiClipboardList />} label="Total Bookings" value={stats.totalBookings} bg="bg-blue-500" />
         <StatCard icon={<HiUsers />} label="Pending" value={stats.pendingBookings} bg="bg-yellow-500" />
         <StatCard icon={<HiCheck />} label="Completed" value={stats.completedBookings} bg="bg-green-500" />
-        <StatCard icon={<HiCurrencyDollar />} label="Earnings" value={`$${stats.earnings}`} bg="bg-indigo-500" />
+        <StatCard icon={<HiCurrencyDollar />} label="Earnings" value={`₹${stats.earnings}`} bg="bg-indigo-500" />
       </div>
 
       <div className="mt-8">
@@ -81,7 +81,7 @@ export default function DriverDashboard() {
                     <div>
                       <p className="font-bold text-gray-900">{booking.user?.name}</p>
                       <p className="text-sm text-gray-500">
-                        {booking.pickupLocation} &middot; ${booking.totalAmount}
+                        {booking.pickupLocation} &middot; ₹{booking.totalAmount}
                       </p>
                     </div>
                   </div>

@@ -10,6 +10,8 @@ import {
   getMe,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  resendVerification,
 } from "../controllers/authController.js";
 import { protect, authorizeUser, authorizeDriver } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
@@ -39,5 +41,7 @@ router.post("/admin/login", adminLoginValidator, adminLogin);
 router.get("/me", protect, getMe);
 router.post("/forgot-password", forgotPasswordValidator, forgotPassword);
 router.post("/reset-password", resetPasswordValidator, resetPassword);
+router.post("/verify-email", verifyEmail);
+router.post("/resend-verification", forgotPasswordValidator, resendVerification);
 
 export default router;

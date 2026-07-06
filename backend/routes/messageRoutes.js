@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { protect } from "../middleware/auth.js";
+import { protect, authorizeUserOrDriver } from "../middleware/auth.js";
 import {
   getOrCreateConversation,
   getConversations,
@@ -10,10 +10,12 @@ import {
 
 const router = Router();
 
-router.post("/conversations", protect, getOrCreateConversation);
-router.get("/conversations", protect, getConversations);
-router.get("/:conversationId", protect, getMessages);
-router.post("/", protect, sendMessage);
-router.put("/:conversationId/read", protect, markConversationRead);
+router.use(protect, authorizeUserOrDriver);
+
+router.post("/conversations", getOrCreateConversation);
+router.get("/conversations", getConversations);
+router.get("/:conversationId", getMessages);
+router.post("/", sendMessage);
+router.put("/:conversationId/read", markConversationRead);
 
 export default router;
