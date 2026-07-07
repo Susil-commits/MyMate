@@ -48,7 +48,7 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/reviews", reviewRoutes);
-app.use("/api/payments", paymentLimiter, paymentRoutes);
+app.use("/api/payments", paymentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
