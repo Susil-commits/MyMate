@@ -26,12 +26,25 @@ const app = express();
 
 app.set("trust proxy", 1);
 
+const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+  .split(",")
+  .map((o) => o.trim().replace(/\/+$/, ""))
+  .filter(Boolean);
+
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
   frameguard: { action: "deny" },
 }));
-app.use(cors({ origin: process.env.CLIENT_URL, credentials: true }));
+app.use(cors({
+  origin(origin, cb) {
+    // allow same-origin/curl requests (no Origin header) and any origin when unset (dev)
+    if (!origin || allowedOrigins.length === 0) return cb(null, true);
+    if (allowedOrigins.includes(origin.replace(/\/+$/, ""))) return cb(null, true);
+    cb(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+}));
 
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
