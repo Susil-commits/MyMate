@@ -5,6 +5,7 @@ import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, RAZORPAY_KEY_ID, formatINR } from "../utils/constants";
+import { loadRazorpay } from "../utils/loadRazorpay";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -12,13 +13,16 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
   const [processing, setProcessing] = useState(false);
 
   const handlePay = async () => {
-    if (typeof window === "undefined" || !window.Razorpay) {
-      toast.error("Payment gateway failed to load. Check your connection and try again.");
+    if (!RAZORPAY_KEY_ID) {
+      toast.error("Online payments are not configured on this server.");
       return;
     }
 
     setProcessing(true);
     try {
+      await loadRazorpay();
+      if (!window.Razorpay) throw new Error("Razorpay unavailable");
+
       const { data } = await api.post("/payments/create-order", { bookingId });
 
       const options = {
@@ -57,7 +61,11 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
       });
       rzp.open();
     } catch (err) {
-      toast.error(err.response?.data?.message || "Could not start payment");
+      if (err?.message === "Failed to load Razorpay checkout script" || err?.message === "Razorpay unavailable") {
+        toast.error("Payment gateway failed to load. Check your connection and try again.");
+      } else {
+        toast.error(err.response?.data?.message || "Could not start payment");
+      }
       setProcessing(false);
     }
   };

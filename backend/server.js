@@ -54,6 +54,15 @@ app.get("/health", (req, res) => {
   res.json({ status: "ok", uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
+app.get("/", (req, res) => {
+  res.json({
+    name: "MyMate API",
+    status: "running",
+    docs: "/api",
+    health: "/health",
+  });
+});
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.use("/api", generalLimiter);
@@ -67,6 +76,12 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
+
+// catch-all: unmatched routes return clean JSON (not Express HTML) so the
+// frontend's axios can surface a useful message and the source URL is obvious.
+app.use((req, res) => {
+  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+});
 
 app.use(errorHandler);
 
