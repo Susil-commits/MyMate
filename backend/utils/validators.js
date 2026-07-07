@@ -54,9 +54,9 @@ export const bookingValidator = [
       }
       return true;
     }),
-  body("endDate").optional().isISO8601().withMessage("Valid end date is required"),
+  body("endDate").optional({ checkFalsy: true }).isISO8601().withMessage("Valid end date is required"),
   body("endDate")
-    .optional()
+    .optional({ checkFalsy: true })
     .custom((value, { req }) => {
       if (value && new Date(value) < new Date(req.body.startDate)) {
         throw new Error("End date cannot be before start date");

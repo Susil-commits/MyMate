@@ -1,4 +1,6 @@
 import multer from "multer";
+import fs from "fs";
+import path from "path";
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
 
@@ -45,9 +47,35 @@ export async function uploadToCloudinary(file, folder = "mymate") {
 }
 
 export async function deleteFromCloudinary(publicId) {
+  if (!publicId) return;
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (err) {
     console.error("Cloudinary delete error:", err);
   }
+}
+
+export async function storeFile(file, folder = "mymate", req = null) {
+  if (!file) return { url: "", publicId: "" };
+
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    try {
+      const result = await uploadToCloudinary(file, folder);
+      return { url: result.secure_url || result.url, publicId: result.public_id };
+    } catch (err) {
+      console.error("Cloudinary upload failed, falling back to local storage:", err.message);
+    }
+  }
+
+  const dir = path.join(process.cwd(), "uploads", folder);
+  fs.mkdirSync(dir, { recursive: true });
+  const ext = (file.originalname.split(".").pop() || "bin").toLowerCase();
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
+  fs.writeFileSync(path.join(dir, filename), file.buffer);
+
+  const base = req
+    ? `${req.protocol}://${req.get("host")}`
+    : process.env.BACKEND_URL || "";
+  const url = base ? `${base}/uploads/${folder}/${filename}` : `/uploads/${folder}/${filename}`;
+  return { url, publicId: "" };
 }
