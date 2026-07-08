@@ -11,6 +11,14 @@ import api from "../api/axios";
 
 const particleColors = ["#2563eb", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#06b6d4", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6"];
 
+const navItems = [
+  { label: "Features", href: "#features" },
+  { label: "Stats", href: "#stats" },
+  { label: "Process", href: "#how-it-works" },
+  { label: "Testimonials", href: "#testimonials" },
+  { label: "About", href: "#about" },
+];
+
 const floatingParticles = Array.from({ length: 20 }, () => ({
   left: `${Math.random() * 100}%`,
   top: `${Math.random() * 100}%`,
@@ -64,9 +72,9 @@ function Header({ scrolled }) {
           </span>
         </Link>
         <nav className="hidden md:flex items-center gap-8">
-          {["Features", "Stats", "Process", "Testimonials", "About"].map((item) => (
-            <a key={item} href={`#${item.toLowerCase().replace(" ", "-")}`} className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors relative group">
-              {item}
+          {navItems.map((item) => (
+            <a key={item.label} href={item.href} className="text-sm font-medium text-gray-600 hover:text-blue-600 transition-colors relative group">
+              {item.label}
               <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-300 rounded-full" />
             </a>
           ))}
@@ -84,8 +92,8 @@ function Header({ scrolled }) {
       {mobileOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-xl border-b border-gray-100 animate-slide-down">
           <div className="px-4 py-4 space-y-3">
-            {["Features", "Stats", "Process", "Testimonials"].map((item) => (
-              <a key={item} href={`#${item.toLowerCase()}`} onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-600 hover:text-blue-600 py-2">{item}</a>
+            {navItems.slice(0, 4).map((item) => (
+              <a key={item.label} href={item.href} onClick={() => setMobileOpen(false)} className="block text-sm font-medium text-gray-600 hover:text-blue-600 py-2">{item.label}</a>
             ))}
             <div className="pt-3 border-t border-gray-100 flex gap-3">
               <Link to="/user/login" onClick={() => setMobileOpen(false)} className="flex-1 text-center text-sm font-medium text-gray-700 py-2.5 rounded-xl border border-gray-200">Sign In</Link>

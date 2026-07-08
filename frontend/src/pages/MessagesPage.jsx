@@ -61,7 +61,7 @@ export default function MessagesPage() {
           prev.map((c) => (c._id === conversationId ? { ...c, unreadCount: 0 } : c))
         );
       } catch {
-        if (active) toast.error("Failed to load messages");
+        // silently fail polling errors (Render cold starts)
       }
     };
     fetchMessages();

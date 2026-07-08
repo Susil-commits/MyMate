@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import { Toaster } from "react-hot-toast";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
+import ErrorBoundary from "./components/ErrorBoundary";
 import UserLayout from "./layouts/UserLayout";
 import DriverLayout from "./layouts/DriverLayout";
 import AdminLayout from "./layouts/AdminLayout";
@@ -35,8 +36,9 @@ import NotFoundPage from "./pages/NotFoundPage";
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ErrorBoundary>
+      <AuthProvider>
+        <BrowserRouter>
           <Toaster position="top-right" />
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -91,5 +93,6 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
+    </ErrorBoundary>
   );
 }

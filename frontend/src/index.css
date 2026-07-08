@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+html {
+  scroll-padding-top: 5rem;
+  scroll-behavior: smooth;
+}
+
 @theme {
   --animate-fade-in: fade-in 0.6s ease-out forwards;
   --animate-fade-up: fade-up 0.7s ease-out forwards;

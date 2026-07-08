@@ -12,7 +12,7 @@ const driverSchema = new mongoose.Schema(
     phone: { type: String, trim: true, default: "" },
     nationality: { type: String, trim: true, default: "" },
     locality: { type: String, trim: true, default: "" },
-    licenseNumber: { type: String, trim: true, default: "", sparse: true, unique: true },
+    licenseNumber: { type: String, trim: true, sparse: true, unique: true },
     licenseImage: {
       url: { type: String, default: "" },
       publicId: { type: String, default: "" },

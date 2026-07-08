@@ -40,12 +40,20 @@ reviewSchema.statics.updateDriverRating = async function (driverId) {
 };
 
 reviewSchema.post("save", async function () {
-  await this.constructor.updateDriverRating(this.driver);
+  try {
+    await this.constructor.updateDriverRating(this.driver);
+  } catch (err) {
+    console.error("Failed to update driver rating after save:", err.message);
+  }
 });
 
 reviewSchema.post("findOneAndDelete", async function (doc) {
   if (doc) {
-    await doc.constructor.updateDriverRating(doc.driver);
+    try {
+      await doc.constructor.updateDriverRating(doc.driver);
+    } catch (err) {
+      console.error("Failed to update driver rating after delete:", err.message);
+    }
   }
 });
 

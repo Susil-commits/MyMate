@@ -38,6 +38,12 @@ export const createOrder = async (req, res) => {
   if (["cancelled", "rejected"].includes(booking.status)) {
     return res.status(400).json({ message: "Cannot pay for a cancelled booking" });
   }
+  if (booking.status !== "accepted" && booking.status !== "ongoing" && booking.status !== "completed") {
+    return res.status(400).json({ message: "Booking must be accepted before payment" });
+  }
+  if (!booking.totalAmount || booking.totalAmount <= 0) {
+    return res.status(400).json({ message: "Invalid booking amount. Contact support." });
+  }
 
   const amount = Math.round(booking.totalAmount * 100);
   let order;
@@ -93,16 +99,32 @@ export const verifyPayment = async (req, res) => {
     .digest("hex");
 
   if (expected !== razorpay_signature) {
-    payment.status = "failed";
-    await payment.save();
+    await Payment.updateOne(
+      { _id: payment._id, status: "pending" },
+      { $set: { status: "failed" } }
+    );
     return res.status(400).json({ message: "Payment signature verification failed" });
   }
 
-  payment.razorpayPaymentId = razorpay_payment_id;
-  payment.razorpaySignature = razorpay_signature;
-  payment.status = "completed";
-  payment.paidAt = new Date();
-  await payment.save();
+  // Atomic update: only transitions pending -> completed. Prevents race condition
+  // where two concurrent verify requests both pass the status check above.
+  const updated = await Payment.findOneAndUpdate(
+    { _id: payment._id, status: "pending" },
+    {
+      $set: {
+        razorpayPaymentId: razorpay_payment_id,
+        razorpaySignature: razorpay_signature,
+        status: "completed",
+        paidAt: new Date(),
+      },
+    },
+    { new: true }
+  );
+
+  if (!updated) {
+    // Another request already completed this payment
+    return res.json({ message: "Payment already verified" });
+  }
 
   const booking = await Booking.findById(payment.booking);
   if (booking) {

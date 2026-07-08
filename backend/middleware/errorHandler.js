@@ -21,6 +21,17 @@ export const errorHandler = (err, req, res, _next) => {
     return res.status(400).json({ message: `${field} already exists` });
   }
 
+  if (err.name === "MulterError") {
+    const messages = {
+      LIMIT_FILE_SIZE: "File too large (max 5MB)",
+      LIMIT_UNEXPECTED_FILE: "Unexpected file field",
+      LIMIT_FILE_COUNT: "Too many files",
+    };
+    return res.status(400).json({
+      message: messages[err.code] || `Upload error: ${err.message}`,
+    });
+  }
+
   if (err.name === "JsonWebTokenError") {
     return res.status(401).json({ message: "Invalid token" });
   }

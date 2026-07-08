@@ -4,6 +4,7 @@ import Driver from "../models/Driver.js";
 import { generateToken } from "../utils/token.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../config/email.js";
 import { storeFile } from "../middleware/upload.js";
+import { sanitizeDriver } from "../utils/sanitize.js";
 
 const VERIFY_EXPIRE = 24 * 60 * 60 * 1000;
 
@@ -107,7 +108,7 @@ export const completeDriverProfile = async (req, res) => {
   driver.profileCompleted = true;
   driver.kycStatus = "pending";
   await driver.save();
-  res.json({ driver });
+  res.json({ driver: sanitizeDriver(driver, { withContact: true }) });
 };
 
 export const adminLogin = async (req, res) => {

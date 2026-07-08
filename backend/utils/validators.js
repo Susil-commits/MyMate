@@ -41,6 +41,14 @@ export const completeDriverProfileValidator = [
   body("experienceYears").isInt({ min: 0 }).withMessage("Experience years required"),
   body("hourlyRate").isFloat({ min: 1 }).withMessage("Hourly rate required"),
   body("dailyRate").isFloat({ min: 1 }).withMessage("Daily rate required"),
+  body("vehicleTypes")
+    .custom((value) => {
+      const arr = Array.isArray(value) ? value : [value];
+      if (!arr.filter(Boolean).length) {
+        throw new Error("At least one vehicle type is required");
+      }
+      return true;
+    }),
 ];
 
 export const bookingValidator = [
@@ -49,7 +57,9 @@ export const bookingValidator = [
   body("startDate").isISO8601().withMessage("Valid start date is required"),
   body("startDate")
     .custom((value) => {
-      if (new Date(value) < new Date(new Date().setHours(0, 0, 0, 0))) {
+      const now = new Date();
+      const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      if (value < todayStr) {
         throw new Error("Start date cannot be in the past");
       }
       return true;

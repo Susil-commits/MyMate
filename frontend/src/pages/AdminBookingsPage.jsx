@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, formatINR } from "../utils/constants";
 import { WindowedPagination } from "../components/WindowedPagination";
+import ConfirmDialog from "../components/ConfirmDialog";
 import toast from "react-hot-toast";
 
 export default function AdminBookingsPage() {
@@ -11,6 +12,8 @@ export default function AdminBookingsPage() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
+  const [refundTarget, setRefundTarget] = useState(null);
+  const [refunding, setRefunding] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -53,19 +56,20 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const handleRefund = async (bookingId) => {
-    if (!confirm("Refund this payment? This will reverse the Razorpay payment.")) return;
-    setActionLoading(`${bookingId}-refund`);
+  const handleRefund = async () => {
+    if (!refundTarget) return;
+    setRefunding(true);
     try {
-      await api.post("/payments/refund", { bookingId });
+      await api.post("/payments/refund", { bookingId: refundTarget });
       setBookings((prev) =>
-        prev.map((b) => (b._id === bookingId ? { ...b, paymentStatus: "refunded" } : b))
+        prev.map((b) => (b._id === refundTarget ? { ...b, paymentStatus: "refunded" } : b))
       );
       toast.success("Refund processed");
+      setRefundTarget(null);
     } catch (err) {
       toast.error(err.response?.data?.message || "Refund failed");
     } finally {
-      setActionLoading(null);
+      setRefunding(false);
     }
   };
 
@@ -125,7 +129,7 @@ export default function AdminBookingsPage() {
                     <button disabled={actionLoading === `${b._id}-cancelled`} onClick={() => handleStatus(b._id, "cancelled")} className="px-3 py-1.5 bg-red-500 text-white rounded-lg text-xs font-semibold hover:bg-red-600 disabled:opacity-50 transition-all duration-200">Cancel</button>
                   )}
                   {b.paymentStatus === "paid" && (
-                    <button disabled={actionLoading === `${b._id}-refund`} onClick={() => handleRefund(b._id)} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition-all duration-200">Refund</button>
+                    <button disabled={actionLoading === `${b._id}-refund`} onClick={() => setRefundTarget(b._id)} className="px-3 py-1.5 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 disabled:opacity-50 transition-all duration-200">Refund</button>
                   )}
                 </div>
               </div>
@@ -134,6 +138,17 @@ export default function AdminBookingsPage() {
         )}
       </div>
       <WindowedPagination page={pagination.page} pages={pagination.pages} onChange={setPage} accent="purple" />
+
+      <ConfirmDialog
+        open={!!refundTarget}
+        title="Process Refund"
+        message="This will reverse the Razorpay payment. The user will receive their money back. This action cannot be undone."
+        confirmLabel="Yes, Refund"
+        variant="warning"
+        loading={refunding}
+        onConfirm={handleRefund}
+        onCancel={() => setRefundTarget(null)}
+      />
     </div>
   );
 }

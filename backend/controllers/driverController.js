@@ -125,5 +125,6 @@ export const updateDriverProfile = async (req, res) => {
   }
 
   await driver.save();
-  res.json({ message: "Profile updated", driver });
+  const sanitized = sanitizeDriver(driver, { withContact: true });
+  res.json({ message: "Profile updated", driver: sanitized });
 };

@@ -49,6 +49,20 @@ export const createBooking = async (req, res) => {
   if (!driver || driver.kycStatus !== "approved" || !driver.isActive) {
     return res.status(404).json({ message: "This driver is not available for booking" });
   }
+
+  // Prevent duplicate active bookings between the same user and driver
+  const existing = await Booking.findOne({
+    user: req.user._id,
+    driver: driverId,
+    status: { $in: ["pending", "accepted", "ongoing"] },
+  });
+  if (existing) {
+    return res.status(409).json({
+      message: "You already have an active booking with this driver",
+      bookingId: existing._id,
+    });
+  }
+
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : null;
   const totalAmount = computeAmount(hireType, start, end, driver);
@@ -116,16 +130,32 @@ export const getDriverBookings = async (req, res) => {
 };
 
 export const getDriverStats = async (req, res) => {
-  const bookings = await Booking.find({ driver: req.user._id }).lean();
-  const completed = bookings.filter((b) => b.status === "completed");
-  const earnings = completed
-    .filter((b) => b.paymentStatus === "paid")
-    .reduce((sum, b) => sum + (b.totalAmount || 0), 0);
+  const stats = await Booking.aggregate([
+    { $match: { driver: req.user._id } },
+    {
+      $group: {
+        _id: null,
+        totalBookings: { $sum: 1 },
+        completedBookings: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+        pendingBookings: { $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] } },
+        earnings: {
+          $sum: {
+            $cond: [
+              { $and: [{ $eq: ["$status", "completed"] }, { $eq: ["$paymentStatus", "paid"] }] },
+              "$totalAmount",
+              0,
+            ],
+          },
+        },
+      },
+    },
+  ]);
+  const s = stats[0] || { totalBookings: 0, completedBookings: 0, pendingBookings: 0, earnings: 0 };
   res.json({
-    totalBookings: bookings.length,
-    completedBookings: completed.length,
-    pendingBookings: bookings.filter((b) => b.status === "pending").length,
-    earnings,
+    totalBookings: s.totalBookings,
+    completedBookings: s.completedBookings,
+    pendingBookings: s.pendingBookings,
+    earnings: s.earnings,
   });
 };
 

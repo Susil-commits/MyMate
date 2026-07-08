@@ -1,8 +1,9 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export function ProtectedRoute({ allowedRole }) {
   const { user, role, loading, needsProfileCompletion } = useAuth();
+  const location = useLocation();
   const allowed = allowedRole
     ? Array.isArray(allowedRole)
       ? allowedRole
@@ -21,7 +22,7 @@ export function ProtectedRoute({ allowedRole }) {
     if (allowed?.length === 1 && allowed[0] === "driver")
       return <Navigate to="/driver/login" replace />;
     if (allowed?.length === 1 && allowed[0] === "admin")
-      return <Navigate to="/user/login" replace />;
+      return <Navigate to="/admin/login" replace />;
     return <Navigate to="/user/login" replace />;
   }
 
@@ -31,7 +32,11 @@ export function ProtectedRoute({ allowedRole }) {
     return <Navigate to="/drivers" replace />;
   }
 
-  if (needsProfileCompletion && window.location.pathname !== "/complete-profile" && window.location.pathname !== "/driver/complete-profile") {
+  if (
+    needsProfileCompletion &&
+    location.pathname !== "/complete-profile" &&
+    location.pathname !== "/driver/complete-profile"
+  ) {
     if (role === "driver") return <Navigate to="/driver/complete-profile" replace />;
     if (role === "user") return <Navigate to="/complete-profile" replace />;
   }

@@ -53,7 +53,12 @@ export default function DriverProfilePage() {
       setShowBooking(false);
       navigate("/bookings");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Booking failed");
+      if (err.response?.status === 409 && err.response?.data?.bookingId) {
+        toast("You already have an active booking with this driver", { icon: "ℹ️" });
+        navigate(`/bookings/${err.response.data.bookingId}`);
+      } else {
+        toast.error(err.response?.data?.message || "Booking failed");
+      }
     } finally {
       setSubmitting(false);
     }

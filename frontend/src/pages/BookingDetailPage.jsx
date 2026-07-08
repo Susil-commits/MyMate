@@ -321,7 +321,7 @@ export default function BookingDetailPage() {
               Cancel Booking
             </button>
           )}
-          {role === "user" && booking.status === "accepted" && booking.paymentStatus === "pending" && (
+          {role === "user" && ["accepted", "ongoing", "completed"].includes(booking.status) && booking.paymentStatus === "pending" && (
             <button onClick={() => setShowPayment(true)} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-all duration-200">
               Pay {formatINR(booking.totalAmount)}
             </button>

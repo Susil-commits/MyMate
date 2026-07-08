@@ -1,5 +1,7 @@
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
+import Driver from "../models/Driver.js";
+import User from "../models/User.js";
 import { createNotification } from "../models/Notification.js";
 
 const myModel = (role) => (role === "driver" ? "Driver" : "User");
@@ -14,6 +16,19 @@ function isMember(conv, role, userId) {
 export const getOrCreateConversation = async (req, res) => {
   const { recipientId } = req.body;
   if (!recipientId) return res.status(400).json({ message: "Recipient is required" });
+  if (String(recipientId) === String(req.user._id)) {
+    return res.status(400).json({ message: "Cannot start a conversation with yourself" });
+  }
+
+  // Validate recipient exists and is the opposite role
+  const RecipientModel = req.userRole === "user" ? Driver : User;
+  const recipient = await RecipientModel.findById(recipientId).select("_id isActive");
+  if (!recipient) {
+    return res.status(404).json({ message: "Recipient not found" });
+  }
+  if (recipient.isActive === false) {
+    return res.status(400).json({ message: "This account is no longer active" });
+  }
 
   const user = req.userRole === "user" ? req.user._id : recipientId;
   const driver = req.userRole === "driver" ? req.user._id : recipientId;

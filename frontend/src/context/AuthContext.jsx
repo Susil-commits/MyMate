@@ -19,8 +19,13 @@ export function AuthProvider({ children }) {
       setNeedsProfileCompletion(
         data.role !== "admin" && data.user && !data.user.profileCompleted
       );
-    } catch {
-      localStorage.removeItem("token");
+    } catch (err) {
+      // Only clear token on actual auth failure (401), not on network errors
+      // (Render free-tier cold starts return network errors — keep token so
+      // the user stays logged in when the server comes back up)
+      if (err.response?.status === 401) {
+        localStorage.removeItem("token");
+      }
     } finally {
       setLoading(false);
     }
@@ -46,11 +51,8 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const completeProfile = async (endpoint, formData, isMultipart = false) => {
-    const config = isMultipart
-      ? { headers: { "Content-Type": "multipart/form-data" } }
-      : {};
-    const { data } = await api.put(endpoint, formData, config);
+  const completeProfile = async (endpoint, formData) => {
+    const { data } = await api.put(endpoint, formData);
     setUser(data.user || data.driver);
     setNeedsProfileCompletion(false);
     return data;

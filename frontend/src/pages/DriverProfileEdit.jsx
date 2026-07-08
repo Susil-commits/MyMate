@@ -93,9 +93,7 @@ export default function DriverProfileEdit() {
         formData.append("avatar", avatarFile);
       }
 
-      await api.put("/drivers/profile", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.put("/drivers/profile", formData);
       await loadUser();
       setAvatarFile(null);
       setAvatarPreview(null);

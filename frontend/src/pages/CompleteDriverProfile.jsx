@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { vehicleTypes } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -23,8 +23,7 @@ export default function CompleteDriverProfile() {
   const [saving, setSaving] = useState(false);
 
   if (user?.profileCompleted) {
-    navigate("/driver/dashboard", { replace: true });
-    return null;
+    return <Navigate to="/driver/dashboard" replace />;
   }
 
   const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
@@ -50,7 +49,7 @@ export default function CompleteDriverProfile() {
       });
       if (licenseFile) formData.append("licenseImage", licenseFile);
 
-      await completeProfile("/auth/driver/complete-profile", formData, true);
+      await completeProfile("/auth/driver/complete-profile", formData);
       toast.success("Profile submitted for verification!");
       navigate("/driver/dashboard");
     } catch (err) {

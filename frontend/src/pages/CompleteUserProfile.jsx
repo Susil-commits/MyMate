@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
 
@@ -13,8 +13,7 @@ export default function CompleteUserProfile() {
   const [saving, setSaving] = useState(false);
 
   if (user?.profileCompleted) {
-    navigate("/drivers", { replace: true });
-    return null;
+    return <Navigate to="/drivers" replace />;
   }
 
   const handleSubmit = async (e) => {

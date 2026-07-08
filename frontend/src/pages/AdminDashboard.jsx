@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import api from "../api/axios";
 import { HiUserGroup, HiBadgeCheck, HiClipboardList, HiExclamation, HiCurrencyDollar, HiTrendingUp, HiCheck, HiX } from "react-icons/hi";
 import toast from "react-hot-toast";
@@ -89,16 +90,21 @@ export default function AdminDashboard() {
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <HiClipboardList className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-lg font-bold text-gray-900">Recent Bookings</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <HiClipboardList className="w-5 h-5 text-indigo-600" />
+              <h2 className="text-lg font-bold text-gray-900">Recent Bookings</h2>
+            </div>
+            <Link to="/admin/bookings" className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+              View All →
+            </Link>
           </div>
           <div className="space-y-3">
             {recentBookings.length === 0 ? (
               <p className="text-sm text-gray-400">No bookings yet.</p>
             ) : (
               recentBookings.map((b) => (
-                <div key={b._id} className="flex items-center justify-between text-sm">
+                <Link key={b._id} to={`/bookings/${b._id}`} className="flex items-center justify-between text-sm hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded-lg transition-colors">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{b.user?.name} → {b.driver?.name}</p>
                     <p className="text-xs text-gray-500">₹{b.totalAmount}</p>
@@ -108,7 +114,7 @@ export default function AdminDashboard() {
                     b.status === "cancelled" ? "bg-red-100 text-red-700" :
                     "bg-yellow-100 text-yellow-700"
                   }`}>{b.status}</span>
-                </div>
+                </Link>
               ))
             )}
           </div>
@@ -116,7 +122,12 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-8">
-        <h2 className="text-xl font-extrabold text-gray-900 mb-4">Pending KYC Verification</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-extrabold text-gray-900">Pending KYC Verification</h2>
+          <Link to="/admin/drivers" className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition-colors">
+            View All →
+          </Link>
+        </div>
         {pendingDrivers.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
             <HiBadgeCheck className="w-12 h-12 text-gray-300 mx-auto mb-3" />

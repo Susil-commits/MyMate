@@ -39,7 +39,7 @@ export default function UserProfilePage() {
         const fd = new FormData();
         Object.entries(form).forEach(([k, v]) => fd.append(k, v));
         fd.append("avatar", avatarFile);
-        await api.put("/users/profile", fd, { headers: { "Content-Type": "multipart/form-data" } });
+        await api.put("/users/profile", fd);
       } else {
         await api.put("/users/profile", form);
       }

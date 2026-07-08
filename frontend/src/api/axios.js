@@ -17,15 +17,20 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      const path = window.location.pathname;
-      if (!path.includes("/login")) {
-        const login =
-          path.startsWith("/driver") ? "/driver/login" :
-          path.startsWith("/admin") ? "/admin/login" :
-          "/user/login";
-        window.location.href = login;
+      // For /auth/me calls, let loadUser handle the token cleanup — don't
+      // hard-redirect (avoids double-redirect + state loss on cold starts)
+      const isAuthMe = error.config?.url?.includes("/auth/me");
+      if (!isAuthMe) {
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        const path = window.location.pathname;
+        if (!path.includes("/login")) {
+          const login =
+            path.startsWith("/driver") ? "/driver/login" :
+            path.startsWith("/admin") ? "/admin/login" :
+            "/user/login";
+          window.location.href = login;
+        }
       }
     }
     return Promise.reject(error);
