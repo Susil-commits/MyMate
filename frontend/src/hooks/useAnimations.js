@@ -27,6 +27,7 @@ export function useScrollReveal(threshold = 0.15) {
 
 export function useCountUp(end, duration = 1500, startCounting = true) {
   const [count, setCount] = useState(0);
+  const target = Number(end) || 0;
 
   useEffect(() => {
     if (!startCounting) return;
@@ -37,7 +38,7 @@ export function useCountUp(end, duration = 1500, startCounting = true) {
       if (!startTime) startTime = currentTime;
       const progress = Math.min((currentTime - startTime) / duration, 1);
       const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * end));
+      setCount(Math.floor(eased * target));
 
       if (progress < 1) {
         animationFrame = requestAnimationFrame(animate);
@@ -46,7 +47,7 @@ export function useCountUp(end, duration = 1500, startCounting = true) {
 
     animationFrame = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrame);
-  }, [end, duration, startCounting]);
+  }, [target, duration, startCounting]);
 
   return count;
 }

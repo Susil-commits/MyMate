@@ -1,4 +1,5 @@
 import Driver from "../models/Driver.js";
+import Booking from "../models/Booking.js";
 import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
 import { storeFile, deleteFromCloudinary } from "../middleware/upload.js";
@@ -55,18 +56,22 @@ export const getDrivers = async (req, res) => {
 };
 
 export const getPublicStats = async (req, res) => {
-  const [totalDrivers, availableDrivers, agg] = await Promise.all([
+  const [driverCount, tripCount, cityAgg, agg] = await Promise.all([
     Driver.countDocuments({ kycStatus: "approved", isActive: true }),
-    Driver.countDocuments({ kycStatus: "approved", isActive: true, availability: "available" }),
+    Booking.countDocuments({ status: "completed" }),
+    Driver.distinct("locality", { kycStatus: "approved", isActive: true, locality: { $ne: "" } }),
     Driver.aggregate([
       { $match: { kycStatus: "approved", isActive: true } },
       { $group: { _id: null, avgRating: { $avg: "$averageRating" } } },
     ]),
   ]);
   res.json({
-    totalDrivers,
-    availableDrivers,
+    driverCount,
+    tripCount,
+    cityCount: cityAgg.length,
     averageRating: agg[0] ? Math.round(agg[0].avgRating * 10) / 10 : 0,
+    totalDrivers: driverCount,
+    availableDrivers: driverCount,
   });
 };
 
