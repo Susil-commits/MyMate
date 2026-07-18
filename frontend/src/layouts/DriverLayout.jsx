@@ -4,6 +4,8 @@ import { useAuth } from "../context/AuthContext";
 import { FaUserTie } from "react-icons/fa";
 import { HiMenu, HiX } from "react-icons/hi";
 import NotificationBell from "../components/NotificationBell";
+import ThemeToggle from "../components/ThemeToggle";
+import PageTransition from "../components/PageTransition";
 
 export default function DriverLayout() {
   const { user, logout } = useAuth();
@@ -68,6 +70,7 @@ export default function DriverLayout() {
             </div>
 
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <NotificationBell />
               <div className="hidden sm:flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
@@ -106,7 +109,9 @@ export default function DriverLayout() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
     </div>
   );

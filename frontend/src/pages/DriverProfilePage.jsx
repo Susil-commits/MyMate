@@ -4,6 +4,7 @@ import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiBadgeCheck, HiCa
 import { FaCar, FaLanguage } from "react-icons/fa";
 import BackButton from "../components/BackButton";
 import FavoriteButton from "../components/FavoriteButton";
+import MapSelector from "../components/MapSelector";
 import api from "../api/axios";
 import { hireTypes } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -219,8 +220,8 @@ export default function DriverProfilePage() {
   <input type="date" min={bookingForm.startDate || undefined} value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
                 </div>
               </div>
-              <Field label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} required />
-              <Field label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
+              <MapSelector label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} />
+              <MapSelector label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Purpose</label>
   <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />

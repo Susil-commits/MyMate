@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { HiChat, HiPaperAirplane, HiArrowLeft } from "react-icons/hi";
 import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
@@ -28,6 +29,8 @@ export default function MessagesPage() {
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef(null);
 
+  const socket = useSocket();
+
   useEffect(() => {
     let active = true;
     const fetchConversations = async () => {
@@ -41,10 +44,8 @@ export default function MessagesPage() {
       }
     };
     fetchConversations();
-    const interval = setInterval(fetchConversations, 15000);
     return () => {
       active = false;
-      clearInterval(interval);
     };
   }, []);
 
@@ -65,12 +66,47 @@ export default function MessagesPage() {
       }
     };
     fetchMessages();
-    const interval = setInterval(fetchMessages, 8000);
+    
+    if (socket) {
+      socket.emit("join_conversation", conversationId);
+    }
+    
     return () => {
       active = false;
-      clearInterval(interval);
+      if (socket) {
+        socket.emit("leave_conversation", conversationId);
+      }
     };
-  }, [conversationId]);
+  }, [conversationId, socket]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handleReceiveMessage = (msg) => {
+      if (msg.conversation === conversationId) {
+        setMessages((prev) => [...prev, msg]);
+        // Also mark as read in backend optionally, but fetching will do it if user is active
+      }
+      setConversations((prev) => {
+        const idx = prev.findIndex((c) => c._id === msg.conversation);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = {
+            ...updated[idx],
+            lastMessage: msg.text,
+            lastMessageAt: msg.createdAt,
+            lastSenderModel: msg.senderModel,
+            unreadCount: msg.conversation === conversationId ? 0 : (updated[idx].unreadCount || 0) + 1
+          };
+          return updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+        }
+        return prev;
+      });
+    };
+    socket.on("receive_message", handleReceiveMessage);
+    return () => {
+      socket.off("receive_message", handleReceiveMessage);
+    };
+  }, [socket, conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

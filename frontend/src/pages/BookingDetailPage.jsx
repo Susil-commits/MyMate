@@ -3,10 +3,12 @@ import { useParams, useNavigate } from "react-router-dom";
 import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } from "react-icons/hi";
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
+import MapDisplay from "../components/MapDisplay";
 import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, RAZORPAY_KEY_ID, formatINR } from "../utils/constants";
 import { loadRazorpay } from "../utils/loadRazorpay";
 import { useAuth } from "../context/AuthContext";
+import { useSocket } from "../context/SocketContext";
 import toast from "react-hot-toast";
 
 function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
@@ -156,6 +158,26 @@ export default function BookingDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const socket = useSocket();
+
+  useEffect(() => {
+    if (!id || !socket) return;
+    
+    socket.emit("join_booking", id);
+    
+    const handleUpdate = (updatedBooking) => {
+      if (updatedBooking._id === id) {
+        setBooking(updatedBooking);
+      }
+    };
+    
+    socket.on("booking_update", handleUpdate);
+    
+    return () => {
+      socket.off("booking_update", handleUpdate);
+      socket.emit("leave_booking", id);
+    };
+  }, [id, socket]);
 
   useEffect(() => {
     let active = true;
@@ -294,6 +316,8 @@ export default function BookingDetailPage() {
             <p className="text-sm text-gray-700">{booking.purpose}</p>
           </div>
         )}
+
+        <MapDisplay pickupLocation={booking.pickupLocation} dropLocation={booking.dropLocation} />
 
         <div className="mt-8 flex flex-wrap gap-3">
           {role === "driver" && booking.status === "pending" && (

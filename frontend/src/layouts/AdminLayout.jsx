@@ -2,6 +2,8 @@ import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiShieldCheck } from "react-icons/hi";
 import NotificationBell from "../components/NotificationBell";
+import ThemeToggle from "../components/ThemeToggle";
+import PageTransition from "../components/PageTransition";
 
 export default function AdminLayout() {
   const { logout } = useAuth();
@@ -47,6 +49,7 @@ export default function AdminLayout() {
             </div>
 
             <div className="flex items-center gap-2">
+              <ThemeToggle />
               <NotificationBell />
               <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200">
                 Logout
@@ -57,7 +60,9 @@ export default function AdminLayout() {
       </nav>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
     </div>
   );

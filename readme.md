@@ -1,276 +1,95 @@
-# MyMate - Driver Hiring Platform (MERN)
+# MyMate - Driver Hiring Platform 🚗
 
-## Overview
-A MERN stack web application where users can hire drivers on a temporary or permanent basis, filtered by locality. Drivers register with their credentials, driving details, and nationality. Users browse, filter, review, and hire drivers.
+MyMate is a comprehensive MERN-stack application that connects users with professional drivers. Whether you need a driver for a few hours (temporary hire) or on a permanent basis, MyMate provides a seamless platform for finding, booking, and reviewing drivers based on locality and experience.
 
----
+## ✨ Key Features
 
-## Tech Stack
-- **Frontend:** React 19, Vite 8, Tailwind CSS v4, React Router v7, Axios
-- **Backend:** Node.js, Express.js, MongoDB + Mongoose, JWT Auth, bcryptjs, express-validator
-- **State:** React Context API (auth, booking)
-- **File Upload:** multer (driver documents/license images)
+### For Users
+- **Browse & Filter:** Search for drivers by locality, experience, rating, and vehicle types.
+- **Booking Flow:** Request drivers for temporary (hourly) or permanent (daily) needs.
+- **Secure Payments:** Integrated Razorpay checkout for fast, reliable payments.
+- **Reviews & Ratings:** Leave reviews for drivers after completing a trip.
+- **Real-time Chat:** Communicate directly with drivers regarding your booking.
 
----
-
-## Project Structure
-
-```
-MyMate/
-├── frontend/          (existing - will be rebuilt)
-│   └── src/
-│       ├── api/           axios instance + API helpers
-│       ├── assets/         
-│       ├── components/     shared UI components
-│       ├── context/        AuthContext, BookingContext
-│       ├── hooks/          custom hooks
-│       ├── layouts/        MainLayout, AuthLayout, DriverLayout
-│       ├── pages/          page-level components
-│       └── utils/          helpers, constants
-├── backend/           (new)
-│   ├── config/        db.js, env config
-│   ├── controllers/   auth, driver, booking, review, user
-│   ├── middleware/     auth middleware, error handler, upload
-│   ├── models/        User, Driver, Booking, Review
-│   ├── routes/        API route definitions
-│   ├── utils/         helpers, validators
-│   ├── server.js      entry point
-│   └── uploads/       driver document uploads
-└── .env               MONGO_URI, JWT_SECRET, PORT
-```
+### For Drivers
+- **Profile Management:** Set your hourly/daily rates, vehicle expertise, and experience.
+- **Booking Management:** Accept or reject incoming booking requests.
+- **Earnings & Dashboard:** Track completed jobs, total earnings, and average ratings.
+- **Real-time Notifications:** Get notified instantly of new booking requests.
 
 ---
 
-## Database Models
+## 🛠️ Tech Stack
 
-### 1. User (Customer)
-| Field | Type | Notes |
-|---|---|---|
-| name | String | required |
-| email | String | unique, required |
-| password | String | hashed |
-| phone | String | required |
-| locality | String | city/area (for matching) |
-| role | String | "user" (default) |
-| createdAt | Date | timestamps |
-
-### 2. Driver
-| Field | Type | Notes |
-|---|---|---|
-| name | String | required |
-| email | String | unique, required |
-| password | String | hashed |
-| phone | String | required |
-| nationality | String | required |
-| locality | String | required, used for search |
-| licenseNumber | String | required, unique |
-| licenseImage | String | file path |
-| experienceYears | Number | required |
-| vehicleTypes | [String] | ["Car", "SUV", "Van", "Truck"] |
-| availability | String | "available" / "busy" / "offline" |
-| hourlyRate | Number | for temporary hire |
-| dailyRate | Number | for permanent/long-term |
-| languages | [String] | spoken languages |
-| bio | String | short description |
-| documentsVerified | Boolean | admin verification |
-| averageRating | Number | computed from reviews |
-| totalReviews | Number | computed |
-| isActive | Boolean | soft delete |
-| createdAt | Date | timestamps |
-
-### 3. Booking
-| Field | Type | Notes |
-|---|---|---|
-| user | ObjectId | ref: User |
-| driver | ObjectId | ref: Driver |
-| hireType | String | "temporary" / "permanent" |
-| status | String | "pending" / "accepted" / "ongoing" / "completed" / "cancelled" |
-| startDate | Date | required |
-| endDate | Date | nullable (permanent = indefinite) |
-| pickupLocation | String | |
-| dropLocation | String | |
-| purpose | String | reason for hiring |
-| totalAmount | Number | computed |
-| paymentStatus | String | "pending" / "paid" |
-| createdAt | Date | |
-
-### 4. Review
-| Field | Type | Notes |
-|---|---|---|
-| user | ObjectId | ref: User |
-| driver | ObjectId | ref: Driver |
-| booking | ObjectId | ref: Booking |
-| rating | Number | 1-5 |
-| comment | String | |
-| createdAt | Date | |
-
-### 5. Payment
-| Field | Type | Notes |
-|---|---|---|
-| booking | ObjectId | ref: Booking |
-| user | ObjectId | ref: User |
-| driver | ObjectId | ref: Driver |
-| amount | Number | total paid |
-| currency | String | "usd" / "inr" |
-| paymentMethod | String | "razorpay" |
-| razorpayOrderId | String | Razorpay Order ID |
-| razorpayPaymentId | String | Razorpay Payment ID |
-| status | String | "pending" / "completed" / "failed" / "refunded" |
-| paidAt | Date | |
-| createdAt | Date | |
+- **Frontend:** React 19, Vite, Tailwind CSS v4, React Router v7, Socket.io-client
+- **Backend:** Node.js, Express, MongoDB (Mongoose), Socket.io, Cloudinary (Image Uploads)
+- **Authentication:** JWT (JSON Web Tokens), bcryptjs
+- **Payments:** Razorpay API
 
 ---
 
-## API Routes
+## 🚀 Getting Started
 
-### Auth (`/api/auth`)
-- `POST /user/register` — user registration
-- `POST /user/login` — user login, returns JWT
-- `POST /driver/register` — driver registration
-- `POST /driver/login` — driver login, returns JWT
-- `GET /me` — get current user/driver profile (protected)
+### Prerequisites
+- [Node.js](https://nodejs.org/) (v18+)
+- [MongoDB](https://www.mongodb.com/) (Local or Atlas)
+- [Razorpay Account](https://razorpay.com/) (For API Keys)
+- [Cloudinary Account](https://cloudinary.com/) (For Image Uploads)
 
-### Drivers (`/api/drivers`)
-- `GET /` — list drivers (query: locality, experience, rating, hireType, vehicleType, page, limit)
-- `GET /:id` — get driver profile + reviews
-- `PUT /profile` — update driver profile (driver-only)
-- `GET /:id/reviews` — get reviews for a driver
+### 1. Clone & Install Dependencies
+```bash
+git clone <repository-url>
+cd MyMate
 
-### Bookings (`/api/bookings`)
-- `POST /` — create booking request (user)
-- `GET /` — get user's bookings or driver's bookings (based on role)
-- `PUT /:id/status` — update booking status (accept/reject/complete)
-- `GET /:id` — booking details
-
-### Reviews (`/api/reviews`)
-- `POST /` — submit review (user, requires completed booking)
-- `GET /driver/:driverId` — get all reviews for driver
-- `PUT /:id` — edit review
-- `DELETE /:id` — delete review
-
-### Payments (`/api/payments`)
-- `POST /create-order` — create Razorpay order
-- `POST /verify` — verify Razorpay payment signature
-- `GET /booking/:bookingId` — get payment status for a booking
-
-### Users (`/api/users`)
-- `GET /profile` — get user profile
-- `PUT /profile` — update profile
-- `GET /bookings` — user's booking history
-
----
-
-## Frontend Pages & Routes
-
-| Route | Page | Access |
-|---|---|---|
-| `/` | Landing Page | Public |
-| `/user/login` | User Login | Public |
-| `/user/register` | User Register | Public |
-| `/driver/login` | Driver Login | Public |
-| `/driver/register` | Driver Register | Public |
-| `/drivers` | Browse/Search Drivers | User |
-| `/drivers/:id` | Driver Profile + Reviews + Book | User |
-| `/bookings` | My Bookings (User) | User |
-| `/bookings/:id` | Booking Details + Payment | User |
-| `/driver/dashboard` | Driver Dashboard | Driver |
-| `/driver/profile` | Edit Driver Profile | Driver |
-| `/driver/bookings` | Driver Booking Requests | Driver |
-| `/profile` | User Profile Settings | User |
-
----
-
-## Component Tree (Key Components)
-
-```
-App
-├── AuthProvider (context)
-├── Routes
-│   ├── PublicLayout
-│   │   ├── LandingPage
-│   │   ├── UserLoginPage
-│   │   ├── UserRegisterPage
-│   │   ├── DriverLoginPage
-│   │   └── DriverRegisterPage
-│   ├── UserLayout (protected - user)
-│   │   ├── Navbar
-│   │   ├── DriverSearchPage
-│   │   │   ├── SearchFilters (locality, experience, rating, vehicle, hire type)
-│   │   │   └── DriverCard[]
-│   │   ├── DriverProfilePage
-│   │   │   ├── DriverInfo
-│   │   │   ├── BookingForm (modal with date picker, hire type, purpose, pickup/drop)
-│   │   │   └── ReviewList + ReviewCard[]
-│   │   ├── BookingsPage
-│   │   │   └── BookingCard[]
-│   │   ├── BookingDetailPage
-│   │   │   ├── BookingStatusTracker
-│   │   │   ├── PaymentSection (Razorpay Checkout)
-│   │   │   └── ReviewForm (shown after completion)
-│   │   └── UserProfilePage
-│   └── DriverLayout (protected - driver)
-│       ├── DriverDashboard
-│       ├── DriverProfileEdit
-│       └── DriverBookingsPage
+# Install root, backend, and frontend dependencies concurrently
+npm run install:all
 ```
 
+### 2. Environment Variables
+
+Create a `.env` file in the `backend/` directory:
+```env
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_super_secret_jwt_string
+PORT=5000
+NODE_ENV=development
+CLIENT_URL=http://localhost:5173
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+ADMIN_CODE=your_admin_secret_code
+```
+
+Create a `.env` file in the `frontend/` directory:
+```env
+VITE_API_URL=http://localhost:5000/api
+VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
+```
+
+### 3. Run Locally
+
+You can run both frontend and backend concurrently from the root folder:
+
+```bash
+npm run dev
+```
+
+- **Frontend:** `http://localhost:5173`
+- **Backend:** `http://localhost:5000`
+
 ---
 
-## Implementation Phases
+## 🌍 Production Deployment
 
-### Phase 1: Backend Foundation
-1. Initialize `backend/` with `npm init`, install dependencies
-2. Set up Express server with CORS, JSON parsing, env config
-3. Connect MongoDB with Mongoose
-4. Create all 4 models (User, Driver, Booking, Review)
-5. Implement JWT auth middleware
-6. Build Auth routes & controllers (register/login for both roles)
+### Backend (e.g., Render)
+1. Set the Build Command to `npm run build` and Start Command to `npm start`.
+2. Add all backend environment variables from your local `.env`.
+3. Set `NODE_ENV=production`.
+4. Ensure `CLIENT_URL` points to your deployed frontend (e.g., `https://my-mate.vercel.app`).
 
-### Phase 2: Backend APIs
-1. Driver routes & controllers (CRUD, search with filters, pagination)
-2. Booking routes & controllers (create, status updates, listing)
-3. Review routes & controllers (CRUD, linked to completed bookings)
-4. Payment routes & controllers (Razorpay order creation, signature verification)
-5. User profile routes
-6. File upload middleware for driver license
-
-### Phase 3: Frontend Foundation
-1. Install frontend deps: react-router-dom, axios, react-icons
-2. Set up Axios instance with base URL and JWT interceptor
-3. Build AuthContext with login/register/logout + token persistence
-4. Create route guards (ProtectedRoute for user vs driver roles)
-5. Define all routes in App.jsx with React Router
-
-### Phase 4: Frontend Pages
-1. Landing page (hero, features, CTA, role selection — "I need a driver" / "I am a driver")
-2. User Login & Register pages (email, password, name, phone, locality)
-3. Driver Login & Register pages (same + license, experience, vehicle types, rates, nationality)
-4. Driver Search page with filters (locality input, experience range, rating, vehicle type, hire type) + card grid
-5. Driver Profile page (full details, reviews, "Book Now" button)
-6. Booking flow modal (date picker, hire type selection, purpose, pickup/drop location inputs)
-7. Payment page (Razorpay Checkout popup, amount display from calculated rates)
-8. User's Bookings page (list with status badges: pending/accepted/ongoing/completed)
-9. Booking detail page with status tracker + payment section + review form (post-completion)
-10. User profile/settings page
-11. Driver Dashboard (stats: total bookings, earnings, average rating)
-12. Driver Profile Edit form (all driver fields)
-13. Driver's Booking Requests page (accept/reject incoming requests, manage ongoing)
-
-### Phase 5: Polish & Features
-1. Rating & review submission after booking completion
-2. Average rating computation on driver model
-3. Search/filter debouncing
-4. Loading skeletons, error states, empty states
-5. Toast notifications for actions
-6. Responsive design throughout
-
-## Key Design Decisions
-- **Separate User/Driver models** rather than a single model with roles — they have fundamentally different fields
-- **Separate auth pages** — `/user/login`, `/user/register`, `/driver/login`, `/driver/register` with dedicated forms
-- **JWT with role claim** — `{ id, role: "user" | "driver" }` in token payload
-- **Filtering by locality** uses regex partial match on driver's locality field (text-based, no maps API)
-- **Booking flow**: User sends request → Driver accepts/rejects → Booking confirmed → Payment → Trip → Review
-- **Rating** is computed on driver model (updated on each new review) to avoid expensive aggregations
-- **Hire types**: "temporary" uses hourly rate, "permanent" uses daily rate, calculated on booking creation
-- **Payments via Razorpay**: Razorpay order created server-side; client opens Razorpay Checkout (UPI/cards/netbanking/wallets); payment confirmed by verifying the HMAC signature server-side
-- **File uploads** for license images stored locally in `backend/uploads/`, served as static files
+### Frontend (e.g., Vercel)
+1. Deploy the `frontend/` directory.
+2. Set `VITE_API_URL` to your deployed backend URL (e.g., `https://api.mymate.com/api`).
+3. Set `VITE_RAZORPAY_KEY_ID`.

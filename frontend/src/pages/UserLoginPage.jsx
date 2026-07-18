@@ -4,6 +4,14 @@ import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed } from "react-icons/hi";
 import { FaCar } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
+const loginSchema = z.object({
+  email: z.string().min(1, "Email is required").email("Invalid email format"),
+  password: z.string().min(6, "Password must be at least 6 characters"),
+});
 
 const authParticles = Array.from({ length: 15 }, () => ({
   left: `${Math.random() * 100}%`,
@@ -16,16 +24,18 @@ const authParticles = Array.from({ length: 15 }, () => ({
 const particleColors = ["#2563eb", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#06b6d4", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6"];
 
 export default function UserLoginPage() {
-  const [form, setForm] = useState({ email: "", password: "" });
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const { register, handleSubmit, formState: { errors } } = useForm({
+    resolver: zodResolver(loginSchema),
+  });
+
+  const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      await login("/auth/user/login", form);
+      await login("/auth/user/login", data);
       toast.success("Welcome back!");
       navigate("/drivers");
     } catch (err) {
@@ -58,20 +68,32 @@ export default function UserLoginPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Welcome back</h1>
           <p className="text-gray-500 text-sm mb-8">Sign in to find and hire drivers.</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
               <div className="relative">
                 <HiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="your@email.com" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200" />
+                <input 
+                  type="email" 
+                  {...register("email")} 
+                  placeholder="your@email.com" 
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.email ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
+                />
               </div>
+              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
               <div className="relative">
                 <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input type="password" required value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="••••••••" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200" />
+                <input 
+                  type="password" 
+                  {...register("password")} 
+                  placeholder="••••••••" 
+                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.password ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
+                />
               </div>
+              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
             </div>
             <button type="submit" disabled={submitting} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
               {submitting ? "Signing in..." : "Sign In"}

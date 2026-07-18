@@ -7,19 +7,22 @@ import { bookingStatusColors } from "../utils/constants";
 export default function DriverDashboard() {
   const [stats, setStats] = useState({ totalBookings: 0, completedBookings: 0, earnings: 0, pendingBookings: 0 });
   const [recentBookings, setRecentBookings] = useState([]);
+  const [wallet, setWallet] = useState({ balance: 0, transactions: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     const fetchData = async () => {
       try {
-        const [statsRes, bookingsRes] = await Promise.all([
+        const [statsRes, bookingsRes, walletRes] = await Promise.all([
           api.get("/bookings/driver/stats"),
           api.get("/bookings/driver?limit=5"),
+          api.get("/drivers/wallet"),
         ]);
         if (!active) return;
         setStats(statsRes.data);
         setRecentBookings(bookingsRes.data.bookings);
+        setWallet({ balance: walletRes.data.walletBalance, transactions: walletRes.data.transactions });
       } catch (err) {
         if (active) console.error("Failed to load dashboard:", err);
       } finally {
@@ -46,11 +49,11 @@ export default function DriverDashboard() {
         <span className="gradient-text">Dashboard</span>
       </h1>
 
- <div className="mt-6 grid grid-cols-2 md gap-4">
+ <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<HiClipboardList />} label="Total Bookings" value={stats.totalBookings} bg="bg-blue-500" />
-        <StatCard icon={<HiUsers />} label="Pending" value={stats.pendingBookings} bg="bg-yellow-500" />
         <StatCard icon={<HiCheck />} label="Completed" value={stats.completedBookings} bg="bg-green-500" />
-        <StatCard icon={<HiCurrencyDollar />} label="Earnings" value={`₹${stats.earnings}`} bg="bg-indigo-500" />
+        <StatCard icon={<HiCurrencyDollar />} label="Wallet Balance" value={`₹${wallet.balance.toLocaleString("en-IN")}`} bg="bg-indigo-500" />
+        <StatCard icon={<HiCurrencyDollar />} label="Total Earnings" value={`₹${stats.earnings.toLocaleString("en-IN")}`} bg="bg-purple-500" />
       </div>
 
       <div className="mt-8">
@@ -90,6 +93,35 @@ export default function DriverDashboard() {
                   </span>
                 </div>
               </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-xl font-extrabold text-gray-900 mb-4">Recent Transactions</h2>
+        {wallet.transactions.length === 0 ? (
+          <div className="text-center py-12 bg-white rounded-2xl border border-gray-100">
+            <HiCurrencyDollar className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No transactions yet.</p>
+          </div>
+        ) : (
+          <div className="space-y-3 stagger-1">
+            {wallet.transactions.slice(0, 5).map((txn) => (
+              <div key={txn._id} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between card-hover">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === "credit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                    <HiCurrencyDollar className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{txn.description}</p>
+                    <p className="text-xs text-gray-500">{new Date(txn.createdAt).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                <div className={`font-bold ${txn.type === "credit" ? "text-green-600" : "text-red-600"}`}>
+                  {txn.type === "credit" ? "+" : "-"}₹{txn.amount.toLocaleString("en-IN")}
+                </div>
+              </div>
             ))}
           </div>
         )}

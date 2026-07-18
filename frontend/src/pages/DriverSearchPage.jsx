@@ -4,6 +4,7 @@ import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiSearch, HiX } fr
 import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import { hireTypes, vehicleTypes } from "../utils/constants";
+import { SkeletonList } from "../components/SkeletonLoader";
 
 const sortOptions = [
   { value: "rating", label: "Top Rated" },
@@ -293,26 +294,8 @@ export default function DriverSearchPage() {
       </div>
 
       {loading ? (
-        <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-3">
-                  <div className="skeleton h-5 w-32 rounded" />
-                  <div className="skeleton h-4 w-24 rounded" />
-                </div>
-                <div className="skeleton h-8 w-14 rounded-lg" />
-              </div>
-              <div className="flex gap-2 mt-4">
-                <div className="skeleton h-6 w-14 rounded-md" />
-                <div className="skeleton h-6 w-14 rounded-md" />
-              </div>
-              <div className="flex justify-between mt-4">
-                <div className="skeleton h-4 w-16 rounded" />
-                <div className="skeleton h-4 w-20 rounded" />
-              </div>
-            </div>
-          ))}
+        <div className="mt-8">
+          <SkeletonList count={6} />
         </div>
       ) : drivers.length === 0 ? (
         <div className="mt-16 text-center animate-fade-up">

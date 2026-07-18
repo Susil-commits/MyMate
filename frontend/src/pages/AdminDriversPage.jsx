@@ -18,6 +18,7 @@ export default function AdminDriversPage() {
   const [verifyTarget, setVerifyTarget] = useState(null);
   const [verifyStatus, setVerifyStatus] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -231,9 +232,12 @@ export default function AdminDriversPage() {
                 {selected.licenseImage?.url && (
                   <div className="mt-4">
                     <p className="text-xs font-semibold text-gray-500 uppercase mb-2">License Document</p>
-                    <a href={selected.licenseImage.url} target="_blank" rel="noopener noreferrer" className="block group">
+                    <button
+                      onClick={() => setPreviewImage(selected.licenseImage.url)}
+                      className="block group w-full text-left focus:outline-none"
+                    >
                       <img src={selected.licenseImage.url} alt="License" className="w-full rounded-xl border border-gray-200 object-cover max-h-64 group-hover:opacity-90 transition-opacity" />
-                    </a>
+                    </button>
                   </div>
                 )}
 
@@ -267,6 +271,15 @@ export default function AdminDriversPage() {
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" role="dialog" aria-modal="true" onClick={() => setPreviewImage(null)}>
+          <button className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all">
+            <HiX className="w-6 h-6" />
+          </button>
+          <img src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] rounded-xl object-contain animate-scale-in" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

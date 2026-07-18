@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import api from "../api/axios";
 import { HiUserGroup, HiBadgeCheck, HiClipboardList, HiExclamation, HiCurrencyDollar, HiTrendingUp, HiCheck, HiX } from "react-icons/hi";
 import toast from "react-hot-toast";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ totalDrivers: 0, activeDrivers: 0, totalUsers: 0, totalBookings: 0, pendingKyc: 0, completedBookings: 0, cancelledBookings: 0, revenue: 0 });
@@ -83,10 +84,41 @@ export default function AdminDashboard() {
             <HiTrendingUp className="w-5 h-5 text-purple-600" />
             <h2 className="text-lg font-bold text-gray-900">Booking Breakdown</h2>
           </div>
-          <div className="space-y-3">
-            <Row label="Completed" value={stats.completedBookings} color="bg-green-500" total={stats.totalBookings} />
-            <Row label="Cancelled / Rejected" value={stats.cancelledBookings} color="bg-red-400" total={stats.totalBookings} />
-            <Row label="Active / Pending" value={Math.max(0, stats.totalBookings - stats.completedBookings - stats.cancelledBookings)} color="bg-blue-500" total={stats.totalBookings} />
+          <div className="h-48 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: 'Completed', value: stats.completedBookings, color: '#10B981' },
+                    { name: 'Cancelled', value: stats.cancelledBookings, color: '#EF4444' },
+                    { name: 'Pending', value: Math.max(0, stats.totalBookings - stats.completedBookings - stats.cancelledBookings), color: '#3B82F6' },
+                  ]}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={50}
+                  outerRadius={80}
+                  paddingAngle={5}
+                >
+                  {
+                    [
+                      { name: 'Completed', value: stats.completedBookings, color: '#10B981' },
+                      { name: 'Cancelled', value: stats.cancelledBookings, color: '#EF4444' },
+                      { name: 'Pending', value: Math.max(0, stats.totalBookings - stats.completedBookings - stats.cancelledBookings), color: '#3B82F6' },
+                    ].map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))
+                  }
+                </Pie>
+                <Tooltip formatter={(value) => [`${value} Bookings`]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex justify-center gap-4 mt-2 text-xs font-semibold text-gray-600">
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"></span>Completed</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500"></span>Pending</div>
+            <div className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500"></span>Cancelled</div>
           </div>
         </div>
         <div className="bg-white rounded-2xl border border-gray-100 p-6">
