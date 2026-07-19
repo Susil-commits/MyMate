@@ -1,5 +1,4 @@
 import { Routes, Route, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { Suspense, lazy } from "react";
 import { ProtectedRoute, PublicRoute } from "./ProtectedRoute";
 import UserLayout from "../layouts/UserLayout";
@@ -43,17 +42,11 @@ const PageLoader = () => (
 
 const PageWrapper = ({ children }) => {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      transition={{ duration: 0.3 }}
-      className="h-full w-full"
-    >
+    <div className="h-full w-full page-enter">
       <Suspense fallback={<PageLoader />}>
         {children}
       </Suspense>
-    </motion.div>
+    </div>
   );
 };
 
@@ -61,8 +54,7 @@ export default function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+    <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
 
         <Route path="/user/login" element={<PublicRoute><PageWrapper><UserLoginPage /></PageWrapper></PublicRoute>} />
@@ -113,7 +105,6 @@ export default function AnimatedRoutes() {
 
         <Route path="*" element={<PageWrapper><NotFoundPage /></PageWrapper>} />
       </Routes>
-    </AnimatePresence>
   );
 }
 
