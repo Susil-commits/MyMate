@@ -1,37 +1,44 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { Suspense, lazy } from "react";
 import { ProtectedRoute, PublicRoute } from "./ProtectedRoute";
 import UserLayout from "../layouts/UserLayout";
 import DriverLayout from "../layouts/DriverLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import RoleLayout from "../layouts/RoleLayout";
 
-import LandingPage from "../pages/LandingPage";
-import UserLoginPage from "../pages/UserLoginPage";
-import UserRegisterPage from "../pages/UserRegisterPage";
-import DriverLoginPage from "../pages/DriverLoginPage";
-import DriverRegisterPage from "../pages/DriverRegisterPage";
-import AdminLoginPage from "../pages/AdminLoginPage";
-import CompleteUserProfile from "../pages/CompleteUserProfile";
-import CompleteDriverProfile from "../pages/CompleteDriverProfile";
-import DriverSearchPage from "../pages/DriverSearchPage";
-import DriverProfilePage from "../pages/DriverProfilePage";
-import BookingsPage from "../pages/BookingsPage";
-import BookingDetailPage from "../pages/BookingDetailPage";
-import UserProfilePage from "../pages/UserProfilePage";
-import FavoritesPage from "../pages/FavoritesPage";
-import MessagesPage from "../pages/MessagesPage";
-import DriverDashboard from "../pages/DriverDashboard";
-import DriverProfileEdit from "../pages/DriverProfileEdit";
-import DriverBookingsPage from "../pages/DriverBookingsPage";
-import AdminDashboard from "../pages/AdminDashboard";
-import AdminDriversPage from "../pages/AdminDriversPage";
-import AdminUsersPage from "../pages/AdminUsersPage";
-import AdminBookingsPage from "../pages/AdminBookingsPage";
-import ForgotPasswordPage from "../pages/ForgotPasswordPage";
-import ResetPasswordPage from "../pages/ResetPasswordPage";
-import VerifyEmailPage from "../pages/VerifyEmailPage";
-import NotFoundPage from "../pages/NotFoundPage";
+const LandingPage = lazy(() => import("../pages/LandingPage"));
+const UserLoginPage = lazy(() => import("../pages/UserLoginPage"));
+const UserRegisterPage = lazy(() => import("../pages/UserRegisterPage"));
+const DriverLoginPage = lazy(() => import("../pages/DriverLoginPage"));
+const DriverRegisterPage = lazy(() => import("../pages/DriverRegisterPage"));
+const AdminLoginPage = lazy(() => import("../pages/AdminLoginPage"));
+const CompleteUserProfile = lazy(() => import("../pages/CompleteUserProfile"));
+const CompleteDriverProfile = lazy(() => import("../pages/CompleteDriverProfile"));
+const DriverSearchPage = lazy(() => import("../pages/DriverSearchPage"));
+const DriverProfilePage = lazy(() => import("../pages/DriverProfilePage"));
+const BookingsPage = lazy(() => import("../pages/BookingsPage"));
+const BookingDetailPage = lazy(() => import("../pages/BookingDetailPage"));
+const UserProfilePage = lazy(() => import("../pages/UserProfilePage"));
+const FavoritesPage = lazy(() => import("../pages/FavoritesPage"));
+const MessagesPage = lazy(() => import("../pages/MessagesPage"));
+const DriverDashboard = lazy(() => import("../pages/DriverDashboard"));
+const DriverProfileEdit = lazy(() => import("../pages/DriverProfileEdit"));
+const DriverBookingsPage = lazy(() => import("../pages/DriverBookingsPage"));
+const AdminDashboard = lazy(() => import("../pages/AdminDashboard"));
+const AdminDriversPage = lazy(() => import("../pages/AdminDriversPage"));
+const AdminUsersPage = lazy(() => import("../pages/AdminUsersPage"));
+const AdminBookingsPage = lazy(() => import("../pages/AdminBookingsPage"));
+const ForgotPasswordPage = lazy(() => import("../pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
+const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
+const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+
+const PageLoader = () => (
+  <div className="h-full w-full flex items-center justify-center min-h-[50vh]">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
 const PageWrapper = ({ children }) => {
   return (
@@ -42,7 +49,9 @@ const PageWrapper = ({ children }) => {
       transition={{ duration: 0.3 }}
       className="h-full w-full"
     >
-      {children}
+      <Suspense fallback={<PageLoader />}>
+        {children}
+      </Suspense>
     </motion.div>
   );
 };
@@ -106,3 +115,4 @@ export default function AnimatedRoutes() {
     </AnimatePresence>
   );
 }
+

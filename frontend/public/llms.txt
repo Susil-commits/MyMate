@@ -1,0 +1,18 @@
+# MyMate AI Agent Context
+
+MyMate is a web application that connects users with trusted, verified local drivers. 
+It supports locality-based searches, driver ratings, and secure payments via Razorpay.
+
+## Key Features
+- Find drivers based on locality and requirements
+- Hire drivers for temporary or long-term needs
+- View driver profiles, ratings, and reviews
+- Secure bookings and payments
+
+## Endpoints for AI Agents
+- / : Landing Page
+- /user/login : User Login
+- /driver/login : Driver Login
+- /drivers : Browse Drivers
+
+For any automated interactions or integrations, ensure compliance with rate limits.
