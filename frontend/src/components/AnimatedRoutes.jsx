@@ -6,8 +6,9 @@ import UserLayout from "../layouts/UserLayout";
 import DriverLayout from "../layouts/DriverLayout";
 import AdminLayout from "../layouts/AdminLayout";
 import RoleLayout from "../layouts/RoleLayout";
+import LandingPage from "../pages/LandingPage";
 
-const LandingPage = lazy(() => import("../pages/LandingPage"));
+// const LandingPage = lazy(() => import("../pages/LandingPage"));
 const UserLoginPage = lazy(() => import("../pages/UserLoginPage"));
 const UserRegisterPage = lazy(() => import("../pages/UserRegisterPage"));
 const DriverLoginPage = lazy(() => import("../pages/DriverLoginPage"));
