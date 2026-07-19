@@ -236,7 +236,7 @@ export default function AdminDriversPage() {
                       onClick={() => setPreviewImage(selected.licenseImage.url)}
                       className="block group w-full text-left focus:outline-none"
                     >
-                      <img src={selected.licenseImage.url} alt="License" className="w-full rounded-xl border border-gray-200 object-cover max-h-64 group-hover:opacity-90 transition-opacity" />
+                      <img src={selected.licenseImage.url} loading="lazy" alt="License" className="w-full rounded-xl border border-gray-200 object-cover max-h-64 group-hover:opacity-90 transition-opacity" />
                     </button>
                   </div>
                 )}
@@ -279,7 +279,7 @@ export default function AdminDriversPage() {
           <button className="absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-xl bg-white/10 hover:bg-white/20 transition-all">
             <HiX className="w-6 h-6" />
           </button>
-          <img src={previewImage} alt="Preview" className="max-w-full max-h-[90vh] rounded-xl object-contain animate-scale-in" onClick={(e) => e.stopPropagation()} />
+          <img src={previewImage} loading="lazy" alt="Preview" className="max-w-full max-h-[90vh] rounded-xl object-contain animate-scale-in" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>

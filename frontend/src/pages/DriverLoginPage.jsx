@@ -84,12 +84,13 @@ export default function DriverLoginPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Driver Sign In</h1>
           <p className="text-gray-500 text-sm mb-8">Manage your bookings and profile.</p>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form toolname="driver_login" tooldescription="Log in as a driver" onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
               <div className="relative">
                 <HiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
                 <input
+                  id="email"
                   type="email"
                   required
                   value={form.email}
@@ -100,10 +101,11 @@ export default function DriverLoginPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
               <div className="relative">
                 <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
                 <input
+                  id="password"
                   type="password"
                   required
                   value={form.password}

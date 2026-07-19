@@ -188,10 +188,12 @@ export default function DriverSearchPage() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <form toolname="search_drivers" tooldescription="Search and filter available drivers" onSubmit={(e) => e.preventDefault()}>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Locality</label>
+            <label htmlFor="locality" className="block text-xs font-medium text-gray-500 mb-1">Locality</label>
             <input
+              id="locality"
               type="text"
               placeholder="City or area..."
               value={filters.locality}
@@ -200,8 +202,9 @@ export default function DriverSearchPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Min Exp (yrs)</label>
+            <label htmlFor="minExperience" className="block text-xs font-medium text-gray-500 mb-1">Min Exp (yrs)</label>
             <input
+              id="minExperience"
               type="number"
               min="0"
               value={filters.minExperience}
@@ -210,8 +213,9 @@ export default function DriverSearchPage() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Min Rating</label>
+            <label htmlFor="minRating" className="block text-xs font-medium text-gray-500 mb-1">Min Rating</label>
             <select
+              id="minRating"
               value={filters.minRating}
               onChange={(e) => handleFilterChange("minRating", e.target.value)}
               className={inputClass}
@@ -224,8 +228,9 @@ export default function DriverSearchPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Vehicle</label>
+            <label htmlFor="vehicleType" className="block text-xs font-medium text-gray-500 mb-1">Vehicle</label>
             <select
+              id="vehicleType"
               value={filters.vehicleType}
               onChange={(e) => handleFilterChange("vehicleType", e.target.value)}
               className={inputClass}
@@ -237,8 +242,9 @@ export default function DriverSearchPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Hire Type</label>
+            <label htmlFor="hireType" className="block text-xs font-medium text-gray-500 mb-1">Hire Type</label>
             <select
+              id="hireType"
               value={filters.hireType}
               onChange={(e) => handleFilterChange("hireType", e.target.value)}
               className={inputClass}
@@ -250,8 +256,9 @@ export default function DriverSearchPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Languages</label>
+            <label htmlFor="languages" className="block text-xs font-medium text-gray-500 mb-1">Languages</label>
             <input
+              id="languages"
               type="text"
               placeholder="e.g. English, Hindi"
               value={filters.languages}
@@ -264,10 +271,11 @@ export default function DriverSearchPage() {
         {filters.hireType && (
           <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-4 animate-slide-in-left">
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label htmlFor="minRate" className="block text-xs font-medium text-gray-500 mb-1">
                 Min Rate ({filters.hireType === "temporary" ? "₹/hr" : "₹/day"})
               </label>
               <input
+                id="minRate"
                 type="number"
                 min="0"
                 placeholder="No min"
@@ -277,10 +285,11 @@ export default function DriverSearchPage() {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label htmlFor="maxRate" className="block text-xs font-medium text-gray-500 mb-1">
                 Max Rate ({filters.hireType === "temporary" ? "₹/hr" : "₹/day"})
               </label>
               <input
+                id="maxRate"
                 type="number"
                 min="0"
                 placeholder="No max"
@@ -291,6 +300,7 @@ export default function DriverSearchPage() {
             </div>
           </div>
         )}
+        </form>
       </div>
 
       {loading ? (

@@ -83,7 +83,7 @@ function Header({ scrolled }) {
           <Link to="/user/login" aria-label="Sign In as User" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors px-3 py-2">Sign In</Link>
           <Link to="/user/register" aria-label="Register as User" className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold rounded-xl hover:shadow-xl hover:shadow-blue-600/25 hover:-translate-y-0.5 transition-all duration-300">Get Started</Link>
         </div>
-        <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100">
+        <button aria-label="Toggle navigation menu" onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-100">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             {mobileOpen ? <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />}
           </svg>

@@ -13,6 +13,7 @@ export default function Avatar({ src, name = "", size = "md", className = "" }) 
       <img
         src={url}
         alt={name}
+        loading="lazy"
         className={`${sizeClass} rounded-2xl object-cover ${className}`}
       />
     );
