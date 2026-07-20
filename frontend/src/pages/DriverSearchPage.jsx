@@ -307,7 +307,7 @@ export default function DriverSearchPage() {
         <div className="mt-8">
           <SkeletonList count={6} />
         </div>
-      ) : drivers.length === 0 ? (
+      ) : (!drivers?.length) ? (
         <div className="mt-16 text-center animate-fade-up">
           <HiSearch className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">No drivers found matching your criteria.</p>
@@ -316,7 +316,7 @@ export default function DriverSearchPage() {
       ) : (
         <>
           <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-6 stagger-1">
-            {drivers.map((driver) => (
+            {drivers?.map?.((driver) => (
               <Link
                 key={driver._id}
                 to={`/drivers/${driver._id}`}

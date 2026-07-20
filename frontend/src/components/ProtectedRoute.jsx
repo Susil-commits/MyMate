@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { SkeletonList } from "./SkeletonLoader";
 
 export function ProtectedRoute({ allowedRole }) {
   const { user, role, loading, needsProfileCompletion } = useAuth();
@@ -12,8 +13,8 @@ export function ProtectedRoute({ allowedRole }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen p-8">
+        <SkeletonList count={8} />
       </div>
     );
   }
@@ -49,8 +50,8 @@ export function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen p-8">
+        <SkeletonList count={8} />
       </div>
     );
   }

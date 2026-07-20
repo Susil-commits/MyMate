@@ -4,6 +4,7 @@ import { HiClipboardList } from "react-icons/hi";
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { WindowedPagination } from "../components/WindowedPagination";
+import { SkeletonList } from "../components/SkeletonLoader";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -79,18 +80,8 @@ export default function BookingsPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
- <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="space-y-3">
-                <div className="skeleton h-5 w-40 rounded" />
-                <div className="skeleton h-4 w-60 rounded" />
-                <div className="skeleton h-4 w-32 rounded" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : bookings.length === 0 ? (
+        <SkeletonList count={3} />
+      ) : !bookings?.length ? (
         <div className="text-center py-16 animate-fade-up">
  <HiClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
  <p className="text-gray-500 text-lg">No bookings found.</p>
@@ -100,7 +91,7 @@ export default function BookingsPage() {
         </div>
       ) : (
         <div className="space-y-4 stagger-1">
-          {bookings.map((booking) => (
+          {bookings?.map?.((booking) => (
  <div key={booking._id} className="bg-white rounded-2xl border border-gray-100 p-6 card-hover animate-scale-in">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">

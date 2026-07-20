@@ -3,6 +3,7 @@ import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, formatINR } from "../utils/constants";
 import { WindowedPagination } from "../components/WindowedPagination";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { SkeletonTable } from "../components/SkeletonLoader";
 import toast from "react-hot-toast";
 
 export default function AdminBookingsPage() {
@@ -73,7 +74,19 @@ export default function AdminBookingsPage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" /></div>;
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">All Bookings</h1>
+            <p className="text-sm text-gray-500 mt-1">Loading bookings...</p>
+          </div>
+        </div>
+        <SkeletonTable rows={5} />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -93,12 +106,12 @@ export default function AdminBookingsPage() {
         </select>
       </div>
       <div className="space-y-4 stagger-1">
-        {bookings.length === 0 ? (
+        {!bookings?.length ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-gray-100">
             <p className="text-gray-500">No bookings found.</p>
           </div>
         ) : (
-          bookings.map((b) => (
+          bookings?.map?.((b) => (
             <div key={b._id} className="bg-white rounded-2xl border border-gray-100 p-5 animate-scale-in">
               <div className="flex items-start justify-between flex-wrap gap-3">
                 <div className="min-w-0">

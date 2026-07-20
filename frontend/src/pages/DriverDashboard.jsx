@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { HiCurrencyDollar, HiClipboardList, HiCheck, HiUsers } from "react-icons/hi";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
+import { SkeletonDashboard } from "../components/SkeletonLoader";
 
 export default function DriverDashboard() {
   const [stats, setStats] = useState({ totalBookings: 0, completedBookings: 0, earnings: 0, pendingBookings: 0 });
@@ -37,8 +38,11 @@ export default function DriverDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-green-200 border-t-green-600" />
+      <div className="animate-fade-in">
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
+          <span className="gradient-text">Dashboard</span>
+        </h1>
+        <SkeletonDashboard />
       </div>
     );
   }
@@ -70,7 +74,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {recentBookings.map((booking) => (
+            {recentBookings?.map?.((booking) => (
               <Link
                 key={booking._id}
                 to={`/bookings/${booking._id}`}
@@ -107,7 +111,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {wallet.transactions.slice(0, 5).map((txn) => (
+            {wallet?.transactions?.slice?.(0, 5)?.map?.((txn) => (
               <div key={txn._id} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between card-hover">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === "credit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>

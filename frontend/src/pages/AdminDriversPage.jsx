@@ -5,6 +5,7 @@ import { HiX, HiCheck, HiEye } from "react-icons/hi";
 import Avatar from "../components/Avatar";
 import { WindowedPagination } from "../components/WindowedPagination";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { SkeletonTable } from "../components/SkeletonLoader";
 
 export default function AdminDriversPage() {
   const [drivers, setDrivers] = useState([]);
@@ -92,7 +93,19 @@ export default function AdminDriversPage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" /></div>;
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">All Drivers</h1>
+            <p className="text-sm text-gray-500 mt-1">Loading drivers...</p>
+          </div>
+        </div>
+        <SkeletonTable rows={5} />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -120,7 +133,7 @@ export default function AdminDriversPage() {
             </tr>
           </thead>
           <tbody>
-            {drivers.map((d) => (
+            {drivers?.map?.((d) => (
               <tr key={d._id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
@@ -204,7 +217,7 @@ export default function AdminDriversPage() {
                   <div className="mt-4">
                     <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Vehicles</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.vehicleTypes.map((v) => (
+                      {selected?.vehicleTypes?.map?.((v) => (
                         <span key={v} className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-lg">{v}</span>
                       ))}
                     </div>
@@ -215,7 +228,7 @@ export default function AdminDriversPage() {
                   <div className="mt-3">
                     <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Languages</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {selected.languages.map((l) => (
+                      {selected?.languages?.map?.((l) => (
                         <span key={l} className="px-2 py-0.5 bg-gray-50 text-gray-600 text-xs rounded-lg">{l}</span>
                       ))}
                     </div>

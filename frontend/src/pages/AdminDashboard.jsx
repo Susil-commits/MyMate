@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { HiUserGroup, HiBadgeCheck, HiClipboardList, HiExclamation, HiCurrencyDollar, HiTrendingUp, HiCheck, HiX } from "react-icons/hi";
 import toast from "react-hot-toast";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
+import { SkeletonDashboard } from "../components/SkeletonLoader";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ totalDrivers: 0, activeDrivers: 0, totalUsers: 0, totalBookings: 0, pendingKyc: 0, completedBookings: 0, cancelledBookings: 0, revenue: 0 });
@@ -49,8 +50,11 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" />
+      <div className="animate-fade-in">
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-6">
+          <span className="text-purple-600">Admin</span> Dashboard
+        </h1>
+        <SkeletonDashboard />
       </div>
     );
   }
@@ -135,7 +139,7 @@ export default function AdminDashboard() {
             {recentBookings.length === 0 ? (
               <p className="text-sm text-gray-400">No bookings yet.</p>
             ) : (
-              recentBookings.map((b) => (
+              recentBookings?.map?.((b) => (
                 <Link key={b._id} to={`/bookings/${b._id}`} className="flex items-center justify-between text-sm hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded-lg transition-colors">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{b.user?.name} → {b.driver?.name}</p>
@@ -167,7 +171,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-4 stagger-1">
-            {pendingDrivers.map((driver) => (
+            {pendingDrivers?.map?.((driver) => (
               <div key={driver._id} className="bg-white rounded-2xl border border-gray-100 p-6 animate-scale-in">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div className="min-w-0">
@@ -177,7 +181,7 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-500">License: {driver.licenseNumber}</p>
                     <p className="text-sm text-gray-500">{driver.experienceYears}y exp &middot; ₹{driver.hourlyRate}/hr &middot; ₹{driver.dailyRate}/day</p>
                     <div className="flex flex-wrap gap-1 mt-1">
-                      {driver.vehicleTypes?.map((v) => (
+                      {driver?.vehicleTypes?.map?.((v) => (
                         <span key={v} className="px-2 py-0.5 bg-purple-50 text-purple-700 text-xs rounded-md">{v}</span>
                       ))}
                     </div>

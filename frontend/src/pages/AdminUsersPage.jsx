@@ -3,6 +3,7 @@ import api from "../api/axios";
 import Avatar from "../components/Avatar";
 import { WindowedPagination } from "../components/WindowedPagination";
 import toast from "react-hot-toast";
+import { SkeletonTable } from "../components/SkeletonLoader";
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -40,7 +41,14 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-2 border-purple-200 border-t-purple-600" /></div>;
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <h1 className="text-3xl font-extrabold text-gray-900 mb-6">All Users</h1>
+        <SkeletonTable rows={5} />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in">
@@ -58,7 +66,7 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {users.map((u) => (
+            {users?.map?.((u) => (
               <tr key={u._id} className="border-b last:border-0 hover:bg-gray-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">

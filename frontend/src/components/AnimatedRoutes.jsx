@@ -34,6 +34,8 @@ const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
 
+import ErrorBoundary from "./ErrorBoundary";
+
 const PageLoader = () => (
   <div className="h-full w-full flex items-center justify-center min-h-[50vh]">
     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -43,9 +45,11 @@ const PageLoader = () => (
 const PageWrapper = ({ children }) => {
   return (
     <div className="h-full w-full page-enter">
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          {children}
+        </Suspense>
+      </ErrorBoundary>
     </div>
   );
 };

@@ -5,6 +5,7 @@ import { FaCar, FaLanguage } from "react-icons/fa";
 import BackButton from "../components/BackButton";
 import FavoriteButton from "../components/FavoriteButton";
 import MapSelector from "../components/MapSelector";
+import { SkeletonProfile } from "../components/SkeletonLoader";
 import api from "../api/axios";
 import { hireTypes } from "../utils/constants";
 import toast from "react-hot-toast";
@@ -79,16 +80,20 @@ export default function DriverProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-200 border-t-blue-600" />
+      <div className="max-w-4xl mx-auto">
+        <BackButton to="/drivers" label="Back to Drivers" />
+        <SkeletonProfile />
       </div>
     );
   }
 
   if (!driver) {
     return (
-      <div className="text-center py-20 animate-fade-up">
-        <p className="text-gray-500 text-lg">Driver not found.</p>
+      <div className="max-w-4xl mx-auto">
+        <BackButton to="/drivers" label="Back to Drivers" />
+        <div className="text-center py-20 animate-fade-up">
+          <p className="text-gray-500 text-lg">Driver not found.</p>
+        </div>
       </div>
     );
   }
@@ -177,10 +182,10 @@ export default function DriverProfilePage() {
 
           <div className="mt-6 flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
-              <FaCar /> {driver.vehicleTypes?.join(", ")}
+              <FaCar /> {driver?.vehicleTypes?.join(", ")}
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
-              <FaLanguage /> {driver.languages?.join(", ") || "Not specified"}
+              <FaLanguage /> {driver?.languages?.join(", ") || "Not specified"}
             </span>
           </div>
 
@@ -259,7 +264,7 @@ export default function DriverProfilePage() {
           </div>
         ) : (
           <div className="space-y-4 stagger-1">
-            {reviews.map((review) => (
+            {reviews?.map?.((review) => (
               <div key={review._id} className="bg-white rounded-2xl border border-gray-100 p-6 animate-scale-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

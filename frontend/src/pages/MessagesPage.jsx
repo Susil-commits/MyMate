@@ -174,7 +174,7 @@ export default function MessagesPage() {
                   </div>
                 </div>
               ))
-            ) : conversations.length === 0 ? (
+            ) : !conversations?.length ? (
               <div className="p-8 text-center">
                 <HiChat className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">No conversations yet.</p>
@@ -185,7 +185,7 @@ export default function MessagesPage() {
                 )}
               </div>
             ) : (
-              conversations.map((conv) => {
+              conversations?.map?.((conv) => {
                 const party = otherParty(conv);
                 const isActive = conv._id === conversationId;
                 return (
@@ -263,12 +263,12 @@ export default function MessagesPage() {
                   <div className="flex justify-center py-10">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-200 border-t-blue-600" />
                   </div>
-                ) : messages.length === 0 ? (
+                ) : !messages?.length ? (
                   <div className="text-center py-10">
                     <p className="text-sm text-gray-400">No messages yet. Say hello!</p>
                   </div>
                 ) : (
-                  messages.map((m) => {
+                  messages?.map?.((m) => {
                     const mine = m.senderModel === myModel;
                     return (
                       <div key={m._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { FaHeart } from "react-icons/fa";
 import { HiLocationMarker } from "react-icons/hi";
 import BackButton from "../components/BackButton";
+import { SkeletonList } from "../components/SkeletonLoader";
 import api from "../api/axios";
 
 export default function FavoritesPage() {
@@ -29,17 +30,9 @@ export default function FavoritesPage() {
 
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl border border-gray-100 p-6">
-              <div className="space-y-3">
-                <div className="skeleton h-5 w-32 rounded" />
-                <div className="skeleton h-4 w-24 rounded" />
-                <div className="skeleton h-4 w-20 rounded" />
-              </div>
-            </div>
-          ))}
+          <SkeletonList count={6} />
         </div>
-      ) : favorites.length === 0 ? (
+      ) : !favorites?.length ? (
         <div className="text-center py-16 animate-fade-up">
           <FaHeart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 text-lg">No saved drivers yet.</p>
@@ -49,7 +42,7 @@ export default function FavoritesPage() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 stagger-1">
-          {favorites.map((driver) => (
+          {favorites?.map?.((driver) => (
             <Link
               key={driver._id}
               to={`/drivers/${driver._id}`}

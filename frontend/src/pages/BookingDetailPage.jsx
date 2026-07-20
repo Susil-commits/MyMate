@@ -4,6 +4,7 @@ import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } f
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MapDisplay from "../components/MapDisplay";
+import { SkeletonDetail } from "../components/SkeletonLoader";
 import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, RAZORPAY_KEY_ID, formatINR } from "../utils/constants";
 import { loadRazorpay } from "../utils/loadRazorpay";
@@ -259,23 +260,31 @@ export default function BookingDetailPage() {
     }
   };
 
+  const backTo = role === "driver" ? "/driver/bookings" : "/bookings";
+
   if (loading) {
     return (
-      <div className="flex justify-center py-20">
-        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-600"></div>
+      <div className="max-w-3xl mx-auto">
+        <BackButton to={backTo} label="Back to Bookings" />
+        <SkeletonDetail />
       </div>
     );
   }
 
-  if (!booking) return <p className="text-center py-20 text-gray-500">Booking not found.</p>;
+  if (!booking) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <BackButton to={backTo} label="Back to Bookings" />
+        <p className="text-center py-20 text-gray-500">Booking not found.</p>
+      </div>
+    );
+  }
 
   const canReview =
     role === "user" &&
     booking.status === "completed" &&
     booking.paymentStatus === "paid" &&
     !existingReview;
-
-  const backTo = role === "driver" ? "/driver/bookings" : "/bookings";
 
   return (
     <div className="max-w-3xl mx-auto">
