@@ -9,7 +9,34 @@
     <title>MyMate - Hire Drivers</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        .initial-loader-wrapper { display: flex; flex-direction: column; min-height: 100vh; background-color: white; font-family: system-ui, -apple-system, sans-serif; }
+        .initial-nav { height: 64px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; padding: 0 1.5rem; }
+        .initial-logo { width: 120px; height: 24px; background-color: #f3f4f6; border-radius: 4px; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .initial-content { flex: 1; padding: 2rem 1.5rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .initial-title { width: 250px; height: 40px; background-color: #f3f4f6; border-radius: 8px; margin-bottom: 2rem; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .initial-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; }
+        .initial-card { border-radius: 1rem; border: 1px solid #f3f4f6; overflow: hidden; }
+        .initial-img { height: 200px; background-color: #f3f4f6; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .initial-body { padding: 1rem; }
+        .initial-line { height: 16px; background-color: #f3f4f6; border-radius: 4px; margin-bottom: 0.75rem; animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .initial-line.short { width: 60%; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+      </style>
+      <div class="initial-loader-wrapper">
+        <div class="initial-nav"><div class="initial-logo"></div></div>
+        <div class="initial-content">
+          <div class="initial-title"></div>
+          <div class="initial-grid">
+            <div class="initial-card"><div class="initial-img"></div><div class="initial-body"><div class="initial-line"></div><div class="initial-line short"></div></div></div>
+            <div class="initial-card"><div class="initial-img"></div><div class="initial-body"><div class="initial-line"></div><div class="initial-line short"></div></div></div>
+            <div class="initial-card"><div class="initial-img"></div><div class="initial-body"><div class="initial-line"></div><div class="initial-line short"></div></div></div>
+            <div class="initial-card"><div class="initial-img"></div><div class="initial-body"><div class="initial-line"></div><div class="initial-line short"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
