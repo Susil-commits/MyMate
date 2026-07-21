@@ -5,6 +5,7 @@ import path from "path";
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
 import { Request } from "express";
+import { AppError } from "../utils/AppError.js";
 
 const storage = multer.memoryStorage();
 
@@ -16,7 +17,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
   if (extname && mimetype) {
     cb(null, true);
   } else {
-    cb(new Error("Only images (jpeg, jpg, png, webp) and PDFs are allowed"));
+    cb(new AppError("Only images (jpeg, jpg, png, webp) and PDFs are allowed", 400));
   }
 };
 
