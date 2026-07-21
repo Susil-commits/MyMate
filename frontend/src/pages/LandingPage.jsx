@@ -57,29 +57,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
-      {isServerWakingUp && (
-        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 animate-slide-in-right max-w-sm w-full bg-white rounded-2xl shadow-2xl border border-blue-100 p-5">
-          <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 animate-pulse-soft" aria-hidden="true">
-              <HiInformationCircle className="w-6 h-6 text-blue-500" />
-            </div>
-            <div className="flex-1 pt-1">
-              <h4 className="text-sm font-bold text-gray-900">Server is waking up</h4>
-              <p className="mt-1 text-xs text-gray-600 leading-relaxed">
-                Our backend is hosted on a free tier and may take a few moments to load. This is why counts might appear as 0.
-              </p>
-            </div>
-            <button aria-label="Dismiss notification" onClick={() => setIsServerWakingUp(false)} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-              <HiX className="w-4 h-4" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="mt-4 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden" aria-hidden="true">
-            <div className="h-full bg-blue-500 rounded-full animate-shimmer" style={{ width: '100%', backgroundImage: 'linear-gradient(90deg, #3b82f6 25%, #60a5fa 50%, #3b82f6 75%)', backgroundSize: '200% 100%' }}></div>
-          </div>
-        </div>
-      )}
       <Header scrolled={scrolled} />
-      <HeroSection stats={statsData} />
+      <HeroSection stats={statsData} isServerWakingUp={isServerWakingUp} />
       <FeaturesSection />
       <StatsSection stats={statsData} />
       <HowItWorksSection />
@@ -139,7 +118,7 @@ function Header({ scrolled }) {
   );
 }
 
-function HeroSection({ stats }) {
+function HeroSection({ stats, isServerWakingUp }) {
   const driverCount = useCountUp(stats.driverCount, 2000, true);
   const tripCount = useCountUp(stats.tripCount, 2000, true);
   const cityCount = useCountUp(stats.cityCount, 2000, true);
@@ -191,6 +170,22 @@ function HeroSection({ stats }) {
             <div><div className="text-2xl font-extrabold text-gray-900">{tripCount.toLocaleString()}</div><div className="text-sm text-gray-600">Trips</div></div>
             <div><div className="text-2xl font-extrabold text-gray-900">{cityCount.toLocaleString()}</div><div className="text-sm text-gray-600">Cities</div></div>
           </div>
+          {isServerWakingUp && (
+            <div role="status" aria-live="polite" className="mt-8 max-w-md p-4 rounded-2xl bg-blue-50/50 border border-blue-100/50 backdrop-blur-sm animate-fade-up animate-delay-500 flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-blue-100/50 flex items-center justify-center flex-shrink-0 animate-pulse-soft" aria-hidden="true">
+                <HiInformationCircle className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-bold text-gray-900">Connecting to server...</h4>
+                <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                  Our free-tier backend is currently waking up. The stats above will update in just a moment.
+                </p>
+                <div className="mt-3 w-full bg-blue-200/50 h-1 rounded-full overflow-hidden" aria-hidden="true">
+                  <div className="h-full bg-blue-500 rounded-full animate-shimmer" style={{ width: '100%', backgroundImage: 'linear-gradient(90deg, #3b82f6 25%, #60a5fa 50%, #3b82f6 75%)', backgroundSize: '200% 100%' }}></div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce-gentle">
