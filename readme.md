@@ -83,13 +83,19 @@ npm run dev
 
 ## 🌍 Production Deployment
 
-### Backend (e.g., Render)
-1. Set the Build Command to `npm run build` and Start Command to `npm start`.
-2. Add all backend environment variables from your local `.env`.
-3. Set `NODE_ENV=production`.
-4. Ensure `CLIENT_URL` points to your deployed frontend (e.g., `https://my-mate.vercel.app`).
+### Monorepo Setup (Building from Root)
+This project is configured so that you can install and build both the frontend and backend simultaneously from the root directory. This is particularly useful for deployments on platforms like Render.
 
-### Frontend (e.g., Vercel)
-1. Deploy the `frontend/` directory.
-2. Set `VITE_API_URL` to your deployed backend URL (e.g., `https://api.mymate.com/api`).
-3. Set `VITE_RAZORPAY_KEY_ID`.
+### Backend (e.g., Render Web Service)
+1. Create a new Web Service and connect your repository.
+2. Set the **Build Command** to `npm run postinstall` (or `npm install --prefix backend && npm install --prefix frontend && npm run build`).
+3. Set the **Start Command** to `npm start`.
+4. Add all backend environment variables from your local `.env`.
+5. Set `NODE_ENV=production`.
+6. Ensure `CLIENT_URL` points to your deployed frontend (e.g., `https://my-mate.vercel.app` or your Render static site URL).
+
+### Frontend (e.g., Vercel or Render Static Site)
+1. If using **Vercel**, import the repository and set the framework preset to Vite, then configure the Root Directory to `frontend/`.
+2. If using **Render**, create a Static Site. Set the Root Directory to `frontend/`, Build Command to `npm install && npm run build`, and Publish Directory to `dist`.
+3. Set `VITE_API_URL` to your deployed backend URL (e.g., `https://api.mymate.com/api`).
+4. Set `VITE_RAZORPAY_KEY_ID`.
