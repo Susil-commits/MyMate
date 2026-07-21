@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import {
   HiShieldCheck, HiStar, HiLocationMarker, HiClock, HiCurrencyDollar,
   HiUserGroup, HiBadgeCheck, HiArrowRight, HiChevronDown,
-  HiLightningBolt, HiHeart, HiSearch,
+  HiLightningBolt, HiHeart, HiSearch, HiX, HiInformationCircle
 } from "react-icons/hi";
 import { FaCar, FaUserTie, FaHandshake, FaRoad, FaQuoteLeft, FaPhoneAlt, FaEnvelope } from "react-icons/fa";
 import { useScrollReveal, useCountUp } from "../hooks/useAnimations";
@@ -30,6 +30,7 @@ const floatingParticles = Array.from({ length: 20 }, () => ({
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const [statsData, setStatsData] = useState({ driverCount: 0, tripCount: 0, cityCount: 0, averageRating: 0 });
+  const [isServerWakingUp, setIsServerWakingUp] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -38,13 +39,45 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsServerWakingUp(true);
+    }, 1500);
+
     api.get("/drivers/stats").then(({ data }) => {
       setStatsData(data);
-    }).catch(() => {});
+      clearTimeout(timer);
+      setIsServerWakingUp(false);
+    }).catch(() => {
+      clearTimeout(timer);
+      setIsServerWakingUp(false);
+    });
+
+    return () => clearTimeout(timer);
   }, []);
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden">
+      {isServerWakingUp && (
+        <div role="status" aria-live="polite" className="fixed bottom-6 right-6 z-50 animate-slide-in-right max-w-sm w-full bg-white rounded-2xl shadow-2xl border border-blue-100 p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 animate-pulse-soft" aria-hidden="true">
+              <HiInformationCircle className="w-6 h-6 text-blue-500" />
+            </div>
+            <div className="flex-1 pt-1">
+              <h4 className="text-sm font-bold text-gray-900">Server is waking up</h4>
+              <p className="mt-1 text-xs text-gray-600 leading-relaxed">
+                Our backend is hosted on a free tier and may take a few moments to load. This is why counts might appear as 0.
+              </p>
+            </div>
+            <button aria-label="Dismiss notification" onClick={() => setIsServerWakingUp(false)} className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+              <HiX className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+          <div className="mt-4 w-full bg-gray-100 h-1.5 rounded-full overflow-hidden" aria-hidden="true">
+            <div className="h-full bg-blue-500 rounded-full animate-shimmer" style={{ width: '100%', backgroundImage: 'linear-gradient(90deg, #3b82f6 25%, #60a5fa 50%, #3b82f6 75%)', backgroundSize: '200% 100%' }}></div>
+          </div>
+        </div>
+      )}
       <Header scrolled={scrolled} />
       <HeroSection stats={statsData} />
       <FeaturesSection />
