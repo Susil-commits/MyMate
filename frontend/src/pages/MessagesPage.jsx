@@ -27,6 +27,8 @@ export default function MessagesPage() {
   const [loadedId, setLoadedId] = useState(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false); // Add isTyping state
+  const typingTimeoutRef = useRef(null); // Reference for our own typing timeout
   const messagesEndRef = useRef(null);
 
   const socket = useSocket();
@@ -58,6 +60,7 @@ export default function MessagesPage() {
         if (!active) return;
         setMessages(data.messages);
         setLoadedId(conversationId);
+        setIsTyping(false); // Reset typing when switching conversations
         setConversations((prev) =>
           prev.map((c) => (c._id === conversationId ? { ...c, unreadCount: 0 } : c))
         );
@@ -84,7 +87,7 @@ export default function MessagesPage() {
     const handleReceiveMessage = (msg) => {
       if (msg.conversation === conversationId) {
         setMessages((prev) => [...prev, msg]);
-        // Also mark as read in backend optionally, but fetching will do it if user is active
+        setIsTyping(false); // Stop typing when message is received
       }
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c._id === msg.conversation);
@@ -102,15 +105,28 @@ export default function MessagesPage() {
         return prev;
       });
     };
+
+    const handleTypingStart = (data) => {
+      if (data.conversationId === conversationId) setIsTyping(true);
+    };
+
+    const handleTypingStop = (data) => {
+      if (data.conversationId === conversationId) setIsTyping(false);
+    };
+
     socket.on("receive_message", handleReceiveMessage);
+    socket.on("typing_start", handleTypingStart);
+    socket.on("typing_stop", handleTypingStop);
     return () => {
       socket.off("receive_message", handleReceiveMessage);
+      socket.off("typing_start", handleTypingStart);
+      socket.off("typing_stop", handleTypingStop);
     };
   }, [socket, conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isTyping]); // scroll down when typing indicator appears
 
   const handleSend = async (e) => {
     e.preventDefault();
@@ -133,10 +149,25 @@ export default function MessagesPage() {
         )
       );
       setText("");
+      if (socket) socket.emit("typing_stop", conversationId);
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to send");
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleTyping = (e) => {
+    setText(e.target.value);
+    
+    if (socket) {
+      socket.emit("typing_start", conversationId);
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit("typing_stop", conversationId);
+      }, 2000);
     }
   };
 
@@ -291,6 +322,18 @@ export default function MessagesPage() {
                     );
                   })
                 )}
+                
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 px-4 py-3 rounded-2xl rounded-bl-sm flex items-center gap-1.5 w-16">
+                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" />
+                    </div>
+                  </div>
+                )}
+                
                 <div ref={messagesEndRef} />
               </div>
 
@@ -298,7 +341,7 @@ export default function MessagesPage() {
                 <input
                   type="text"
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={handleTyping}
                   placeholder="Type a message..."
                   className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200"
                 />

@@ -35,6 +35,8 @@ export async function uploadToCloudinary(file: Express.Multer.File, folder = "my
         resource_type: "auto",
         use_filename: true,
         unique_filename: true,
+        format: "auto",
+        quality: "auto",
       },
       (error, result) => {
         if (error) return reject(error);

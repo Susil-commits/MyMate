@@ -11,7 +11,7 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
 });
 
-export default function MapDisplay({ pickupLocation, dropLocation }) {
+export default function MapDisplay({ pickupLocation }) {
   const [coords, setCoords] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,7 +31,7 @@ export default function MapDisplay({ pickupLocation, dropLocation }) {
           // Fallback coordinate if not found (e.g. center of India or a default)
           setCoords([20.5937, 78.9629]);
         }
-      } catch (err) {
+      } catch {
         if (active) setCoords([20.5937, 78.9629]);
       } finally {
         if (active) setLoading(false);

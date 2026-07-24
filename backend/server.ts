@@ -7,6 +7,7 @@ import helmet from "helmet";
 import compression from "compression";
 import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
+import cookieParser from "cookie-parser";
 import path from "path";
 import { fileURLToPath } from "url";
 import { morganMiddleware } from "./config/morgan.js";
@@ -63,6 +64,7 @@ app.use(cors({
 }));
 
 app.use(compression());
+app.use(cookieParser());
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(mongoSanitize());

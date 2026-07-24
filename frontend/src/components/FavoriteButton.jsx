@@ -1,14 +1,23 @@
 import { useState, useEffect } from "react";
 import { FaHeart, FaRegHeart } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
 export default function FavoriteButton({ driverId, variant = "icon" }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [fav, setFav] = useState(false);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLoading(false);
+      return;
+    }
     let active = true;
     api
       .get(`/favorites/check/${driverId}`)
@@ -22,11 +31,17 @@ export default function FavoriteButton({ driverId, variant = "icon" }) {
     return () => {
       active = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverId]);
 
   const toggle = async (e) => {
     e.preventDefault();
     e.stopPropagation();
+    if (!user) {
+      toast("Please log in to save favorites", { icon: "🔒" });
+      navigate("/user/login");
+      return;
+    }
     if (toggling || loading) return;
     setToggling(true);
     try {

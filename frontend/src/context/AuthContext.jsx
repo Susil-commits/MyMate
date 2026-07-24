@@ -6,12 +6,11 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [role, setRole] = useState(null);
-  const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
+  // We don't have token in localStorage anymore, so assume loading is true initially to try fetching user
+  const [loading, setLoading] = useState(true);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
 
   const loadUser = useCallback(async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return;
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
@@ -19,27 +18,22 @@ export function AuthProvider({ children }) {
       setNeedsProfileCompletion(
         data.role !== "admin" && data.user && !data.user.profileCompleted
       );
-    } catch (err) {
-      // Only clear token on actual auth failure (401), not on network errors
-      // (Render free-tier cold starts return network errors — keep token so
-      // the user stays logged in when the server comes back up)
-      if (err.response?.status === 401) {
-        localStorage.removeItem("token");
-      }
+    } catch {
+      // If 401, we are just not logged in
+      setUser(null);
+      setRole(null);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // loadUser is async; all setState calls are deferred after await
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUser();
   }, [loadUser]);
 
   const login = async (endpoint, credentials) => {
     const { data } = await api.post(endpoint, credentials);
-    localStorage.setItem("token", data.token);
     setUser(data.user || data.driver || { role: data.role });
     setRole(data.role || data.user?.role || (data.driver ? "driver" : null));
     setNeedsProfileCompletion(data.needsProfileCompletion || false);
@@ -58,8 +52,12 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
+  const logout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      console.error("Logout failed:", err);
+    }
     setUser(null);
     setRole(null);
     setNeedsProfileCompletion(false);

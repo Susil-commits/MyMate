@@ -25,7 +25,10 @@ export const getDrivers = async (req, res) => {
   if (locality) filter.locality = { $regex: locality, $options: "i" };
   if (minExperience) filter.experienceYears = { $gte: Number(minExperience) };
   if (minRating) filter.averageRating = { $gte: Number(minRating) };
-  if (vehicleType) filter.vehicleTypes = vehicleType;
+  if (vehicleType) {
+    const types = String(vehicleType).split(",").map((t) => t.trim()).filter(Boolean);
+    if (types.length) filter.vehicleTypes = { $in: types };
+  }
   if (languages) {
     const langs = String(languages).split(",").map((l) => l.trim()).filter(Boolean);
     if (langs.length) filter.languages = { $in: langs };
@@ -127,6 +130,13 @@ export const updateDriverProfile = async (req, res) => {
   }
 
   await driver.save();
+  
+  // Invalidate search and stats caches since profile changed
+  import("../middleware/cache.js").then(({ clearCachePrefix }) => {
+    clearCachePrefix("drivers");
+    clearCachePrefix("stats");
+  });
+
   const sanitized = sanitizeDriver(driver, { withContact: true });
   res.json({ message: "Profile updated", driver: sanitized });
 };

@@ -1,101 +1,59 @@
-# MyMate - Driver Hiring Platform 🚗
+# MyMate - Local Driver Hiring Platform
 
-MyMate is a comprehensive MERN-stack application that connects users with professional drivers. Whether you need a driver for a few hours (temporary hire) or on a permanent basis, MyMate provides a seamless platform for finding, booking, and reviewing drivers based on locality and experience.
+MyMate is a modern web application designed to connect users with verified local drivers for temporary or long-term hiring.
 
-## ✨ Key Features
+## Key Features
+- **Role-Based Authentication**: Secure access for both Users (customers) and Drivers.
+- **Locality-Based Search**: Find drivers nearby with advanced filtering (experience, rating, vehicle type, hourly/daily rate).
+- **Secure Authentication**: Uses `httpOnly` secure cookies for sessions, preventing XSS and securing tokens.
+- **Real-Time Communication**: WebSocket-powered live messaging between users and drivers.
+- **Booking Management**: Seamlessly book drivers, track booking statuses, and manage payments.
+- **Admin Dashboard**: Comprehensive dashboard for admins to verify KYC and monitor platform statistics.
+- **Progressive Web App (PWA)**: Installable, offline-capable, and optimized for mobile devices with a 90+ Lighthouse score.
+- **High-Performance UI**: Modern and premium design using React, TailwindCSS, and Framer Motion for animations.
 
-### For Users
-- **Browse & Filter:** Search for drivers by locality, experience, rating, and vehicle types.
-- **Booking Flow:** Request drivers for temporary (hourly) or permanent (daily) needs.
-- **Secure Payments:** Integrated Razorpay checkout for fast, reliable payments.
-- **Reviews & Ratings:** Leave reviews for drivers after completing a trip.
-- **Real-time Chat:** Communicate directly with drivers regarding your booking.
+## Tech Stack
+- **Frontend**: React (Vite), TailwindCSS, Framer Motion, Socket.io-client, React Router.
+- **Backend**: Node.js, Express, MongoDB (Mongoose), Socket.io, JSON Web Tokens (JWT).
+- **Performance**: Optimized builds with chunking, compression, and PWA capabilities.
 
-### For Drivers
-- **Profile Management:** Set your hourly/daily rates, vehicle expertise, and experience.
-- **Booking Management:** Accept or reject incoming booking requests.
-- **Earnings & Dashboard:** Track completed jobs, total earnings, and average ratings.
-- **Real-time Notifications:** Get notified instantly of new booking requests.
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend:** React 19, Vite, Tailwind CSS v4, React Router v7, Socket.io-client
-- **Backend:** Node.js, Express, MongoDB (Mongoose), Socket.io, Cloudinary (Image Uploads)
-- **Authentication:** JWT (JSON Web Tokens), bcryptjs
-- **Payments:** Razorpay API
-
----
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) (v18+)
-- [MongoDB](https://www.mongodb.com/) (Local or Atlas)
-- [Razorpay Account](https://razorpay.com/) (For API Keys)
-- [Cloudinary Account](https://cloudinary.com/) (For Image Uploads)
+- Node.js (v16+)
+- MongoDB (running locally or remote)
 
-### 1. Clone & Install Dependencies
-```bash
-git clone <repository-url>
-cd MyMate
+### Installation
+1. Clone the repository
+2. Install backend dependencies: `cd backend && npm install`
+3. Install frontend dependencies: `cd frontend && npm install`
 
-# Install root, backend, and frontend dependencies concurrently
-npm run install:all
+### Environment Variables
+Configure the following in `backend/.env`:
 ```
-
-### 2. Environment Variables
-
-Create a `.env` file in the `backend/` directory:
-```env
-MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=your_super_secret_jwt_string
 PORT=5000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
-RAZORPAY_KEY_ID=your_razorpay_key_id
-RAZORPAY_KEY_SECRET=your_razorpay_key_secret
-CLOUDINARY_CLOUD_NAME=your_cloudinary_name
-CLOUDINARY_API_KEY=your_cloudinary_api_key
-CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-ADMIN_CODE=your_admin_secret_code
+MONGODB_URI=your_mongo_db_uri
+JWT_SECRET=your_jwt_secret
+NODE_ENV=production
+FRONTEND_URL=http://localhost:5173
 ```
 
-Create a `.env` file in the `frontend/` directory:
-```env
+Configure the following in `frontend/.env`:
+```
 VITE_API_URL=http://localhost:5000/api
-VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
 ```
 
-### 3. Run Locally
+### Running the App
+1. Start the backend: `cd backend && npm run dev`
+2. Start the frontend: `cd frontend && npm run dev`
 
-You can run both frontend and backend concurrently from the root folder:
-
+## Production Build
+To prepare for production:
 ```bash
-npm run dev
+cd frontend
+npm run build
 ```
+This generates an optimized static bundle in the `dist` directory.
 
-- **Frontend:** `http://localhost:5173`
-- **Backend:** `http://localhost:5000`
-
----
-
-## 🌍 Production Deployment
-
-### Monorepo Setup (Building from Root)
-This project is configured so that you can install and build both the frontend and backend simultaneously from the root directory. This is particularly useful for deployments on platforms like Render.
-
-### Backend (e.g., Render Web Service)
-1. Create a new Web Service and connect your repository.
-2. Set the **Build Command** to `npm run postinstall` (or `npm install --prefix backend && npm install --prefix frontend && npm run build`).
-3. Set the **Start Command** to `npm start`.
-4. Add all backend environment variables from your local `.env`.
-5. Set `NODE_ENV=production`.
-6. Ensure `CLIENT_URL` points to your deployed frontend (e.g., `https://my-mate.vercel.app` or your Render static site URL).
-
-### Frontend (e.g., Vercel or Render Static Site)
-1. If using **Vercel**, import the repository and set the framework preset to Vite, then configure the Root Directory to `frontend/`.
-2. If using **Render**, create a Static Site. Set the Root Directory to `frontend/`, Build Command to `npm install && npm run build`, and Publish Directory to `dist`.
-3. Set `VITE_API_URL` to your deployed backend URL (e.g., `https://api.mymate.com/api`).
-4. Set `VITE_RAZORPAY_KEY_ID`.
+## License
+MIT

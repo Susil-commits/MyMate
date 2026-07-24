@@ -1,10 +1,12 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { Suspense, lazy } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ProtectedRoute, PublicRoute } from "./ProtectedRoute";
 const UserLayout = lazy(() => import("../layouts/UserLayout"));
 const DriverLayout = lazy(() => import("../layouts/DriverLayout"));
 const AdminLayout = lazy(() => import("../layouts/AdminLayout"));
 const RoleLayout = lazy(() => import("../layouts/RoleLayout"));
+const SearchLayout = lazy(() => import("../layouts/SearchLayout"));
 const LandingPage = lazy(() => import("../pages/LandingPage"));
 const UserLoginPage = lazy(() => import("../pages/UserLoginPage"));
 const UserRegisterPage = lazy(() => import("../pages/UserRegisterPage"));
@@ -31,7 +33,7 @@ const ForgotPasswordPage = lazy(() => import("../pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
-
+import { OptionalRoute } from "./OptionalRoute";
 import ErrorBoundary from "./ErrorBoundary";
 
 const PageLoader = () => (
@@ -42,13 +44,19 @@ const PageLoader = () => (
 
 const PageWrapper = ({ children }) => {
   return (
-    <div className="h-full w-full page-enter">
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -15 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
+      className="h-full w-full"
+    >
       <ErrorBoundary>
         <Suspense fallback={<PageLoader />}>
           {children}
         </Suspense>
       </ErrorBoundary>
-    </div>
+    </motion.div>
   );
 };
 
@@ -56,7 +64,8 @@ export default function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <Routes location={location} key={location.pathname}>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PageWrapper><LandingPage /></PageWrapper>} />
 
         <Route path="/user/login" element={<PublicRoute><PageWrapper><UserLoginPage /></PageWrapper></PublicRoute>} />
@@ -68,11 +77,16 @@ export default function AnimatedRoutes() {
         <Route path="/reset-password/:token" element={<PageWrapper><ResetPasswordPage /></PageWrapper>} />
         <Route path="/verify-email" element={<PageWrapper><VerifyEmailPage /></PageWrapper>} />
 
+        <Route element={<OptionalRoute allowedRole="user" />}>
+          <Route element={<SearchLayout />}>
+            <Route path="/drivers" element={<PageWrapper><DriverSearchPage /></PageWrapper>} />
+            <Route path="/drivers/:id" element={<PageWrapper><DriverProfilePage /></PageWrapper>} />
+          </Route>
+        </Route>
+
         <Route element={<ProtectedRoute allowedRole="user" />}>
           <Route element={<UserLayout />}>
             <Route path="/complete-profile" element={<PageWrapper><CompleteUserProfile /></PageWrapper>} />
-            <Route path="/drivers" element={<PageWrapper><DriverSearchPage /></PageWrapper>} />
-            <Route path="/drivers/:id" element={<PageWrapper><DriverProfilePage /></PageWrapper>} />
             <Route path="/bookings" element={<PageWrapper><BookingsPage /></PageWrapper>} />
             <Route path="/favorites" element={<PageWrapper><FavoritesPage /></PageWrapper>} />
             <Route path="/profile" element={<PageWrapper><UserProfilePage /></PageWrapper>} />
@@ -107,6 +121,7 @@ export default function AnimatedRoutes() {
 
         <Route path="*" element={<PageWrapper><NotFoundPage /></PageWrapper>} />
       </Routes>
+    </AnimatePresence>
   );
 }
 

@@ -50,6 +50,7 @@ export default function MapSelector({ label, value, onChange }) {
     if (address !== value) {
       onChange(address);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [address]);
 
   // Initial geocode if there's a string value but no position
@@ -63,6 +64,7 @@ export default function MapSelector({ label, value, onChange }) {
         })
         .catch(() => {});
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

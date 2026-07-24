@@ -80,6 +80,10 @@ driverSchema.methods.toJSON = function () {
   return obj;
 };
 
-driverSchema.index({ locality: 1, averageRating: -1, experienceYears: -1 });
+// Optimized Compound Indexes for search performance
+// 1. Exact match fields (kycStatus, isActive) must come first.
+// 2. Sorting fields or secondary filters come next.
+driverSchema.index({ kycStatus: 1, isActive: 1, locality: 1, averageRating: -1, experienceYears: -1 });
+driverSchema.index({ kycStatus: 1, isActive: 1, vehicleTypes: 1 });
 
 export default mongoose.model("Driver", driverSchema);

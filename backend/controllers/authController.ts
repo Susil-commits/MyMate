@@ -9,6 +9,15 @@ import { sanitizeDriver } from "../utils/sanitize.js";
 
 const VERIFY_EXPIRE = 24 * 60 * 60 * 1000;
 
+function setTokenCookie(res, token) {
+  res.cookie("token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+  });
+}
+
 function makeVerificationToken() {
   const token = crypto.randomBytes(32).toString("hex");
   const hashed = crypto.createHash("sha256").update(token).digest("hex");
@@ -45,7 +54,8 @@ export const userLogin = async (req, res) => {
     return res.status(403).json({ message: "Your account has been deactivated. Contact support." });
   }
   const token = generateToken(user, "user");
-  res.json({ token, role: "user", user, needsProfileCompletion: !user.profileCompleted });
+  setTokenCookie(res, token);
+  res.json({ role: "user", user, needsProfileCompletion: !user.profileCompleted });
 };
 
 export const completeUserProfile = async (req, res) => {
@@ -73,7 +83,8 @@ export const driverLogin = async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
   const token = generateToken(driver, "driver");
-  res.json({ token, role: "driver", driver, needsProfileCompletion: !driver.profileCompleted });
+  setTokenCookie(res, token);
+  res.json({ role: "driver", driver, needsProfileCompletion: !driver.profileCompleted });
 };
 
 export const completeDriverProfile = async (req, res) => {
@@ -118,7 +129,16 @@ export const adminLogin = async (req, res) => {
     return res.status(401).json({ message: "Invalid admin code" });
   }
   const token = generateToken(null, "admin");
-  res.json({ token, role: "admin" });
+  setTokenCookie(res, token);
+  res.json({ role: "admin" });
+};
+
+export const logout = (req, res) => {
+  res.cookie("token", "", {
+    httpOnly: true,
+    expires: new Date(0),
+  });
+  res.json({ message: "Logged out successfully" });
 };
 
 export const getMe = async (req, res) => {
@@ -153,7 +173,8 @@ export const resetPassword = async (req, res) => {
   account.tokenVersion = (account.tokenVersion || 0) + 1;
   await account.save();
   const newToken = generateToken(account, role);
-  res.json({ token: newToken, role });
+  setTokenCookie(res, newToken);
+  res.json({ role });
 };
 
 export const verifyEmail = async (req, res) => {

@@ -10,13 +10,13 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (user) {
-      const token = localStorage.getItem("token");
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
       const socketUrl = apiUrl.replace(/\/api\/?$/, ""); // Remove /api from the end for socket origin
       const socketInstance = io(socketUrl, {
-        auth: { token },
+        withCredentials: true,
       });
 
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSocket(socketInstance);
 
       return () => {
@@ -28,6 +28,7 @@ export const SocketProvider = ({ children }) => {
         setSocket(null);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (

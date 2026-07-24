@@ -9,10 +9,12 @@ import { SkeletonProfile } from "../components/SkeletonLoader";
 import api from "../api/axios";
 import { hireTypes } from "../utils/constants";
 import toast from "react-hot-toast";
+import { useAuth } from "../context/AuthContext";
 
 export default function DriverProfilePage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [driver, setDriver] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -67,6 +69,11 @@ export default function DriverProfilePage() {
   };
 
   const handleStartConversation = async () => {
+    if (!user) {
+      toast("Please log in to message drivers", { icon: "🔒" });
+      navigate("/user/login");
+      return;
+    }
     setMessaging(true);
     try {
       const { data } = await api.post("/messages/conversations", { recipientId: id });
@@ -151,7 +158,14 @@ export default function DriverProfilePage() {
                     Message
                   </button>
                   <button
-                    onClick={() => setShowBooking(true)}
+                    onClick={() => {
+                      if (!user) {
+                        toast("Please log in to book drivers", { icon: "🔒" });
+                        navigate("/user/login");
+                        return;
+                      }
+                      setShowBooking(true);
+                    }}
                     disabled={driver.availability !== "available"}
                     className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5"
                   >
@@ -302,11 +316,3 @@ function Stat({ icon, label, value, color }) {
   );
 }
 
-function Field({ label, value, onChange, required }) {
-  return (
-    <div>
-      <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
- <input type="text" required={required} value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
-    </div>
-  );
-}

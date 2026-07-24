@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 export default function PwaReloadPrompt() {
   const {
     offlineReady: [offlineReady, setOfflineReady],
-    needRefresh: [needRefresh, setNeedRefresh],
+    needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
     onRegistered(r) {
@@ -22,19 +22,22 @@ export default function PwaReloadPrompt() {
       setOfflineReady(false)
     } else if (needRefresh) {
       toast((t) => (
-        <div className="flex items-center gap-4 flex-col sm:flex-row">
-          <span className="text-sm font-medium">New version available!</span>
+        <div className="flex items-center justify-between gap-4 w-full">
+          <div className="flex flex-col">
+            <span className="text-sm font-bold text-gray-900">Update Available!</span>
+            <span className="text-xs text-gray-500">A new version of MyMate is ready.</span>
+          </div>
           <button
-            className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition"
+            className="bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow active:scale-95"
             onClick={() => {
               updateServiceWorker(true)
               toast.dismiss(t.id)
             }}
           >
-            Reload
+            Update
           </button>
         </div>
-      ), { duration: Infinity, position: 'bottom-right' })
+      ), { duration: Infinity, position: 'bottom-right', style: { padding: '16px', borderRadius: '16px', border: '1px solid #f3f4f6', boxShadow: '0 20px 40px rgba(0,0,0,0.08)' } })
     }
   }, [offlineReady, needRefresh, updateServiceWorker, setOfflineReady])
 

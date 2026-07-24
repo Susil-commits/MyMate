@@ -1,15 +1,20 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { HiCurrencyDollar, HiClipboardList, HiCheck, HiUsers } from "react-icons/hi";
+import { HiCurrencyDollar, HiClipboardList, HiCheck } from "react-icons/hi";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import { SkeletonDashboard } from "../components/SkeletonLoader";
 
+import { useAuth } from "../context/AuthContext";
+import toast from "react-hot-toast";
+
 export default function DriverDashboard() {
+  const { user: driver, loadUser } = useAuth();
   const [stats, setStats] = useState({ totalBookings: 0, completedBookings: 0, earnings: 0, pendingBookings: 0 });
   const [recentBookings, setRecentBookings] = useState([]);
   const [wallet, setWallet] = useState({ balance: 0, transactions: [] });
   const [loading, setLoading] = useState(true);
+  const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -24,8 +29,8 @@ export default function DriverDashboard() {
         setStats(statsRes.data);
         setRecentBookings(bookingsRes.data.bookings);
         setWallet({ balance: walletRes.data.walletBalance, transactions: walletRes.data.transactions });
-      } catch (err) {
-        if (active) console.error("Failed to load dashboard:", err);
+      } catch {
+        if (active) console.error("Failed to load dashboard");
       } finally {
         if (active) setLoading(false);
       }
@@ -35,6 +40,21 @@ export default function DriverDashboard() {
       active = false;
     };
   }, []);
+
+  const handleToggleAvailability = async () => {
+    if (updatingStatus) return;
+    setUpdatingStatus(true);
+    const newStatus = driver?.availability === "available" ? "offline" : "available";
+    try {
+      await api.put("/drivers/profile", { availability: newStatus });
+      await loadUser(); // refresh user in context
+      toast.success(`You are now ${newStatus}`);
+    } catch {
+      toast.error("Failed to update status");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -47,13 +67,34 @@ export default function DriverDashboard() {
     );
   }
 
+  const isAvailable = driver?.availability === "available";
+
   return (
     <div className="animate-fade-in">
-      <h1 className="text-3xl font-extrabold text-gray-900">
-        <span className="gradient-text">Dashboard</span>
-      </h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h1 className="text-3xl font-extrabold text-gray-900">
+          <span className="gradient-text">Dashboard</span>
+        </h1>
+        
+        {/* Live Availability Toggle */}
+        <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+          <span className="text-sm font-bold text-gray-700">Status:</span>
+          <button
+            onClick={handleToggleAvailability}
+            disabled={updatingStatus}
+            className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors duration-300 focus:outline-none ${isAvailable ? "bg-green-500" : "bg-gray-300"} disabled:opacity-50`}
+          >
+            <span
+              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-300 ${isAvailable ? "translate-x-6" : "translate-x-1"}`}
+            />
+          </button>
+          <span className={`text-sm font-bold ${isAvailable ? "text-green-600" : "text-gray-500"} min-w-[70px]`}>
+            {isAvailable ? "Online" : "Offline"}
+          </span>
+        </div>
+      </div>
 
- <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={<HiClipboardList />} label="Total Bookings" value={stats.totalBookings} bg="bg-blue-500" />
         <StatCard icon={<HiCheck />} label="Completed" value={stats.completedBookings} bg="bg-green-500" />
         <StatCard icon={<HiCurrencyDollar />} label="Wallet Balance" value={`₹${wallet.balance.toLocaleString("en-IN")}`} bg="bg-indigo-500" />

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import {
   HiShieldCheck, HiStar, HiLocationMarker, HiClock, HiCurrencyDollar,
   HiUserGroup, HiBadgeCheck, HiArrowRight, HiChevronDown,
-  HiLightningBolt, HiHeart, HiSearch, HiX, HiInformationCircle
+  HiLightningBolt, HiHeart, HiSearch, HiInformationCircle
 } from "react-icons/hi";
 import { FaCar, FaUserTie, FaHandshake, FaRoad, FaQuoteLeft, FaPhoneAlt, FaEnvelope } from "react-icons/fa";
 import { useScrollReveal, useCountUp } from "../hooks/useAnimations";

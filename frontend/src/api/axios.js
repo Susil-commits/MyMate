@@ -3,13 +3,11 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
+  // We now use httpOnly cookies for the JWT, so no need to attach the Authorization header manually.
   return config;
 });
 
@@ -21,8 +19,7 @@ api.interceptors.response.use(
       // hard-redirect (avoids double-redirect + state loss on cold starts)
       const isAuthMe = error.config?.url?.includes("/auth/me");
       if (!isAuthMe) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        // We still redirect to login page if unauthorized (401)
         const path = window.location.pathname;
         if (!path.includes("/login")) {
           const login =

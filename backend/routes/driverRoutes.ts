@@ -9,11 +9,13 @@ import {
 } from "../controllers/driverController.js";
 import { protect, authorizeDriver } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
+import { cacheMiddleware } from "../middleware/cache.js";
 
 const router = Router();
 
-router.get("/", getDrivers);
-router.get("/stats", getPublicStats);
+// Cache search results for 2 minutes (120 seconds), stats for 5 minutes (300 seconds)
+router.get("/", cacheMiddleware("drivers", 120), getDrivers);
+router.get("/stats", cacheMiddleware("stats", 300), getPublicStats);
 router.get("/wallet", protect, authorizeDriver, getWalletTransactions);
 router.get("/:id", getDriverById);
 router.put("/profile", protect, authorizeDriver, upload.fields([

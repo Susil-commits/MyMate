@@ -1,28 +1,16 @@
 import { useState } from "react";
-import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { FaUserTie } from "react-icons/fa";
+import { Outlet, Link, useLocation } from "react-router-dom";
+import { FaCar } from "react-icons/fa";
 import { HiMenu, HiX } from "react-icons/hi";
-import NotificationBell from "../components/NotificationBell";
 import ThemeToggle from "../components/ThemeToggle";
 import PageTransition from "../components/PageTransition";
 
-export default function DriverLayout() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+export default function GuestLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
-
   const links = [
-    { to: "/driver/dashboard", label: "Dashboard" },
-    { to: "/driver/bookings", label: "Bookings" },
-    { to: "/messages", label: "Messages" },
-    { to: "/driver/profile", label: "Profile" },
+    { to: "/drivers", label: "Find Drivers" },
   ];
 
   const isActive = (to) =>
@@ -38,17 +26,17 @@ export default function DriverLayout() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
- className="md:hidden p-2 rounded-xl hover:text-gray-700 transition-colors"
+                className="md:hidden p-2 rounded-xl hover:text-gray-700 transition-colors"
                 aria-label="Toggle menu"
               >
- {mobileOpen ? <HiX className="w-5 h-5 text-gray-600 " /> : <HiMenu className="w-5 h-5 text-gray-600 " />}
+                {mobileOpen ? <HiX className="w-5 h-5 text-gray-600 dark:text-gray-300" /> : <HiMenu className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               </button>
-              <Link to="/driver/dashboard" className="flex items-center gap-2 group">
-                <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <FaUserTie className="text-white text-sm" />
+              <Link to="/" className="flex items-center gap-2 group">
+                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FaCar className="text-white text-sm" />
                 </div>
- <span className="text-xl font-extrabold ">
-                  <span className="text-green-600">My</span>Mate
+                <span className="text-xl font-extrabold dark:text-white">
+                  <span className="text-blue-600">My</span>Mate
                 </span>
               </Link>
             </div>
@@ -60,8 +48,8 @@ export default function DriverLayout() {
                   to={link.to}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-green-50 text-green-600"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
                   }`}
                 >
                   {link.label}
@@ -69,26 +57,27 @@ export default function DriverLayout() {
               ))}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <ThemeToggle />
-              <NotificationBell />
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
-                  {user?.name?.charAt(0)}
-                </div>
-                <span className="text-sm font-medium text-gray-700">{user?.name}</span>
+              <div className="flex items-center gap-2">
+                <Link
+                  to="/user/login"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:text-blue-600 transition-colors"
+                >
+                  Log In
+                </Link>
+                <Link
+                  to="/user/register"
+                  className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm shadow-blue-200 dark:shadow-none"
+                >
+                  Sign Up
+                </Link>
               </div>
-              <button
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200"
-              >
-                Logout
-              </button>
             </div>
           </div>
 
           {mobileOpen && (
- <div className="md:hidden pb-4 border-t border-gray-100 pt-3 animate-slide-in-left">
+            <div className="md:hidden pb-4 border-t border-gray-100 dark:border-gray-800 pt-3 animate-slide-in-left">
               {links.map((link) => (
                 <Link
                   key={link.to}
@@ -96,8 +85,8 @@ export default function DriverLayout() {
                   onClick={() => setMobileOpen(false)}
                   className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-green-50 text-green-600 "
-                      : "text-gray-600 hover:text-gray-700 "
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-600 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                   }`}
                 >
                   {link.label}

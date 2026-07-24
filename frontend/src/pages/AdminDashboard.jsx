@@ -220,17 +220,3 @@ function Stat({ icon, label, value, sub, bg, pulse }) {
   );
 }
 
-function Row({ label, value, color, total }) {
-  const width = total > 0 ? (value / total) * 100 : 0;
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-medium text-gray-600">{label}</span>
-        <span className="text-xs font-semibold text-gray-700">{value}</span>
-      </div>
-      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-        <div className={`h-full ${color} rounded-full transition-all duration-1000 ease-out`} style={{ width: `${width}%` }} />
-      </div>
-    </div>
-  );
-}

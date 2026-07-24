@@ -56,6 +56,14 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
       socket.leave(`conv_${conversationId}`);
     });
 
+    socket.on("typing_start", (conversationId: string) => {
+      socket.to(`conv_${conversationId}`).emit("typing_start", { conversationId, userId: socket.user?.id });
+    });
+
+    socket.on("typing_stop", (conversationId: string) => {
+      socket.to(`conv_${conversationId}`).emit("typing_stop", { conversationId, userId: socket.user?.id });
+    });
+
     socket.on("disconnect", () => {
       console.log(`Socket disconnected: ${socket.id}`);
     });

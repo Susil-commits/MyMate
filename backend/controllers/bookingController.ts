@@ -224,6 +224,44 @@ export const updateBookingStatus = async (req, res) => {
     });
   }
 
+  if (status === "cancelled" && booking.paymentStatus === "paid") {
+    try {
+      const Payment = (await import("../models/Payment.js")).default;
+      const Razorpay = (await import("razorpay")).default;
+      const WalletTransaction = (await import("../models/WalletTransaction.js")).default;
+      const Driver = (await import("../models/Driver.js")).default;
+
+      const payment = await Payment.findOne({ booking: booking._id, status: "completed" });
+      if (payment && payment.razorpayPaymentId) {
+        if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+          const rzp = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET,
+          });
+          await rzp.payments.refund(payment.razorpayPaymentId, {
+            amount: Math.round(payment.amount * 100),
+          });
+          payment.status = "refunded";
+          await payment.save();
+          booking.paymentStatus = "refunded";
+
+          // Deduct from driver wallet since booking was cancelled
+          const driverAmount = booking.totalAmount * 0.9;
+          await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: -driverAmount } });
+          await WalletTransaction.create({
+            driver: booking.driver,
+            type: "debit",
+            amount: driverAmount,
+            description: `Refund deduction for cancelled booking ${booking._id}`,
+            booking: booking._id,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Auto-refund failed on cancellation:", err);
+    }
+  }
+
   booking.status = status;
   if (req.body.cancellationReason) booking.cancellationReason = req.body.cancellationReason;
   await booking.save();

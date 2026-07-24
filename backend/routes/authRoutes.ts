@@ -13,6 +13,7 @@ import {
   resetPassword,
   verifyEmail,
   resendVerification,
+  logout,
 } from "../controllers/authController.js";
 import { protect, authorizeUser, authorizeDriver } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
@@ -44,5 +45,6 @@ router.post("/forgot-password", forgotPasswordValidator, forgotPassword);
 router.post("/reset-password", resetPasswordValidator, resetPassword);
 router.post("/verify-email", verifyEmail);
 router.post("/resend-verification", forgotPasswordValidator, resendVerification);
+router.post("/logout", logout);
 
 export default router;
