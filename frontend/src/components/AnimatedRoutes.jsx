@@ -33,6 +33,7 @@ const ForgotPasswordPage = lazy(() => import("../pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("../pages/ResetPasswordPage"));
 const VerifyEmailPage = lazy(() => import("../pages/VerifyEmailPage"));
 const NotFoundPage = lazy(() => import("../pages/NotFoundPage"));
+const WalletPage = lazy(() => import("../pages/WalletPage"));
 import { OptionalRoute } from "./OptionalRoute";
 import ErrorBoundary from "./ErrorBoundary";
 
@@ -90,6 +91,7 @@ export default function AnimatedRoutes() {
             <Route path="/bookings" element={<PageWrapper><BookingsPage /></PageWrapper>} />
             <Route path="/favorites" element={<PageWrapper><FavoritesPage /></PageWrapper>} />
             <Route path="/profile" element={<PageWrapper><UserProfilePage /></PageWrapper>} />
+            <Route path="/wallet" element={<PageWrapper><WalletPage /></PageWrapper>} />
           </Route>
         </Route>
 
@@ -107,6 +109,7 @@ export default function AnimatedRoutes() {
             <Route path="/driver/dashboard" element={<PageWrapper><DriverDashboard /></PageWrapper>} />
             <Route path="/driver/bookings" element={<PageWrapper><DriverBookingsPage /></PageWrapper>} />
             <Route path="/driver/profile" element={<PageWrapper><DriverProfileEdit /></PageWrapper>} />
+            <Route path="/driver/wallet" element={<PageWrapper><WalletPage /></PageWrapper>} />
           </Route>
         </Route>
 

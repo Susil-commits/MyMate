@@ -207,3 +207,68 @@ export const refundPayment = async (req, res) => {
 
   res.json({ message: "Refund processed successfully" });
 };
+
+export const payWithWallet = async (req, res) => {
+  const { bookingId } = req.body;
+  const booking = await Booking.findById(bookingId);
+  if (!booking) return res.status(404).json({ message: "Booking not found" });
+  if (String(booking.user) !== String(req.user._id)) {
+    return res.status(403).json({ message: "Not authorized" });
+  }
+  if (booking.paymentStatus === "paid") {
+    return res.status(400).json({ message: "This booking is already paid" });
+  }
+  if (["cancelled", "rejected"].includes(booking.status)) {
+    return res.status(400).json({ message: "Cannot pay for a cancelled booking" });
+  }
+  if (!booking.totalAmount || booking.totalAmount <= 0) {
+    return res.status(400).json({ message: "Invalid booking amount" });
+  }
+
+  const user = await User.findById(req.user._id);
+  if (user.walletBalance < booking.totalAmount) {
+    return res.status(400).json({ message: "Insufficient wallet balance" });
+  }
+
+  // Deduct from user wallet
+  user.walletBalance -= booking.totalAmount;
+  await user.save();
+
+  await WalletTransaction.create({
+    owner: user._id,
+    ownerModel: "User",
+    type: "debit",
+    amount: booking.totalAmount,
+    description: `Payment for booking ${booking._id}`,
+    referenceId: booking._id,
+  });
+
+  booking.paymentStatus = "paid";
+  await booking.save();
+
+  // Credit Driver Wallet (90%)
+  const driverAmount = booking.totalAmount * 0.9;
+  await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
+  
+  await WalletTransaction.create({
+    owner: booking.driver,
+    ownerModel: "Driver",
+    type: "credit",
+    amount: driverAmount,
+    description: `Earnings for booking ${booking._id} (after 10% fee)`,
+    referenceId: booking._id,
+  });
+
+  const driverUser = await Driver.findById(booking.driver).select("name email");
+  
+  createNotification({
+    userId: booking.driver, userModel: "Driver",
+    title: "Payment Received",
+    message: `Payment of ₹${booking.totalAmount} received (paid via Wallet). ₹${driverAmount.toFixed(2)} added to your wallet.`,
+    type: "payment", link: `/bookings/${booking._id}`,
+  }).catch(() => {});
+  
+  if (driverUser && user) sendBookingStatusUpdate(user, driverUser, booking, "paid").catch(() => {});
+
+  res.json({ message: "Payment successful using wallet" });
+};

@@ -5,6 +5,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { vehicleTypes } from "../utils/constants";
 import toast from "react-hot-toast";
+import TwoFactorSettings from "../components/TwoFactorSettings";
 
 export default function DriverProfileEdit() {
   const { user, loadUser } = useAuth();
@@ -259,6 +260,10 @@ export default function DriverProfileEdit() {
           {savingPw ? "Changing..." : "Change Password"}
         </button>
       </form>
+
+      <div className="mt-6">
+        <TwoFactorSettings />
+      </div>
     </div>
   );
 }

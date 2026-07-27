@@ -19,8 +19,22 @@ const bookingSchema = new mongoose.Schema(
     endDate: { type: Date, default: null },
     pickupLocation: { type: String, required: true, trim: true },
     dropLocation: { type: String, trim: true, default: "" },
+    stops: [{ type: String, trim: true }],
     purpose: { type: String, required: true, trim: true },
+    
+    // Pricing
+    baseAmount: { type: Number, default: 0 },
+    surgeMultiplier: { type: Number, default: 1 },
     totalAmount: { type: Number, default: 0 },
+    promoCode: { type: String, default: null },
+    discountAmount: { type: Number, default: 0 },
+    
+    // Recurring
+    isRecurring: { type: Boolean, default: false },
+    recurringPattern: { type: String, enum: ["none", "daily", "weekly"], default: "none" },
+    recurringEndDate: { type: Date, default: null },
+    recurringGroupId: { type: String, default: null },
+
     cancellationReason: { type: String, default: "", trim: true },
     paymentStatus: {
       type: String,

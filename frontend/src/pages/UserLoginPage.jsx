@@ -28,6 +28,10 @@ export default function UserLoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const [step, setStep] = useState(1);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [twoFactorToken, setTwoFactorToken] = useState("");
+
   const { register, handleSubmit, formState: { errors } } = useForm({
     resolver: zodResolver(loginSchema),
   });
@@ -35,11 +39,35 @@ export default function UserLoginPage() {
   const onSubmit = async (data) => {
     setSubmitting(true);
     try {
-      await login("/auth/user/login", data);
+      const result = await login("/auth/user/login", data);
+      if (result && result.requires2FA) {
+        setLoginEmail(result.email);
+        setStep(2);
+        toast("Please enter your 2FA code", { icon: "🔒" });
+      } else {
+        toast.success("Welcome back!");
+        navigate("/drivers");
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Login failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onVerify2FA = async (e) => {
+    e.preventDefault();
+    if (!twoFactorToken || twoFactorToken.length < 6) {
+      toast.error("Please enter a valid 2FA code");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await login("/2fa/verify-login", { email: loginEmail, token: twoFactorToken, role: "user" });
       toast.success("Welcome back!");
       navigate("/drivers");
     } catch (err) {
-      toast.error(err.response?.data?.message || "Login failed");
+      toast.error(err.response?.data?.message || "Verification failed");
     } finally {
       setSubmitting(false);
     }
@@ -63,44 +91,70 @@ export default function UserLoginPage() {
 
         <div className="bg-white rounded-3xl shadow-xl shadow-black/[0.04] border border-gray-100 p-8">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/15">
-            <FaCar className="text-white text-lg" />
+            {step === 1 ? <FaCar className="text-white text-lg" /> : <HiLockClosed className="text-white text-lg" />}
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Welcome back</h1>
-          <p className="text-gray-500 text-sm mb-8">Sign in to find and hire drivers.</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">{step === 1 ? "Welcome back" : "Two-Factor Auth"}</h1>
+          <p className="text-gray-500 text-sm mb-8">{step === 1 ? "Sign in to find and hire drivers." : "Enter the code from your authenticator app."}</p>
 
-          <form toolname="user_login" tooldescription="Log in as a user" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
-              <div className="relative">
-                <HiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input 
-                  id="email"
-                  type="email" 
-                  {...register("email")} 
-                  placeholder="your@email.com" 
-                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.email ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
-                />
+          {step === 1 ? (
+            <form toolname="user_login" tooldescription="Log in as a user" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              <div>
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
+                <div className="relative">
+                  <HiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+                  <input 
+                    id="email"
+                    type="email" 
+                    {...register("email")} 
+                    placeholder="your@email.com" 
+                    className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.email ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
+                  />
+                </div>
+                {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
               </div>
-              {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input 
-                  id="password"
-                  type="password" 
-                  {...register("password")} 
-                  placeholder="••••••••" 
-                  className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.password ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
-                />
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
+                <div className="relative">
+                  <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+                  <input 
+                    id="password"
+                    type="password" 
+                    {...register("password")} 
+                    placeholder="••••••••" 
+                    className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.password ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
+                  />
+                </div>
+                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
               </div>
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-            </div>
-            <button type="submit" disabled={submitting} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
-              {submitting ? "Signing in..." : "Sign In"}
-            </button>
-          </form>
+              <button type="submit" disabled={submitting} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
+                {submitting ? "Signing in..." : "Sign In"}
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={onVerify2FA} className="space-y-5">
+              <div>
+                <label htmlFor="token" className="block text-sm font-semibold text-gray-700 mb-1.5">Authentication Code</label>
+                <div className="relative">
+                  <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
+                  <input 
+                    id="token"
+                    type="text" 
+                    value={twoFactorToken}
+                    onChange={(e) => setTwoFactorToken(e.target.value)}
+                    placeholder="000000" 
+                    maxLength={6}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 focus:ring-blue-500/20 focus:border-blue-500 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200 text-center tracking-[0.5em] text-lg font-bold"
+                  />
+                </div>
+              </div>
+              <button type="submit" disabled={submitting} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
+                {submitting ? "Verifying..." : "Verify Code"}
+              </button>
+              <button type="button" onClick={() => setStep(1)} className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm font-medium transition-colors">
+                Back to Login
+              </button>
+            </form>
+          )}
 
           <p className="mt-6 text-center text-sm text-gray-500">
             <Link to="/forgot-password" className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">Forgot password?</Link>

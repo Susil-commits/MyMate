@@ -25,8 +25,15 @@ export default function DriverProfilePage() {
     endDate: "",
     pickupLocation: "",
     dropLocation: "",
+    stops: [],
     purpose: "",
+    promoCode: "",
+    isRecurring: false,
+    recurringPattern: "none",
+    recurringEndDate: "",
   });
+  const [promoData, setPromoData] = useState(null);
+  const [validatingPromo, setValidatingPromo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [messaging, setMessaging] = useState(false);
 
@@ -52,7 +59,11 @@ export default function DriverProfilePage() {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await api.post("/bookings", { driverId: id, ...bookingForm });
+      await api.post("/bookings", { 
+        driverId: id, 
+        ...bookingForm,
+        promoCode: promoData?.code || bookingForm.promoCode 
+      });
       toast.success("Booking request sent!");
       setShowBooking(false);
       navigate("/bookings");
@@ -65,6 +76,21 @@ export default function DriverProfilePage() {
       }
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const validatePromo = async () => {
+    if (!bookingForm.promoCode) return;
+    setValidatingPromo(true);
+    try {
+      const { data } = await api.post("/promos/validate", { code: bookingForm.promoCode });
+      setPromoData(data.promo);
+      toast.success("Promo code applied!");
+    } catch (err) {
+      setPromoData(null);
+      toast.error(err.response?.data?.message || "Invalid promo code");
+    } finally {
+      setValidatingPromo(false);
     }
   };
 
@@ -123,6 +149,22 @@ export default function DriverProfilePage() {
     }
     const days = end ? Math.ceil((end - start) / (1000 * 60 * 60 * 24)) : 30;
     return days * (driver.dailyRate || 0);
+  })();
+
+  const surgeMultiplier = (() => {
+    if (!bookingForm.startDate) return 1;
+    const hour = new Date(bookingForm.startDate).getHours();
+    if ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19)) return 1.5;
+    if (hour >= 23 || hour <= 5) return 1.25;
+    return 1;
+  })();
+
+  const estimatedAmountWithSurge = estimatedAmount * surgeMultiplier;
+
+  const discountedAmount = (() => {
+    if (!promoData || estimatedAmountWithSurge <= 0) return estimatedAmountWithSurge;
+    const discount = Math.min((estimatedAmountWithSurge * promoData.discountPercentage) / 100, promoData.maxDiscount);
+    return estimatedAmountWithSurge - discount;
   })();
 
   return (
@@ -240,22 +282,112 @@ export default function DriverProfilePage() {
                 </div>
               </div>
               <MapSelector label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} />
+              
+              {bookingForm.stops.map((stop, index) => (
+                <div key={index} className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <MapSelector 
+                      label={`Stop ${index + 1}`} 
+                      value={stop} 
+                      onChange={(v) => {
+                        const newStops = [...bookingForm.stops];
+                        newStops[index] = v;
+                        setBookingForm({ ...bookingForm, stops: newStops });
+                      }} 
+                    />
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => setBookingForm({ ...bookingForm, stops: bookingForm.stops.filter((_, i) => i !== index) })}
+                    className="mb-1 p-3 text-red-500 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-100"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              
+              <button
+                type="button"
+                onClick={() => setBookingForm({ ...bookingForm, stops: [...bookingForm.stops, ""] })}
+                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+              >
+                + Add Stop
+              </button>
+
               <MapSelector label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
+              
+              <div className="pt-4 border-t border-gray-100">
+                <label className="flex items-center gap-2 cursor-pointer mb-3">
+                  <input type="checkbox" checked={bookingForm.isRecurring} onChange={(e) => setBookingForm({ ...bookingForm, isRecurring: e.target.checked })} className="w-4 h-4 text-blue-600 rounded" />
+                  <span className="text-sm font-semibold text-gray-700">Make this a recurring booking</span>
+                </label>
+                
+                {bookingForm.isRecurring && (
+                  <div className="grid grid-cols-2 gap-4 animate-scale-in">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Pattern</label>
+                      <select value={bookingForm.recurringPattern} onChange={(e) => setBookingForm({ ...bookingForm, recurringPattern: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option value="none">Select Pattern</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1.5">Until Date</label>
+                      <input type="date" required={bookingForm.isRecurring} min={bookingForm.startDate || undefined} value={bookingForm.recurringEndDate} onChange={(e) => setBookingForm({ ...bookingForm, recurringEndDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Purpose</label>
   <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
               </div>
-              {bookingForm.startDate && estimatedAmount > 0 && (
+              {bookingForm.startDate && estimatedAmountWithSurge > 0 && (
                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                  {surgeMultiplier > 1 && (
+                    <div className="mb-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-orange-100 text-orange-800">
+                      High Demand: Surge Pricing Applied ({surgeMultiplier}x)
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-700">Estimated Total</span>
-                    <span className="text-xl font-extrabold text-blue-900">₹{estimatedAmount.toLocaleString("en-IN")}</span>
+                    <span className="text-sm font-medium text-blue-700">Estimated Total (per booking)</span>
+                    <div className="text-right">
+                      {promoData && (
+                        <span className="text-sm text-gray-500 line-through mr-2">₹{estimatedAmountWithSurge.toLocaleString("en-IN")}</span>
+                      )}
+                      <span className="text-xl font-extrabold text-blue-900">₹{discountedAmount.toLocaleString("en-IN")}</span>
+                    </div>
                   </div>
                   <p className="text-xs text-blue-500 mt-1">
                     {bookingForm.hireType === "temporary"
                       ? `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60)) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
                       : `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60 * 24)) : 30} day(s) × ₹${driver.dailyRate}/day`}
                   </p>
+                  
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Promo code (optional)"
+                      value={bookingForm.promoCode}
+                      onChange={(e) => setBookingForm({ ...bookingForm, promoCode: e.target.value.toUpperCase() })}
+                      className="flex-1 px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:border-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={validatePromo}
+                      disabled={validatingPromo || !bookingForm.promoCode}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {validatingPromo ? "..." : "Apply"}
+                    </button>
+                  </div>
+                  {promoData && (
+                    <p className="text-xs text-green-600 mt-2 font-semibold">
+                      Applied: {promoData.code} ({promoData.discountPercentage}% off up to ₹{promoData.maxDiscount})
+                    </p>
+                  )}
                 </div>
               )}
               <div className="flex gap-3 pt-2">

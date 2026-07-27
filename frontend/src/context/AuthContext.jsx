@@ -34,6 +34,17 @@ export function AuthProvider({ children }) {
 
   const login = async (endpoint, credentials) => {
     const { data } = await api.post(endpoint, credentials);
+    if (data.requires2FA) {
+      return data;
+    }
+    setUser(data.user || data.driver || { role: data.role });
+    setRole(data.role || data.user?.role || (data.driver ? "driver" : null));
+    setNeedsProfileCompletion(data.needsProfileCompletion || false);
+    return data;
+  };
+
+  const verify2FA = async (endpoint, payload) => {
+    const { data } = await api.post(endpoint, payload);
     setUser(data.user || data.driver || { role: data.role });
     setRole(data.role || data.user?.role || (data.driver ? "driver" : null));
     setNeedsProfileCompletion(data.needsProfileCompletion || false);
@@ -71,6 +82,7 @@ export function AuthProvider({ children }) {
         loading,
         needsProfileCompletion,
         login,
+        verify2FA,
         register,
         completeProfile,
         logout,

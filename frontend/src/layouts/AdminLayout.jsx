@@ -31,7 +31,7 @@ export default function AdminLayout() {
               <div className="w-9 h-9 bg-purple-600 rounded-xl flex items-center justify-center">
                 <HiShieldCheck className="text-white text-sm" />
               </div>
- <span className="text-xl font-extrabold ">
+              <span className="text-xl font-extrabold dark:text-white">
                 <span className="text-purple-600">My</span>Mate Admin
               </span>
             </Link>
@@ -40,8 +40,8 @@ export default function AdminLayout() {
               {links.map((link) => (
                 <Link key={link.to} to={link.to} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                   location.pathname === link.to
- ? "bg-purple-50 text-purple-600"
- : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+ ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+ : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
                 }`}>
                   {link.label}
                 </Link>

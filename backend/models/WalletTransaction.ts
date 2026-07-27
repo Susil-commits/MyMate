@@ -2,11 +2,16 @@ import mongoose from "mongoose";
 
 const walletTransactionSchema = new mongoose.Schema(
   {
-    driver: {
+    owner: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Driver",
       required: true,
       index: true,
+      refPath: "ownerModel",
+    },
+    ownerModel: {
+      type: String,
+      required: true,
+      enum: ["User", "Driver"],
     },
     type: {
       type: String,

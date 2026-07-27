@@ -42,13 +42,13 @@ export default function UserLayout() {
  className="md:hidden p-2 rounded-xl hover:text-gray-700 transition-colors"
                 aria-label="Toggle menu"
               >
- {mobileOpen ? <HiX className="w-5 h-5 text-gray-600 " /> : <HiMenu className="w-5 h-5 text-gray-600 " />}
+                {mobileOpen ? <HiX className="w-5 h-5 text-gray-600 dark:text-gray-300" /> : <HiMenu className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               </button>
               <Link to="/drivers" className="flex items-center gap-2 group">
                 <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                   <FaCar className="text-white text-sm" />
                 </div>
- <span className="text-xl font-extrabold ">
+                <span className="text-xl font-extrabold dark:text-white">
                   <span className="text-blue-600">My</span>Mate
                 </span>
               </Link>
@@ -61,8 +61,8 @@ export default function UserLayout() {
                   to={link.to}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
                   }`}
                 >
                   {link.label}
@@ -77,7 +77,7 @@ export default function UserLayout() {
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
                   {user?.name?.charAt(0)}
                 </div>
- <span className="text-sm font-medium text-gray-700 ">{user?.name}</span>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.name}</span>
               </div>
               <button
                 onClick={handleLogout}
@@ -89,7 +89,7 @@ export default function UserLayout() {
           </div>
 
           {mobileOpen && (
- <div className="md:hidden pb-4 border-t border-gray-100 pt-3 animate-slide-in-left">
+            <div className="md:hidden pb-4 border-t border-gray-100 dark:border-gray-800 pt-3 animate-slide-in-left">
               {links.map((link) => (
                 <Link
                   key={link.to}
@@ -97,8 +97,8 @@ export default function UserLayout() {
                   onClick={() => setMobileOpen(false)}
                   className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-blue-50 text-blue-600 "
-                      : "text-gray-600 hover:text-gray-700 "
+                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      : "text-gray-600 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                   }`}
                 >
                   {link.label}

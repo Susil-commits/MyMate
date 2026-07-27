@@ -4,6 +4,7 @@ import Avatar from "../components/Avatar";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+import TwoFactorSettings from "../components/TwoFactorSettings";
 
 export default function UserProfilePage() {
   const { user, loadUser } = useAuth();
@@ -147,6 +148,10 @@ export default function UserProfilePage() {
           {savingPw ? "Changing..." : "Change Password"}
         </button>
       </form>
+
+      <div className="mt-6">
+        <TwoFactorSettings />
+      </div>
     </div>
   );
 }

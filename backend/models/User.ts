@@ -21,6 +21,9 @@ const userSchema = new mongoose.Schema(
     role: { type: String, default: "user", enum: ["user"] },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
+    isTwoFactorEnabled: { type: Boolean, default: false },
+    twoFactorSecret: { type: String, default: "" },
+    walletBalance: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
@@ -47,6 +50,7 @@ userSchema.methods.toJSON = function () {
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpire;
+  delete obj.twoFactorSecret;
   delete obj.emailVerificationToken;
   delete obj.emailVerificationExpire;
   return obj;

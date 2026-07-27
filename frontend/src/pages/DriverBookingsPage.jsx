@@ -55,7 +55,7 @@ export default function DriverBookingsPage() {
         <h1 className="text-3xl font-extrabold text-gray-900">
           Booking <span className="gradient-text">Requests</span>
         </h1>
-      <select value={statusFilter} onChange={(e) => handleStatusFilterChange(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
+      <select aria-label="Filter bookings by status" value={statusFilter} onChange={(e) => handleStatusFilterChange(e.target.value)} className="px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
           <option value="">All</option>
           <option value="pending">Pending</option>
           <option value="accepted">Accepted</option>

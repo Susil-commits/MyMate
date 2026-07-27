@@ -4,6 +4,7 @@ import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } f
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MapDisplay from "../components/MapDisplay";
+import LiveLocationMap from "../components/LiveLocationMap";
 import { SkeletonDetail } from "../components/SkeletonLoader";
 import api from "../api/axios";
 import { bookingStatusColors, paymentStatusColors, RAZORPAY_KEY_ID, formatINR } from "../utils/constants";
@@ -14,6 +15,23 @@ import toast from "react-hot-toast";
 
 function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
   const [processing, setProcessing] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  useEffect(() => {
+    api.get("/wallet").then(res => setWalletBalance(res.data.balance)).catch(() => {});
+  }, []);
+
+  const handleWalletPay = async () => {
+    setProcessing(true);
+    try {
+      await api.post("/payments/wallet-pay", { bookingId });
+      toast.success("Paid successfully using Wallet!");
+      onSuccess();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Wallet payment failed");
+      setProcessing(false);
+    }
+  };
 
   const handlePay = async () => {
     if (!RAZORPAY_KEY_ID) {
@@ -82,23 +100,39 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
       ) : (
         <div className="p-4 border border-gray-200 rounded-xl bg-gray-50">
           <p className="text-sm text-gray-600 mb-4">
-            Pay <span className="font-bold text-gray-900">{formatINR(amount)}</span> securely via Razorpay (UPI, cards, netbanking, wallets).
+            Pay <span className="font-bold text-gray-900">{formatINR(amount)}</span> securely.
           </p>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200"
-            >
-              Cancel
-            </button>
+          <div className="flex flex-col gap-3">
+            {walletBalance >= amount ? (
+              <button
+                type="button"
+                onClick={handleWalletPay}
+                disabled={processing}
+                className="w-full px-4 py-2.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-200"
+              >
+                {processing ? "Processing..." : `Pay from Wallet (Bal: ${formatINR(walletBalance)})`}
+              </button>
+            ) : (
+              <div className="text-xs text-gray-500 text-center mb-2">
+                Wallet Balance: {formatINR(walletBalance)} (Insufficient)
+              </div>
+            )}
+            
             <button
               type="button"
               onClick={handlePay}
               disabled={processing}
-              className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all duration-200"
+              className="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-all duration-200"
             >
-              {processing ? "Processing..." : `Pay ${formatINR(amount)}`}
+              {processing ? "Processing..." : `Pay Online with Razorpay`}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={processing}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -179,6 +213,33 @@ export default function BookingDetailPage() {
       socket.emit("leave_booking", id);
     };
   }, [id, socket]);
+
+  useEffect(() => {
+    let watchId;
+    if (role === "driver" && booking?.status === "ongoing" && socket) {
+      if ("geolocation" in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            socket.emit("location_update", {
+              bookingId: id,
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              heading: position.coords.heading,
+            });
+          },
+          (error) => {
+            console.error("Error watching position:", error);
+          },
+          { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        );
+      } else {
+        toast.error("Geolocation is not supported by your browser");
+      }
+    }
+    return () => {
+      if (watchId) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [role, booking?.status, socket, id]);
 
   useEffect(() => {
     let active = true;
@@ -286,12 +347,52 @@ export default function BookingDetailPage() {
     booking.paymentStatus === "paid" &&
     !existingReview;
 
+  const handleDownloadCalendar = async () => {
+    try {
+      const response = await api.get(`/bookings/${id}/calendar`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `booking-${id}.ics`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download calendar event");
+    }
+  };
+
+  const handleDownloadInvoice = async () => {
+    try {
+      const response = await api.get(`/bookings/${id}/invoice`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `invoice-${id}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to download invoice");
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
       <BackButton to={backTo} label="Back to Bookings" />
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-extrabold text-gray-900">Booking Details</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={handleDownloadCalendar} className="px-3 py-1.5 border border-blue-200 text-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors">
+            + Calendar
+          </button>
+          {booking.status === "completed" && booking.paymentStatus === "paid" && (
+            <button onClick={handleDownloadInvoice} className="px-3 py-1.5 border border-indigo-200 text-indigo-600 rounded-lg text-sm font-semibold hover:bg-indigo-50 transition-colors">
+              PDF Invoice
+            </button>
+          )}
           <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${bookingStatusColors[booking.status]}`}>
             {booking.status}
           </span>
@@ -309,13 +410,13 @@ export default function BookingDetailPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Detail icon={<HiUser />} label={role === "driver" ? "Customer" : "Driver"} value={role === "driver" ? booking.user?.name : booking.driver?.name} />
           <Detail icon={<HiCalendar />} label="Hire Type" value={booking.hireType === "temporary" ? "Temporary" : "Permanent"} />
-          <Detail icon={<HiCalendar />} label="Start Date" value={new Date(booking.startDate).toLocaleDateString()} />
-          {booking.endDate && <Detail icon={<HiCalendar />} label="End Date" value={new Date(booking.endDate).toLocaleDateString()} />}
+          <Detail icon={<HiCalendar />} label="Start Date" value={new Date(booking.startDate).toLocaleString()} />
+          {booking.endDate && <Detail icon={<HiCalendar />} label="End Date" value={new Date(booking.endDate).toLocaleString()} />}
           <Detail icon={<HiLocationMarker />} label="Pickup" value={booking.pickupLocation} />
           {booking.dropLocation && <Detail icon={<HiLocationMarker />} label="Drop" value={booking.dropLocation} />}
           <Detail icon={<HiCash />} label="Total Amount" value={formatINR(booking.totalAmount)} />
           {booking.cancellationReason && (
-            <Detail icon={<HiCash />} label="Cancel Reason" value={booking.cancellationReason} />
+             <Detail icon={<HiCash />} label="Cancel Reason" value={booking.cancellationReason} />
           )}
         </div>
 
@@ -326,7 +427,13 @@ export default function BookingDetailPage() {
           </div>
         )}
 
-        <MapDisplay pickupLocation={booking.pickupLocation} dropLocation={booking.dropLocation} />
+        {booking.status === "ongoing" ? (
+          <div className="mt-6 h-[400px]">
+            <LiveLocationMap bookingId={id} />
+          </div>
+        ) : (
+          <MapDisplay pickupLocation={booking.pickupLocation} dropLocation={booking.dropLocation} stops={booking.stops} />
+        )}
 
         <div className="mt-8 flex flex-wrap gap-3">
           {role === "driver" && booking.status === "pending" && (

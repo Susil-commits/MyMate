@@ -64,6 +64,17 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
       socket.to(`conv_${conversationId}`).emit("typing_stop", { conversationId, userId: socket.user?.id });
     });
 
+    // Live Location Tracking
+    socket.on("location_update", (data: { bookingId: string, lat: number, lng: number, heading?: number }) => {
+      socket.to(`booking_${data.bookingId}`).emit("location_update", {
+        driverId: socket.user?.id,
+        lat: data.lat,
+        lng: data.lng,
+        heading: data.heading,
+        timestamp: Date.now()
+      });
+    });
+
     socket.on("disconnect", () => {
       console.log(`Socket disconnected: ${socket.id}`);
     });

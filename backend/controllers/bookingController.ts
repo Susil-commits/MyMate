@@ -2,11 +2,14 @@
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
+import PromoCode from "../models/PromoCode.js";
 import { clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
 import { getIo } from "../utils/socket.js";
+import * as ics from "ics";
+import PDFDocument from "pdfkit";
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
@@ -46,7 +49,10 @@ async function notifyBookingUpdate(booking, status, actorRole) {
 }
 
 export const createBooking = async (req, res) => {
-  const { driverId, hireType, startDate, endDate, pickupLocation, dropLocation, purpose } = req.body;
+  const { 
+    driverId, hireType, startDate, endDate, pickupLocation, dropLocation, 
+    purpose, promoCode, stops, isRecurring, recurringPattern, recurringEndDate 
+  } = req.body;
   const driver = await Driver.findById(driverId);
   if (!driver || driver.kycStatus !== "approved" || !driver.isActive) {
     return res.status(404).json({ message: "This driver is not available for booking" });
@@ -67,32 +73,121 @@ export const createBooking = async (req, res) => {
 
   const start = new Date(startDate);
   const end = endDate ? new Date(endDate) : null;
-  const totalAmount = computeAmount(hireType, start, end, driver);
+  
+  // 1. Compute Base Amount
+  let baseAmount = computeAmount(hireType, start, end, driver);
+  let surgeMultiplier = 1;
 
-  const booking = await Booking.create({
+  // 2. Compute Surge Pricing (High demand hours: 8-10 AM, 5-7 PM)
+  const hour = start.getHours();
+  if ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19)) {
+    surgeMultiplier = 1.5;
+  } else if (hour >= 23 || hour <= 5) {
+    surgeMultiplier = 1.25; // Late night
+  }
+
+  let totalAmount = baseAmount * surgeMultiplier;
+  let discountAmount = 0;
+  let appliedPromo = null;
+
+  if (promoCode) {
+    const promo = await PromoCode.findOne({
+      code: promoCode.toUpperCase(),
+      isActive: true,
+      expiryDate: { $gt: new Date() },
+    });
+    
+    if (promo && (!promo.usageLimit || promo.usedCount < promo.usageLimit)) {
+      const calculatedDiscount = (totalAmount * promo.discountPercentage) / 100;
+      discountAmount = Math.min(calculatedDiscount, promo.maxDiscount);
+      totalAmount = totalAmount - discountAmount;
+      appliedPromo = promo.code;
+      
+      // Increment usedCount
+      promo.usedCount += 1;
+      await promo.save();
+    }
+  }
+
+  const baseBookingData = {
     user: req.user._id,
     driver: driverId,
     hireType,
-    startDate: start,
-    endDate: end,
     pickupLocation,
     dropLocation: dropLocation || "",
+    stops: Array.isArray(stops) ? stops : [],
     purpose,
+    baseAmount,
+    surgeMultiplier,
     totalAmount,
+    promoCode: appliedPromo,
+    discountAmount,
     status: "pending",
     paymentStatus: "pending",
-  });
+  };
+
+  let createdBookings = [];
+
+  if (isRecurring && recurringPattern !== "none" && recurringEndDate) {
+    const rEnd = new Date(recurringEndDate);
+    const groupId = `REC-${Date.now()}`;
+    const bookingsToCreate = [];
+    
+    let currentStart = new Date(start);
+    let currentEnd = end ? new Date(end) : null;
+    const duration = end ? end.getTime() - start.getTime() : 0;
+
+    while (currentStart <= rEnd) {
+      bookingsToCreate.push({
+        ...baseBookingData,
+        startDate: new Date(currentStart),
+        endDate: currentEnd ? new Date(currentEnd) : null,
+        isRecurring: true,
+        recurringPattern,
+        recurringEndDate: rEnd,
+        recurringGroupId: groupId
+      });
+
+      // Advance by pattern
+      if (recurringPattern === "daily") {
+        currentStart.setDate(currentStart.getDate() + 1);
+        if (currentEnd) currentEnd.setDate(currentEnd.getDate() + 1);
+      } else if (recurringPattern === "weekly") {
+        currentStart.setDate(currentStart.getDate() + 7);
+        if (currentEnd) currentEnd.setDate(currentEnd.getDate() + 7);
+      } else {
+        break;
+      }
+    }
+
+    if (bookingsToCreate.length === 0) {
+      return res.status(400).json({ message: "Invalid recurring configuration" });
+    }
+    
+    // Insert all
+    createdBookings = await Booking.insertMany(bookingsToCreate);
+  } else {
+    // Single booking
+    const singleBooking = await Booking.create({
+      ...baseBookingData,
+      startDate: start,
+      endDate: end,
+    });
+    createdBookings = [singleBooking];
+  }
+
+  const primaryBooking = createdBookings[0];
 
   createNotification({
     userId: driver._id, userModel: "Driver",
     title: "New Booking Request",
-    message: `New ${hireType} booking request from ${req.user.name || "a customer"}.`,
-    type: "booking", link: `/bookings/${booking._id}`,
+    message: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${req.user.name || "a customer"}.`,
+    type: "booking", link: `/bookings/${primaryBooking._id}`,
   }).catch(() => {});
 
-  sendBookingConfirmation(req.user, driver, booking).catch(() => {});
+  sendBookingConfirmation(req.user, driver, primaryBooking).catch(() => {});
 
-  res.status(201).json({ booking });
+  res.status(201).json({ booking: primaryBooking, totalCreated: createdBookings.length });
 
   try {
     const io = getIo();
@@ -286,4 +381,98 @@ export const updateBookingStatus = async (req, res) => {
   } catch (err) {
     console.error("Socket error on update booking:", err);
   }
+};
+
+export const downloadCalendar = async (req, res) => {
+  const booking = await Booking.findById(req.params.id)
+    .populate("driver", "name email phone")
+    .populate("user", "name email phone");
+
+  if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+  const start = new Date(booking.startDate);
+  const end = booking.endDate ? new Date(booking.endDate) : new Date(start.getTime() + 60 * 60 * 1000);
+
+  const event = {
+    start: [start.getFullYear(), start.getMonth() + 1, start.getDate(), start.getHours(), start.getMinutes()],
+    end: [end.getFullYear(), end.getMonth() + 1, end.getDate(), end.getHours(), end.getMinutes()],
+    title: `MyMate Booking with ${booking.driver.name}`,
+    description: `Booking ID: ${booking._id}\nPickup: ${booking.pickupLocation}\nDrop: ${booking.dropLocation}\nPurpose: ${booking.purpose}`,
+    location: booking.pickupLocation,
+    status: 'CONFIRMED',
+    busyStatus: 'BUSY',
+    organizer: { name: 'MyMate', email: 'noreply@mymate.com' },
+    attendees: [
+      { name: booking.user.name || "Customer", email: booking.user.email || "user@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' },
+      { name: booking.driver.name || "Driver", email: booking.driver.email || "driver@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' }
+    ]
+  };
+
+  ics.createEvent(event, (error, value) => {
+    if (error) {
+      console.error(error);
+      return res.status(500).json({ message: "Error generating calendar event" });
+    }
+    res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="mymate-booking-${booking._id}.ics"`);
+    res.send(value);
+  });
+};
+
+export const downloadInvoice = async (req, res) => {
+  const booking = await Booking.findById(req.params.id)
+    .populate("driver", "name phone email")
+    .populate("user", "name phone email");
+
+  if (!booking) return res.status(404).json({ message: "Booking not found" });
+  if (booking.status !== "completed" || booking.paymentStatus !== "paid") {
+    return res.status(400).json({ message: "Invoice is only available for paid and completed bookings." });
+  }
+
+  const doc = new PDFDocument({ margin: 50 });
+  
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="invoice-${booking._id}.pdf"`);
+  
+  doc.pipe(res);
+
+  // Header
+  doc.fontSize(20).text("MyMate Invoice", { align: "center" });
+  doc.moveDown();
+  
+  // Booking Info
+  doc.fontSize(12).text(`Invoice Number: ${booking._id}`);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`);
+  doc.moveDown();
+  
+  // Customer & Driver
+  doc.text(`Customer: ${booking.user.name} (${booking.user.email})`);
+  doc.text(`Driver: ${booking.driver.name} (${booking.driver.email})`);
+  doc.moveDown();
+  
+  // Trip Details
+  doc.text(`Pickup: ${booking.pickupLocation}`);
+  if (booking.dropLocation) doc.text(`Drop: ${booking.dropLocation}`);
+  if (booking.stops && booking.stops.length > 0) doc.text(`Stops: ${booking.stops.join(", ")}`);
+  doc.text(`Hire Type: ${booking.hireType}`);
+  doc.text(`Start Date: ${new Date(booking.startDate).toLocaleString()}`);
+  if (booking.endDate) doc.text(`End Date: ${new Date(booking.endDate).toLocaleString()}`);
+  doc.moveDown();
+
+  // Financials
+  doc.text(`Base Amount: Rs. ${booking.baseAmount || (booking.totalAmount + booking.discountAmount)}`);
+  if (booking.surgeMultiplier > 1) {
+    doc.text(`Surge Multiplier: x${booking.surgeMultiplier}`);
+  }
+  if (booking.discountAmount > 0) {
+    doc.text(`Discount (${booking.promoCode}): - Rs. ${booking.discountAmount}`);
+  }
+  doc.moveDown();
+  doc.fontSize(16).text(`Total Paid: Rs. ${booking.totalAmount}`, { underline: true });
+
+  // Footer
+  doc.moveDown(4);
+  doc.fontSize(10).text("Thank you for using MyMate!", { align: "center" });
+
+  doc.end();
 };

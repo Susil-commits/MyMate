@@ -53,6 +53,11 @@ export const userLogin = async (req, res) => {
   if (!user.isActive) {
     return res.status(403).json({ message: "Your account has been deactivated. Contact support." });
   }
+  
+  if (user.isTwoFactorEnabled) {
+    return res.json({ requires2FA: true, role: "user", email: user.email });
+  }
+
   const token = generateToken(user, "user");
   setTokenCookie(res, token);
   res.json({ role: "user", user, needsProfileCompletion: !user.profileCompleted });
@@ -82,6 +87,11 @@ export const driverLogin = async (req, res) => {
   if (!driver || !(await driver.comparePassword(password))) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
+
+  if (driver.isTwoFactorEnabled) {
+    return res.json({ requires2FA: true, role: "driver", email: driver.email });
+  }
+
   const token = generateToken(driver, "driver");
   setTokenCookie(res, token);
   res.json({ role: "driver", driver, needsProfileCompletion: !driver.profileCompleted });
