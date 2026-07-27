@@ -27,7 +27,16 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
+import sharp from "sharp";
+
 export async function uploadToCloudinary(file: Express.Multer.File, folder = "mymate"): Promise<any> {
+  // Compress and resize image
+  const processedBuffer = await sharp(file.buffer)
+    .rotate()
+    .resize({ width: 1200, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
+
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
@@ -35,8 +44,7 @@ export async function uploadToCloudinary(file: Express.Multer.File, folder = "my
         resource_type: "auto",
         use_filename: true,
         unique_filename: true,
-        format: "auto",
-        quality: "auto",
+        format: "webp",
       },
       (error, result) => {
         if (error) return reject(error);
@@ -45,7 +53,7 @@ export async function uploadToCloudinary(file: Express.Multer.File, folder = "my
     );
 
     const bufferStream = new Readable();
-    bufferStream.push(file.buffer);
+    bufferStream.push(processedBuffer);
     bufferStream.push(null);
     bufferStream.pipe(uploadStream);
   });
@@ -72,11 +80,17 @@ export async function storeFile(file: Express.Multer.File, folder = "mymate", re
     }
   }
 
+  // Compress and resize for local fallback
+  const processedBuffer = await sharp(file.buffer)
+    .rotate()
+    .resize({ width: 1200, withoutEnlargement: true })
+    .webp({ quality: 80 })
+    .toBuffer();
+
   const dir = path.join(process.cwd(), "uploads", folder);
   fs.mkdirSync(dir, { recursive: true });
-  const ext = (file.originalname.split(".").pop() || "bin").toLowerCase();
-  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.${ext}`;
-  fs.writeFileSync(path.join(dir, filename), file.buffer);
+  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+  fs.writeFileSync(path.join(dir, filename), processedBuffer);
 
   const base = req
     ? `${req.protocol}://${req.get("host")}`

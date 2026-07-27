@@ -59,6 +59,10 @@ export const errorHandler = (err: any, req: Request, res: Response, _next: NextF
     error = new AppError(messages.join(", "), 400);
   }
 
+  if (err?.type === 'entity.parse.failed' || err?.type === 'entity.too.large') {
+    error = new AppError('Invalid or too large request body', 400);
+  }
+
   if (error.name === "CastError") {
     error = new AppError("Invalid ID format", 400);
   }

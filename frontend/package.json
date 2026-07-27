@@ -23,6 +23,8 @@
     "framer-motion": "^12.42.2",
     "globals": "^17.6.0",
     "leaflet": "^1.9.4",
+    "leaflet-routing-machine": "^3.2.12",
+    "leaflet.heat": "^0.2.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "react-error-boundary": "^6.1.2",

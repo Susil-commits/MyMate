@@ -37,10 +37,14 @@ export default defineConfig({
             type: 'image/png'
           }
         ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
       }
     })
   ],
   build: {
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -51,8 +55,14 @@ export default defineConfig({
             if (id.includes('framer-motion') || id.includes('lucide-react')) {
               return 'ui';
             }
-            if (id.includes('leaflet') || id.includes('react-leaflet')) {
-              return 'map';
+            if (id.includes('leaflet')) {
+              return 'leaflet';
+            }
+            if (id.includes('react-leaflet')) {
+              return 'react-leaflet';
+            }
+            if (id.includes('leaflet-routing-machine')) {
+              return 'leaflet-routing';
             }
           }
         }
