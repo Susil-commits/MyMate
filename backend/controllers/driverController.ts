@@ -119,7 +119,26 @@ export const updateDriverProfile = async (req, res) => {
     const oldPublicId = driver.licenseImage?.publicId;
     const { url, publicId } = await storeFile(files.licenseImage[0], "mymate/licenses", req);
     driver.licenseImage = { url, publicId };
-    if (req.body.resubmitKyc === "true") driver.kycStatus = "pending";
+    
+    // AI OCR for KYC Verification
+    if (req.body.resubmitKyc === "true") {
+      driver.kycStatus = "pending";
+      try {
+        const Tesseract = (await import("tesseract.js")).default;
+        const { data: { text } } = await Tesseract.recognize(url, 'eng');
+        const upperText = text.toUpperCase();
+        // If it contains ID-like keywords, auto-approve
+        if (upperText.includes("DRIVING") || upperText.includes("LICENCE") || upperText.includes("LICENSE") || upperText.includes("ID") || upperText.includes("DOB")) {
+          driver.kycStatus = "approved";
+          console.log(`[OCR] Auto-approved driver ${driver._id} based on text detection.`);
+        } else {
+          console.log(`[OCR] Manual review required for driver ${driver._id}. Text: ${text.substring(0, 50)}...`);
+        }
+      } catch (err) {
+        console.error("[OCR] Failed to analyze license:", err);
+      }
+    }
+    
     if (oldPublicId) deleteFromCloudinary(oldPublicId);
   }
   if (files.avatar && files.avatar[0]) {

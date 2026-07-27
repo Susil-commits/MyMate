@@ -4,6 +4,7 @@ import { HiCurrencyDollar, HiClipboardList, HiCheck } from "react-icons/hi";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import { SkeletonDashboard } from "../components/SkeletonLoader";
+import HeatmapDisplay from "../components/HeatmapDisplay";
 
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -99,6 +100,10 @@ export default function DriverDashboard() {
         <StatCard icon={<HiCheck />} label="Completed" value={stats.completedBookings} bg="bg-green-500" />
         <StatCard icon={<HiCurrencyDollar />} label="Wallet Balance" value={`₹${wallet.balance.toLocaleString("en-IN")}`} bg="bg-indigo-500" />
         <StatCard icon={<HiCurrencyDollar />} label="Total Earnings" value={`₹${stats.earnings.toLocaleString("en-IN")}`} bg="bg-purple-500" />
+      </div>
+
+      <div className="mt-8">
+        <HeatmapDisplay />
       </div>
 
       <div className="mt-8">

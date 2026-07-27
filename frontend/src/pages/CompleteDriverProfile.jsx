@@ -93,12 +93,14 @@ export default function CompleteDriverProfile() {
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bio</label>
- <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" />
+              <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" />
             </div>
- <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300">
-              {saving ? "Submitting..." : "Submit for Verification"}
+            <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300">
+              {saving ? (licenseFile ? "Submitting & AI Analyzing Document..." : "Submitting...") : "Submit for Verification"}
             </button>
-            <p className="text-xs text-center text-gray-400">Your profile will be reviewed by our team before going live.</p>
+            <p className="text-xs text-center text-gray-400">
+              Your profile will be reviewed by our team. If you upload a valid Driving License, our AI OCR may auto-approve it!
+            </p>
           </form>
         </div>
       </div>

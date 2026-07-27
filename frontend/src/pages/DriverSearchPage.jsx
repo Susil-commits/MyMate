@@ -158,9 +158,27 @@ export default function DriverSearchPage() {
             </h1>
             <p className="text-sm text-gray-500 mt-1">{pagination.total} drivers available</p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-gray-500">Sort by</label>
-            <select
+          <div className="flex items-center gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  const { data } = await api.get(`/ai/recommend?hireType=${filters.hireType}&vehicleType=${filters.vehicleType}&lat=19.0760&lng=72.8777`);
+                  setDrivers(data.recommended);
+                  setPagination({ pages: 1, total: data.recommended.length });
+                } catch (err) {
+                  console.error(err);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 text-white font-semibold rounded-xl text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2"
+            >
+              ✨ Smart Match
+            </button>
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-medium text-gray-500">Sort by</label>
+              <select
               value={filters.sort}
               onChange={(e) => handleFilterChange("sort", e.target.value)}
               className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
@@ -169,6 +187,7 @@ export default function DriverSearchPage() {
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+            </div>
           </div>
         </div>
 
@@ -371,6 +390,11 @@ export default function DriverSearchPage() {
                       <span className="px-2.5 py-1 bg-gray-50 text-gray-500 text-xs rounded-lg">+{driver.vehicleTypes.length - 3}</span>
                     )}
                   </div>
+                  {driver.aiScore !== undefined && (
+                    <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 border border-purple-100 text-purple-700 text-xs rounded-lg font-bold">
+                      <span>✨ AI Match Score:</span> <span>{driver.aiScore}%</span>
+                    </div>
+                  )}
 
                     <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between text-sm">
                       <div className="flex items-center gap-1 text-gray-500">

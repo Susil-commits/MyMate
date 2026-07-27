@@ -47,6 +47,59 @@ export const startCronJobs = () => {
       logger.error("Error in stale bookings cron job:", error);
     }
   });
+  // Run every day at midnight to detect fraud (excessive cancellations)
+  cron.schedule("0 0 * * *", async () => {
+    try {
+      const User = (await import("../models/User.js")).default;
+      const Driver = (await import("../models/Driver.js")).default;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const cancelStats = await Booking.aggregate([
+        { 
+          $match: { 
+            status: "cancelled", 
+            updatedAt: { $gte: today } 
+          } 
+        },
+        {
+          $group: {
+            _id: { user: "$user", driver: "$driver" },
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const suspiciousUsers = new Set();
+      const suspiciousDrivers = new Set();
+
+      cancelStats.forEach(stat => {
+        if (stat.count >= 3) {
+          if (stat._id.user) suspiciousUsers.add(stat._id.user);
+          if (stat._id.driver) suspiciousDrivers.add(stat._id.driver);
+        }
+      });
+
+      if (suspiciousUsers.size > 0) {
+        await User.updateMany(
+          { _id: { $in: Array.from(suspiciousUsers) } },
+          { $set: { isSuspicious: true } } // Assumes a boolean field could be used, or just log
+        );
+        logger.warn(`Fraud Alert: Flagged ${suspiciousUsers.size} users for excessive cancellations.`);
+      }
+
+      if (suspiciousDrivers.size > 0) {
+        await Driver.updateMany(
+          { _id: { $in: Array.from(suspiciousDrivers) } },
+          { $set: { isActive: false } } // Suspend driver
+        );
+        logger.warn(`Fraud Alert: Suspended ${suspiciousDrivers.size} drivers for excessive cancellations.`);
+      }
+
+    } catch (error) {
+      logger.error("Error in fraud detection cron job:", error);
+    }
+  });
   
   logger.info("Cron jobs initialized.");
 };

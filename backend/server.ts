@@ -23,6 +23,10 @@ import favoriteRoutes from "./routes/favoriteRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import twoFactorRoutes from "./routes/twoFactorRoutes.js";
+import walletRoutes from "./routes/walletRoutes.js";
+import promoRoutes from "./routes/promoRoutes.js";
+import aiRoutes from "./routes/aiRoutes.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { generalLimiter, authLimiter, paymentLimiter } from "./middleware/rateLimiter.js";
 import { createServer } from "http";
@@ -97,6 +101,10 @@ app.use("/api/favorites", favoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/2fa", twoFactorRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/promos", promoRoutes);
+app.use("/api/ai", aiRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });

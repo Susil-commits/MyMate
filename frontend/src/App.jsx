@@ -6,6 +6,7 @@ import { Toaster } from "react-hot-toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import AnimatedRoutes from "./components/AnimatedRoutes";
 import PwaReloadPrompt from "./components/PwaReloadPrompt";
+import AIChatbotWidget from "./components/AIChatbotWidget";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
               <PwaReloadPrompt />
               <Toaster position="top-right" />
               <AnimatedRoutes />
+              <AIChatbotWidget />
             </BrowserRouter>
           </SocketProvider>
         </AuthProvider>
