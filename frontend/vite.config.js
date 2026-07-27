@@ -55,14 +55,17 @@ export default defineConfig({
             if (id.includes('framer-motion') || id.includes('lucide-react')) {
               return 'ui';
             }
-            if (id.includes('leaflet')) {
-              return 'leaflet';
-            }
             if (id.includes('react-leaflet')) {
               return 'react-leaflet';
             }
             if (id.includes('leaflet-routing-machine')) {
               return 'leaflet-routing';
+            }
+            if (id.includes('leaflet.heat')) {
+              return 'leaflet-heat';
+            }
+            if (id.includes('leaflet') && !id.includes('react-leaflet') && !id.includes('leaflet-routing-machine') && !id.includes('leaflet.heat')) {
+              return 'leaflet-core';
             }
           }
         }
