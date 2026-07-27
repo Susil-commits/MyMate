@@ -5,7 +5,7 @@ import QRCode from "qrcode";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import { AppError } from "../utils/AppError.js";
-import { generateToken, sendTokenResponse } from "../utils/token.js";
+import { generateToken } from "../utils/token.js";
 
 // Utility to get the correct model
 const getModelByRole = (role: string) => {
@@ -79,5 +79,17 @@ export const verify2FALogin = async (req: Request, res: Response) => {
   const isValid = authenticator.verify({ token, secret: user.twoFactorSecret });
   if (!isValid) throw new AppError("Invalid 2FA token", 400);
   
-  sendTokenResponse(user, 200, res);
+  const tokenPayload = generateToken(user, role);
+  res.cookie("token", tokenPayload, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 30 * 24 * 60 * 60 * 1000,
+  });
+  
+  res.status(200).json({
+    role,
+    [role]: user,
+    needsProfileCompletion: !user.profileCompleted
+  });
 };
