@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { Request, Response } from "express";
-import { authenticator } from "otplib";
+import otplib from "otplib";
+const { authenticator } = otplib;
 import QRCode from "qrcode";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
