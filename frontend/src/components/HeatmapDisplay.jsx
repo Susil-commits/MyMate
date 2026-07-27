@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
-import "leaflet.heat";
 import api from "../api/axios";
 import { FiRefreshCw } from "react-icons/fi";
 
 function HeatmapLayer({ points }) {
   const map = useMap();
+  const [heatLoaded, setHeatLoaded] = useState(false);
 
   useEffect(() => {
-    if (!points || points.length === 0) return;
+    window.L = L;
+    import("leaflet.heat").then(() => {
+      setHeatLoaded(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!points || points.length === 0 || !heatLoaded) return;
     
     // leaflet.heat expects an array of [lat, lng, intensity]
     const heat = L.heatLayer(points, {

@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
-import "leaflet-routing-machine";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 
 // Fix for default Leaflet icon issue in React
@@ -15,9 +14,17 @@ L.Icon.Default.mergeOptions({
 
 const RoutingMachine = ({ start, end, stops = [] }) => {
   const map = useMap();
+  const [routingLoaded, setRoutingLoaded] = useState(false);
+
+  useEffect(() => {
+    window.L = L;
+    import("leaflet-routing-machine").then(() => {
+      setRoutingLoaded(true);
+    });
+  }, []);
   
   useEffect(() => {
-    if (!start) return;
+    if (!start || !routingLoaded) return;
 
     let waypoints = [L.latLng(start[0], start[1])];
 
