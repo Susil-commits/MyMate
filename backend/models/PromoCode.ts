@@ -1,6 +1,16 @@
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 
-const promoCodeSchema = new mongoose.Schema(
+export interface IPromoCode extends Document {
+  code: string;
+  discountPercentage: number;
+  maxDiscount: number;
+  expiryDate: Date;
+  usageLimit: number | null;
+  usedCount: number;
+  isActive: boolean;
+}
+
+const promoCodeSchema = new mongoose.Schema<IPromoCode>(
   {
     code: { type: String, required: true, unique: true, uppercase: true, trim: true },
     discountPercentage: { type: Number, required: true, min: 1, max: 100 },
@@ -13,4 +23,4 @@ const promoCodeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("PromoCode", promoCodeSchema);
+export default mongoose.model<IPromoCode>("PromoCode", promoCodeSchema);

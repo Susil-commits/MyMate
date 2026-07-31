@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
@@ -181,7 +180,7 @@ export const createBooking = async (req, res) => {
   createNotification({
     userId: driver._id, userModel: "Driver",
     title: "New Booking Request",
-    message: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${req.user.name || "a customer"}.`,
+    message: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${(req.user as any).name || "a customer"}.`,
     type: "booking", link: `/bookings/${primaryBooking._id}`,
   }).catch(() => {});
 
@@ -193,7 +192,7 @@ export const createBooking = async (req, res) => {
     const io = getIo();
     io.to(String(driverId)).emit("new_notification", {
       title: "New Booking Request",
-      body: `New ${hireType} booking request from ${req.user.name || "a customer"}.`,
+      body: `New ${hireType} booking request from ${(req.user as any).name || "a customer"}.`,
       link: `/driver/bookings`,
     });
   } catch (err) {
@@ -203,7 +202,7 @@ export const createBooking = async (req, res) => {
 
 export const getUserBookings = async (req, res) => {
   const { status, page, limit } = req.query;
-  const filter = { user: req.user._id };
+  const filter: any = { user: req.user._id };
   if (status) filter.status = status;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 10, 50);
@@ -221,7 +220,7 @@ export const getUserBookings = async (req, res) => {
 
 export const getDriverBookings = async (req, res) => {
   const { status, page, limit } = req.query;
-  const filter = { driver: req.user._id };
+  const filter: any = { driver: req.user._id };
   if (status) filter.status = status;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 10, 50);
@@ -396,19 +395,19 @@ export const downloadCalendar = async (req, res) => {
   const event = {
     start: [start.getFullYear(), start.getMonth() + 1, start.getDate(), start.getHours(), start.getMinutes()],
     end: [end.getFullYear(), end.getMonth() + 1, end.getDate(), end.getHours(), end.getMinutes()],
-    title: `MyMate Booking with ${booking.driver.name}`,
+    title: `MyMate Booking with ${(booking.driver as any).name}`,
     description: `Booking ID: ${booking._id}\nPickup: ${booking.pickupLocation}\nDrop: ${booking.dropLocation}\nPurpose: ${booking.purpose}`,
     location: booking.pickupLocation,
     status: 'CONFIRMED',
     busyStatus: 'BUSY',
     organizer: { name: 'MyMate', email: 'noreply@mymate.com' },
     attendees: [
-      { name: booking.user.name || "Customer", email: booking.user.email || "user@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' },
-      { name: booking.driver.name || "Driver", email: booking.driver.email || "driver@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' }
+      { name: (booking.user as any).name || "Customer", email: (booking.user as any).email || "user@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' },
+      { name: (booking.driver as any).name || "Driver", email: (booking.driver as any).email || "driver@example.com", rsvp: true, partstat: 'ACCEPTED', role: 'REQ-PARTICIPANT' }
     ]
   };
 
-  ics.createEvent(event, (error, value) => {
+  ics.createEvent(event as any, (error, value) => {
     if (error) {
       console.error(error);
       return res.status(500).json({ message: "Error generating calendar event" });
@@ -446,8 +445,8 @@ export const downloadInvoice = async (req, res) => {
   doc.moveDown();
   
   // Customer & Driver
-  doc.text(`Customer: ${booking.user.name} (${booking.user.email})`);
-  doc.text(`Driver: ${booking.driver.name} (${booking.driver.email})`);
+  doc.text(`Customer: ${(booking.user as any).name} (${(booking.user as any).email})`);
+  doc.text(`Driver: ${(booking.driver as any).name} (${(booking.driver as any).email})`);
   doc.moveDown();
   
   // Trip Details

@@ -350,7 +350,7 @@ export default function DriverSearchPage() {
               animate="show"
               className="mt-8 grid md:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              {drivers?.map?.((driver) => (
+              {drivers?.map((driver) => (
                 <motion.div
                   key={driver._id}
                   variants={{

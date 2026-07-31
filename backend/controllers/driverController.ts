@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
 import WalletTransaction from "../models/WalletTransaction.js";
@@ -20,11 +19,11 @@ export const getDrivers = async (req, res) => {
     languages, minRate, maxRate, sort, page, limit,
   } = req.query;
 
-  const filter = { kycStatus: "approved", isActive: true };
+  const filter: any = { kycStatus: "approved", isActive: true };
 
   if (locality) filter.locality = { $regex: locality, $options: "i" };
-  if (minExperience) filter.experienceYears = { $gte: Number(minExperience) };
-  if (minRating) filter.averageRating = { $gte: Number(minRating) };
+  if (minExperience) (filter as any).experienceYears = { $gte: Number(minExperience) };
+  if (minRating) (filter as any).averageRating = { $gte: Number(minRating) };
   if (vehicleType) {
     const types = String(vehicleType).split(",").map((t) => t.trim()).filter(Boolean);
     if (types.length) filter.vehicleTypes = { $in: types };
@@ -35,7 +34,7 @@ export const getDrivers = async (req, res) => {
   }
 
   if (hireType) {
-    const rateFilter = {};
+    const rateFilter: any = {};
     if (minRate) rateFilter.$gte = Number(minRate);
     if (maxRate) rateFilter.$lte = Number(maxRate);
     if (Object.keys(rateFilter).length) {
@@ -123,20 +122,25 @@ export const updateDriverProfile = async (req, res) => {
     // AI OCR for KYC Verification
     if (req.body.resubmitKyc === "true") {
       driver.kycStatus = "pending";
-      try {
-        const Tesseract = (await import("tesseract.js")).default;
-        const { data: { text } } = await Tesseract.recognize(url, 'eng');
-        const upperText = text.toUpperCase();
-        // If it contains ID-like keywords, auto-approve
-        if (upperText.includes("DRIVING") || upperText.includes("LICENCE") || upperText.includes("LICENSE") || upperText.includes("ID") || upperText.includes("DOB")) {
-          driver.kycStatus = "approved";
-          console.log(`[OCR] Auto-approved driver ${driver._id} based on text detection.`);
-        } else {
-          console.log(`[OCR] Manual review required for driver ${driver._id}. Text: ${text.substring(0, 50)}...`);
+      const driverId = driver._id;
+      
+      // Run OCR in background to prevent blocking the API response
+      Promise.resolve().then(async () => {
+        try {
+          const Tesseract = (await import("tesseract.js")).default;
+          const { data: { text } } = await Tesseract.recognize(url, 'eng');
+          const upperText = text.toUpperCase();
+          // If it contains ID-like keywords, auto-approve
+          if (upperText.includes("DRIVING") || upperText.includes("LICENCE") || upperText.includes("LICENSE") || upperText.includes("ID") || upperText.includes("DOB")) {
+            await Driver.findByIdAndUpdate(driverId, { kycStatus: "approved" });
+            console.log(`[OCR] Auto-approved driver ${driverId} based on text detection.`);
+          } else {
+            console.log(`[OCR] Manual review required for driver ${driverId}. Text: ${text.substring(0, 50)}...`);
+          }
+        } catch (err) {
+          console.error("[OCR] Failed to analyze license:", err);
         }
-      } catch (err) {
-        console.error("[OCR] Failed to analyze license:", err);
-      }
+      });
     }
     
     if (oldPublicId) deleteFromCloudinary(oldPublicId);
@@ -154,6 +158,8 @@ export const updateDriverProfile = async (req, res) => {
   import("../middleware/cache.js").then(({ clearCachePrefix }) => {
     clearCachePrefix("drivers");
     clearCachePrefix("stats");
+  }).catch((err) => {
+    console.error("Failed to invalidate cache:", err);
   });
 
   const sanitized = sanitizeDriver(driver, { withContact: true });

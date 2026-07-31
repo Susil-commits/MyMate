@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
@@ -149,9 +148,9 @@ export const getAllBookings = async (req, res) => {
 
 export const exportBookingsCSV = async (req, res) => {
   const bookings = await Booking.find().populate("user", "name").populate("driver", "name").sort({ createdAt: -1 });
-  let csv = "ID,User,Driver,Status,Amount,Date\\n";
+  let csv = "ID,User,Driver,Status,Amount,Date\n";
   bookings.forEach(b => {
-    csv += `"${b._id}","${b.user?.name || ''}","${b.driver?.name || ''}","${b.status}","${b.amount}","${b.createdAt}"\\n`;
+    csv += `"${b._id}","${(b.user as any)?.name || ''}","${(b.driver as any)?.name || ''}","${b.status}","${(b as any).totalAmount}","${b.createdAt}"\n`;
   });
   
   res.header("Content-Type", "text/csv");

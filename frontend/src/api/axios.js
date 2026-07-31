@@ -19,6 +19,7 @@ api.interceptors.response.use(
       // hard-redirect (avoids double-redirect + state loss on cold starts)
       const isAuthMe = error.config?.url?.includes("/auth/me");
       if (!isAuthMe) {
+        window.dispatchEvent(new CustomEvent('unauthorized-error'));
         // We still redirect to login page if unauthorized (401)
         const path = window.location.pathname;
         if (!path.includes("/login")) {
@@ -26,7 +27,10 @@ api.interceptors.response.use(
             path.startsWith("/driver") ? "/driver/login" :
             path.startsWith("/admin") ? "/admin/login" :
             "/user/login";
-          window.location.href = login;
+          // Delay redirect to allow toast notifications and state cleanup
+          setTimeout(() => {
+            window.location.href = login;
+          }, 1000);
         }
       }
     }

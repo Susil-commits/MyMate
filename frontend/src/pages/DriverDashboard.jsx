@@ -120,7 +120,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {recentBookings?.map?.((booking) => (
+            {recentBookings?.map((booking) => (
               <Link
                 key={booking._id}
                 to={`/bookings/${booking._id}`}
@@ -157,7 +157,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {wallet?.transactions?.slice?.(0, 5)?.map?.((txn) => (
+            {wallet?.transactions?.slice(0, 5)?.map((txn) => (
               <div key={txn._id} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between card-hover">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === "credit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>

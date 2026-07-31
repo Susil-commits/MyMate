@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Request, Response } from "express";
 import { authenticator } from "otplib";
 import QRCode from "qrcode";
@@ -16,9 +15,9 @@ const getModelByRole = (role: string) => {
 
 export const generate2FA = async (req: Request, res: Response) => {
   const { id, role } = req.user;
-  const Model = getModelByRole(role);
+  const Model = (role === "driver" ? Driver : User) as any;
   
-  const user = await Model.findById(id);
+  const user = await Model.findById(id).select("+twoFactorSecret");
   if (!user) throw new AppError("User not found", 404);
   
   const secret = authenticator.generateSecret();
@@ -41,8 +40,8 @@ export const enable2FA = async (req: Request, res: Response) => {
   
   if (!token) throw new AppError("Token is required", 400);
   
-  const Model = getModelByRole(role);
-  const user = await Model.findById(id);
+  const Model = (role === "driver" ? Driver : User) as any;
+  const user = await Model.findById(id).select("+twoFactorSecret");
   if (!user) throw new AppError("User not found", 404);
   
   if (!user.twoFactorSecret) {
@@ -68,8 +67,8 @@ export const verify2FALogin = async (req: Request, res: Response) => {
     throw new AppError("Email, token, and role are required", 400);
   }
   
-  const Model = getModelByRole(role);
-  const user = await Model.findOne({ email: email.toLowerCase() });
+  const Model = (role === "driver" ? Driver : User) as any;
+  const user = await Model.findOne({ email: email.toLowerCase() }).select("+twoFactorSecret");
   
   if (!user) throw new AppError("User not found", 404);
   if (!user.isTwoFactorEnabled || !user.twoFactorSecret) {

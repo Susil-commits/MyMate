@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Request, Response } from "express";
 import PromoCode from "../models/PromoCode.js";
 

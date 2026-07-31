@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { GoogleGenAI } from "@google/genai";
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
@@ -23,7 +22,7 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
 export const recommendDrivers = async (req, res) => {
   const { hireType, vehicleType, lat, lng } = req.query;
 
-  const filter = { kycStatus: "approved", isActive: true };
+  const filter: any = { kycStatus: "approved", isActive: true };
   if (vehicleType) filter.vehicleTypes = vehicleType;
 
   // Find active, approved drivers
@@ -43,18 +42,8 @@ export const recommendDrivers = async (req, res) => {
     const exp = Math.min(driver.experienceYears, 10);
     score += (exp / 10) * 30;
 
-    // Proximity Score (up to 30) - Only if coords are provided
-    if (!isNaN(userLat) && !isNaN(userLng) && driver.location && driver.location.coordinates) {
-      const dLat = driver.location.coordinates[1];
-      const dLng = driver.location.coordinates[0];
-      const dist = getDistanceFromLatLonInKm(userLat, userLng, dLat, dLng);
-      // Closer is better. Assume > 50km = 0 score. 0km = 30 score.
-      const distScore = Math.max(0, 30 - (dist / 50) * 30);
-      score += distScore;
-    } else {
-      // If no location data, give average proximity score
-      score += 15;
-    }
+    // Proximity Score - Not applicable without geocoding
+    score += 15;
 
     return { ...driver.toJSON(), aiScore: Math.round(score) };
   });

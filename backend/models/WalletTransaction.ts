@@ -1,6 +1,18 @@
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 
-const walletTransactionSchema = new mongoose.Schema(
+export interface IWalletTransaction extends Document {
+  owner: mongoose.Types.ObjectId;
+  ownerModel: "User" | "Driver";
+  type: "credit" | "debit";
+  amount: number;
+  description: string;
+  booking?: mongoose.Types.ObjectId;
+  status: "completed" | "pending" | "failed";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const walletTransactionSchema = new mongoose.Schema<IWalletTransaction>(
   {
     owner: {
       type: mongoose.Schema.Types.ObjectId,
@@ -40,4 +52,4 @@ const walletTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("WalletTransaction", walletTransactionSchema);
+export default mongoose.model<IWalletTransaction>("WalletTransaction", walletTransactionSchema);

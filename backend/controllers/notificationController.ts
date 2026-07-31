@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Notification from "../models/Notification.js";
 
 const myModel = (role) => (role === "driver" ? "Driver" : "User");

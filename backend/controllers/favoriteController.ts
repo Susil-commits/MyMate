@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Favorite from "../models/Favorite.js";
 import Driver from "../models/Driver.js";
 import { sanitizeDriver } from "../utils/sanitize.js";

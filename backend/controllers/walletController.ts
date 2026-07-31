@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Request, Response } from "express";
 import WalletTransaction from "../models/WalletTransaction.js";
 import User from "../models/User.js";

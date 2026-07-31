@@ -1,7 +1,37 @@
-// @ts-nocheck
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 
-const bookingSchema = new mongoose.Schema(
+export interface IBooking extends Document {
+  user: mongoose.Types.ObjectId;
+  driver: mongoose.Types.ObjectId;
+  hireType: "temporary" | "permanent";
+  status: "pending" | "accepted" | "rejected" | "ongoing" | "completed" | "cancelled";
+  startDate: Date;
+  endDate?: Date;
+  pickupLocation: string;
+  dropLocation: string;
+  stops: string[];
+  purpose: string;
+  
+  // Pricing
+  baseAmount: number;
+  surgeMultiplier: number;
+  totalAmount: number;
+  promoCode?: string;
+  discountAmount: number;
+  
+  // Recurring
+  isRecurring: boolean;
+  recurringPattern: "none" | "daily" | "weekly";
+  recurringEndDate?: Date;
+  recurringGroupId?: string;
+
+  cancellationReason: string;
+  paymentStatus: "pending" | "paid" | "refunded";
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const bookingSchema = new mongoose.Schema<IBooking>(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     driver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", required: true },
@@ -48,4 +78,4 @@ const bookingSchema = new mongoose.Schema(
 bookingSchema.index({ user: 1, status: 1 });
 bookingSchema.index({ driver: 1, status: 1 });
 
-export default mongoose.model("Booking", bookingSchema);
+export default mongoose.model<IBooking>("Booking", bookingSchema);

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Driver from "../models/Driver.js";
@@ -23,7 +22,7 @@ export const getOrCreateConversation = async (req, res) => {
   }
 
   // Validate recipient exists and is the opposite role
-  const RecipientModel = req.userRole === "user" ? Driver : User;
+  const RecipientModel = (req.userRole === "user" ? Driver : User) as any;
   const recipient = await RecipientModel.findById(recipientId).select("_id isActive");
   if (!recipient) {
     return res.status(404).json({ message: "Recipient not found" });
@@ -39,7 +38,15 @@ export const getOrCreateConversation = async (req, res) => {
     .populate("user", "name avatar locality")
     .populate("driver", "name avatar locality");
   if (!conv) {
-    conv = await Conversation.create({ user, driver });
+    try {
+      conv = await Conversation.create({ user, driver });
+    } catch (err) {
+      if (err.code === 11000) {
+        conv = await Conversation.findOne({ user, driver });
+      } else {
+        throw err;
+      }
+    }
     conv = await Conversation.findById(conv._id)
       .populate("user", "name avatar locality")
       .populate("driver", "name avatar locality");

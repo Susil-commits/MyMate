@@ -1,9 +1,46 @@
-// @ts-nocheck
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-const driverSchema = new mongoose.Schema(
+export interface IDriver extends Document {
+  name: string;
+  email: string;
+  password?: string;
+  avatar?: { url: string; publicId: string };
+  gender: "male" | "female" | "other" | "";
+  phone: string;
+  nationality: string;
+  locality: string;
+  licenseNumber?: string;
+  licenseImage?: { url: string; publicId: string };
+  experienceYears: number;
+  vehicleTypes: string[];
+  availability: "available" | "busy" | "offline";
+  hourlyRate: number;
+  dailyRate: number;
+  languages: string[];
+  bio: string;
+  profileCompleted: boolean;
+  kycStatus: "pending" | "approved" | "rejected";
+  isActive: boolean;
+  tokenVersion: number;
+  isEmailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpire?: Date;
+  averageRating: number;
+  totalReviews: number;
+  walletBalance: number;
+  role: "driver";
+  resetPasswordToken?: string;
+  resetPasswordExpire?: Date;
+  isTwoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  getResetPasswordToken(): string;
+  toJSON(): any;
+}
+
+const driverSchema = new mongoose.Schema<IDriver>(
   {
     name: { type: String, trim: true, default: "" },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -61,18 +98,18 @@ driverSchema.pre("save", async function (next) {
   next();
 });
 
-driverSchema.methods.comparePassword = async function (candidatePassword) {
+driverSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-driverSchema.methods.getResetPasswordToken = function () {
+driverSchema.methods.getResetPasswordToken = function (): string {
   const resetToken = crypto.randomBytes(32).toString("hex");
   this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
   this.resetPasswordExpire = Date.now() + 3600000;
   return resetToken;
 };
 
-driverSchema.methods.toJSON = function () {
+driverSchema.methods.toJSON = function (): Partial<IDriver> {
   const obj = this.toObject();
   delete obj.password;
   delete obj.resetPasswordToken;
@@ -89,4 +126,4 @@ driverSchema.methods.toJSON = function () {
 driverSchema.index({ kycStatus: 1, isActive: 1, locality: 1, averageRating: -1, experienceYears: -1 });
 driverSchema.index({ kycStatus: 1, isActive: 1, vehicleTypes: 1 });
 
-export default mongoose.model("Driver", driverSchema);
+export default mongoose.model<IDriver>("Driver", driverSchema);

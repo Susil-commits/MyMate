@@ -1,9 +1,33 @@
-// @ts-nocheck
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 
-const userSchema = new mongoose.Schema(
+export interface IUser extends Document {
+  name: string;
+  email: string;
+  password?: string; // Optional after toJSON
+  avatar?: { url: string; publicId: string };
+  gender: "male" | "female" | "other" | "";
+  phone: string;
+  locality: string;
+  profileCompleted: boolean;
+  isActive: boolean;
+  tokenVersion: number;
+  isEmailVerified: boolean;
+  emailVerificationToken?: string;
+  emailVerificationExpire?: Date;
+  role: "user";
+  resetPasswordToken?: string;
+  resetPasswordExpire?: Date;
+  isTwoFactorEnabled: boolean;
+  twoFactorSecret?: string;
+  walletBalance: number;
+  comparePassword(candidatePassword: string): Promise<boolean>;
+  getResetPasswordToken(): string;
+  toJSON(): any;
+}
+
+const userSchema = new mongoose.Schema<IUser>(
   {
     name: { type: String, trim: true, default: "" },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -34,18 +58,18 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-userSchema.methods.comparePassword = async function (candidatePassword) {
+userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.methods.getResetPasswordToken = function () {
+userSchema.methods.getResetPasswordToken = function (): string {
   const resetToken = crypto.randomBytes(32).toString("hex");
   this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
   this.resetPasswordExpire = Date.now() + 3600000;
   return resetToken;
 };
 
-userSchema.methods.toJSON = function () {
+userSchema.methods.toJSON = function (): Partial<IUser> {
   const obj = this.toObject();
   delete obj.password;
   delete obj.resetPasswordToken;
@@ -56,4 +80,4 @@ userSchema.methods.toJSON = function () {
   return obj;
 };
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model<IUser>("User", userSchema);

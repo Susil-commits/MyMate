@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "crypto";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
@@ -33,7 +32,7 @@ async function attachVerification(account, role) {
   account.emailVerificationToken = hashed;
   account.emailVerificationExpire = Date.now() + VERIFY_EXPIRE;
   await account.save();
-  sendVerificationEmail(account.email, token, role).catch(() => {});
+  sendVerificationEmail(account.email, token).catch(() => {});
 }
 
 export const userRegister = async (req, res) => {
@@ -157,7 +156,7 @@ export const getMe = async (req, res) => {
 
 export const forgotPassword = async (req, res) => {
   const { email, role } = req.body;
-  const Model = role === "driver" ? Driver : User;
+  const Model = (role === "driver" ? Driver : User) as any;
   const account = await Model.findOne({ email: String(email).toLowerCase() });
   if (account) {
     const resetToken = account.getResetPasswordToken();
@@ -169,44 +168,44 @@ export const forgotPassword = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   const { token, password, role } = req.body;
-  const Model = role === "driver" ? Driver : User;
-  const account = await Model.findOne({
+  const Model = (role === "user" ? User : Driver) as any;
+  const user = await (Model as any).findOne({
     resetPasswordToken: hashToken(token),
     resetPasswordExpire: { $gt: Date.now() },
   });
-  if (!account) {
+  if (!user) {
     return res.status(400).json({ message: "Invalid or expired reset token" });
   }
-  account.password = password;
-  account.resetPasswordToken = undefined;
-  account.resetPasswordExpire = undefined;
-  account.tokenVersion = (account.tokenVersion || 0) + 1;
-  await account.save();
-  const newToken = generateToken(account, role);
+  user.password = password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+  user.tokenVersion = (user.tokenVersion || 0) + 1;
+  await user.save();
+  const newToken = generateToken(user, role);
   setTokenCookie(res, newToken);
   res.json({ role });
 };
 
 export const verifyEmail = async (req, res) => {
   const { token, role } = req.body;
-  const Model = role === "driver" ? Driver : User;
-  const account = await Model.findOne({
+  const Model = (role === "driver" ? Driver : User) as any;
+  const user = await (Model as any).findOne({
     emailVerificationToken: hashToken(token),
     emailVerificationExpire: { $gt: Date.now() },
   });
-  if (!account) {
+  if (!user) {
     return res.status(400).json({ message: "Invalid or expired verification token" });
   }
-  account.isEmailVerified = true;
-  account.emailVerificationToken = undefined;
-  account.emailVerificationExpire = undefined;
-  await account.save();
+  user.isEmailVerified = true;
+  user.emailVerificationToken = undefined;
+  user.emailVerificationExpire = undefined;
+  await user.save();
   res.json({ message: "Email verified successfully" });
 };
 
 export const resendVerification = async (req, res) => {
   const { email, role } = req.body;
-  const Model = role === "driver" ? Driver : User;
+  const Model = (role === "driver" ? Driver : User) as any;
   const account = await Model.findOne({ email: String(email).toLowerCase() });
   if (account && !account.isEmailVerified) {
     await attachVerification(account, role);

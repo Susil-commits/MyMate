@@ -1,7 +1,21 @@
-// @ts-nocheck
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 
-const paymentSchema = new mongoose.Schema(
+export interface IPayment extends Document {
+  booking: mongoose.Types.ObjectId;
+  user: mongoose.Types.ObjectId;
+  driver: mongoose.Types.ObjectId;
+  amount: number;
+  currency: string;
+  razorpayOrderId: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+  status: "pending" | "completed" | "failed" | "refunded";
+  paidAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const paymentSchema = new mongoose.Schema<IPayment>(
   {
     booking: { type: mongoose.Schema.Types.ObjectId, ref: "Booking", required: true },
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
@@ -29,4 +43,4 @@ paymentSchema.index(
   }
 );
 
-export default mongoose.model("Payment", paymentSchema);
+export default mongoose.model<IPayment>("Payment", paymentSchema);

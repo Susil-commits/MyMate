@@ -1,4 +1,3 @@
-// @ts-nocheck
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import { generateToken } from "../utils/token.js";
@@ -28,8 +27,8 @@ export const updateUserProfile = async (req, res) => {
 
 export const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  const Model = req.userRole === "driver" ? Driver : User;
-  const account = await Model.findById(req.user._id).select("+password");
+  const Model = (req.userRole === "User" ? User : Driver) as any;
+  const account = await Model.findById(req.user.id).select("+password");
   if (!account) return res.status(404).json({ message: "Account not found" });
 
   const matched = await account.comparePassword(currentPassword);

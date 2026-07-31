@@ -1,4 +1,3 @@
-// @ts-nocheck
 import crypto from "crypto";
 import Razorpay from "razorpay";
 import Booking from "../models/Booking.js";

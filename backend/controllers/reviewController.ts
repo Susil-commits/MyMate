@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import { createNotification } from "../models/Notification.js";

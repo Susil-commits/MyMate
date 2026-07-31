@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "tsx --watch --env-file=.env server.ts",
     "start": "node dist/server.js",
-    "build": "rimraf dist && tsc"
+    "build": "rimraf dist && tsc",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

@@ -1,7 +1,18 @@
-// @ts-nocheck
-import mongoose from "mongoose";
+import mongoose, { Document, Model } from "mongoose";
 
-const reviewSchema = new mongoose.Schema(
+export interface IReview extends Document {
+  user: mongoose.Types.ObjectId;
+  driver: mongoose.Types.ObjectId;
+  booking: mongoose.Types.ObjectId;
+  rating: number;
+  comment: string;
+}
+
+interface IReviewModel extends Model<IReview> {
+  updateDriverRating(driverId: mongoose.Types.ObjectId | string): Promise<void>;
+}
+
+const reviewSchema = new mongoose.Schema<IReview, IReviewModel>(
   {
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     driver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", required: true },
@@ -15,7 +26,7 @@ const reviewSchema = new mongoose.Schema(
 reviewSchema.index({ driver: 1 });
 reviewSchema.index({ user: 1, booking: 1 }, { unique: true });
 
-reviewSchema.statics.updateDriverRating = async function (driverId) {
+reviewSchema.statics.updateDriverRating = async function (driverId: mongoose.Types.ObjectId | string) {
   const result = await this.aggregate([
     { $match: { driver: driverId } },
     {
@@ -40,22 +51,22 @@ reviewSchema.statics.updateDriverRating = async function (driverId) {
   }
 };
 
-reviewSchema.post("save", async function () {
+reviewSchema.post("save", async function (this: IReview) {
   try {
-    await this.constructor.updateDriverRating(this.driver);
-  } catch (err) {
+    await (this.constructor as IReviewModel).updateDriverRating(this.driver);
+  } catch (err: any) {
     console.error("Failed to update driver rating after save:", err.message);
   }
 });
 
-reviewSchema.post("findOneAndDelete", async function (doc) {
+reviewSchema.post("findOneAndDelete", async function (doc: IReview | null) {
   if (doc) {
     try {
-      await doc.constructor.updateDriverRating(doc.driver);
-    } catch (err) {
+      await (doc.constructor as IReviewModel).updateDriverRating(doc.driver);
+    } catch (err: any) {
       console.error("Failed to update driver rating after delete:", err.message);
     }
   }
 });
 
-export default mongoose.model("Review", reviewSchema);
+export default mongoose.model<IReview, IReviewModel>("Review", reviewSchema);
