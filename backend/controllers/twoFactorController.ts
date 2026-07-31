@@ -82,7 +82,7 @@ export const verify2FALogin = async (req: Request, res: Response) => {
   res.cookie("token", tokenPayload, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
   
