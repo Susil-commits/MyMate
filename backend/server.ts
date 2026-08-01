@@ -114,43 +114,42 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
-connectDB().then(() => {
-  const httpServer = createServer(app);
-  initSocket(httpServer, allowedOrigins);
-  startCronJobs();
+if (process.env.NODE_ENV !== "test") {
+  connectDB().then(() => {
+    const httpServer = createServer(app);
+    initSocket(httpServer, allowedOrigins);
+    startCronJobs();
 
-  let server;
-  if (process.env.NODE_ENV !== "test") {
-    server = httpServer.listen(PORT, () => {
+    const server = httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
-  }
 
-  const shutdown = (signal) => {
-    console.log(`${signal} received, shutting down gracefully`);
-    if (server) {
-      server.close(() => {
-        console.log("Server closed");
+    const shutdown = (signal) => {
+      console.log(`${signal} received, shutting down gracefully`);
+      if (server) {
+        server.close(() => {
+          console.log("Server closed");
+          process.exit(0);
+        });
+      } else {
         process.exit(0);
-      });
-    } else {
-      process.exit(0);
-    }
-    setTimeout(() => process.exit(1), 10000);
-  };
+      }
+      setTimeout(() => process.exit(1), 10000);
+    };
 
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
-  process.on("SIGINT", () => shutdown("SIGINT"));
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
 
-  process.on("unhandledRejection", (err: any) => {
-    console.error("UNHANDLED REJECTION! Shutting down...");
-    console.error(err.name, err.message);
-    if (server) {
-      server.close(() => process.exit(1));
-    } else {
-      process.exit(1);
-    }
+    process.on("unhandledRejection", (err: any) => {
+      console.error("UNHANDLED REJECTION! Shutting down...");
+      console.error(err.name, err.message);
+      if (server) {
+        server.close(() => process.exit(1));
+      } else {
+        process.exit(1);
+      }
+    });
   });
-});
+}
 
 export { app };

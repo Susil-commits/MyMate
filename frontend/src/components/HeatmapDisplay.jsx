@@ -29,7 +29,7 @@ function HeatmapLayer({ points }) {
     return () => {
       map.removeLayer(heat);
     };
-  }, [map, points]);
+  }, [map, points, heatLoaded]);
 
   return null;
 }
@@ -51,7 +51,7 @@ export default function HeatmapDisplay() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/exhaustive-deps, react-hooks/set-state-in-effect
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHeatmap();
   }, []);
 
