@@ -153,6 +153,9 @@ export const logout = (req, res) => {
 };
 
 export const getMe = async (req, res) => {
+  if (!req.user) {
+    return res.json({ user: null, role: null });
+  }
   res.json({ user: req.user, role: req.userRole });
 };
 

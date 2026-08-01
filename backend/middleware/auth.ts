@@ -81,3 +81,34 @@ export const authorizeUserOrDriver = (req: AuthRequest, res: Response, next: Nex
   }
   next();
 };
+
+export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
+  try {
+    let token = req.cookies.token;
+    
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
+      return next();
+    }
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+
+    if (decoded.role === "user") {
+      req.user = await User.findById(decoded.id).select("-password");
+    } else if (decoded.role === "driver") {
+      req.user = await Driver.findById(decoded.id).select("-password");
+    } else if (decoded.role === "admin") {
+      req.user = { role: "admin" };
+    }
+
+    if (req.user) {
+      req.userRole = decoded.role;
+    }
+
+    next();
+  } catch (error) {
+    next();
+  }
+};

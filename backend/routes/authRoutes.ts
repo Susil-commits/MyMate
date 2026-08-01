@@ -15,7 +15,7 @@ import {
   resendVerification,
   logout,
 } from "../controllers/authController.js";
-import { protect, authorizeUser, authorizeDriver } from "../middleware/auth.js";
+import { protect, authorizeUser, authorizeDriver, optionalAuth } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import {
   userRegisterValidator,
@@ -40,7 +40,7 @@ router.post("/driver/login", driverLoginValidator, driverLogin);
 router.put("/driver/complete-profile", protect, authorizeDriver, upload.single("licenseImage"), completeDriverProfileValidator, completeDriverProfile);
 
 router.post("/admin/login", adminLoginValidator, adminLogin);
-router.get("/me", protect, getMe);
+router.get("/me", optionalAuth, getMe);
 router.post("/forgot-password", forgotPasswordValidator, forgotPassword);
 router.post("/reset-password", resetPasswordValidator, resetPassword);
 router.post("/verify-email", verifyEmail);
