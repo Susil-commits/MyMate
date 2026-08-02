@@ -11,6 +11,10 @@ export interface IDriver extends Document {
   phone: string;
   nationality: string;
   locality: string;
+  currentLocation?: {
+    lat: number;
+    lng: number;
+  };
   licenseNumber?: string;
   licenseImage?: { url: string; publicId: string };
   experienceYears: number;
@@ -50,6 +54,10 @@ const driverSchema = new mongoose.Schema<IDriver>(
     phone: { type: String, trim: true, default: "" },
     nationality: { type: String, trim: true, default: "" },
     locality: { type: String, trim: true, default: "" },
+    currentLocation: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
     licenseNumber: { type: String, trim: true, sparse: true, unique: true },
     licenseImage: {
       url: { type: String, default: "" },

@@ -1,12 +1,30 @@
 import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
+import Booking from "../models/Booking.js";
+import Driver from "../models/Driver.js";
+import { createNotification } from "../models/Notification.js";
 
 interface AuthenticatedSocket extends Socket {
   user?: any;
 }
 
 let io: Server;
+
+// In-memory throttling map to avoid DB overload
+const lastDbUpdate = new Map<string, number>();
+
+// Haversine distance in meters
+function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371e3;
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => {
   io = new Server(httpServer, {
@@ -65,7 +83,7 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
     });
 
     // Live Location Tracking
-    socket.on("location_update", (data: { bookingId: string, lat: number, lng: number, heading?: number }) => {
+    socket.on("location_update", async (data: { bookingId: string, lat: number, lng: number, heading?: number }) => {
       socket.to(`booking_${data.bookingId}`).emit("location_update", {
         driverId: socket.user?.id,
         lat: data.lat,
@@ -73,6 +91,52 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
         heading: data.heading,
         timestamp: Date.now()
       });
+
+      // Throttle DB updates to once every 10 seconds per driver
+      const driverId = socket.user?.id;
+      const now = Date.now();
+      if (driverId && (!lastDbUpdate.has(driverId) || now - lastDbUpdate.get(driverId)! > 10000)) {
+        lastDbUpdate.set(driverId, now);
+        
+        try {
+          // Update driver's current location
+          await Driver.findByIdAndUpdate(driverId, {
+            currentLocation: { lat: data.lat, lng: data.lng }
+          });
+
+          // Geofencing Check
+          const booking = await Booking.findById(data.bookingId);
+          if (booking && booking.status === "ongoing" && !booking.driverArrivedNotified && booking.pickupCoordinates?.lat) {
+            const distance = getDistanceInMeters(
+              data.lat, data.lng, 
+              booking.pickupCoordinates.lat, booking.pickupCoordinates.lng
+            );
+
+            // If within 500 meters, trigger arrival notification
+            if (distance <= 500) {
+              booking.driverArrivedNotified = true;
+              await booking.save();
+              
+              await createNotification({
+                userId: booking.user,
+                userModel: "User",
+                title: "Driver Arriving Soon",
+                message: "Your driver is within 500 meters of the pickup location.",
+                type: "system",
+                link: `/bookings/${booking._id}`
+              });
+
+              // Also emit a real-time event to the user
+              io.to(booking.user.toString()).emit("notification", {
+                title: "Driver Arriving Soon",
+                message: "Your driver is arriving shortly!"
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Geofencing update error:", err);
+        }
+      }
     });
 
     socket.on("disconnect", () => {

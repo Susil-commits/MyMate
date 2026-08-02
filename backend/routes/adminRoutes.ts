@@ -11,6 +11,7 @@ import {
   toggleUserActive,
   getDashboardStats,
   exportBookingsCSV,
+  getAdminHeatmap,
 } from "../controllers/adminController.js";
 import { protect, authorizeAdmin } from "../middleware/auth.js";
 
@@ -19,6 +20,7 @@ const router = Router();
 router.use(protect, authorizeAdmin);
 
 router.get("/stats", getDashboardStats);
+router.get("/heatmap", getAdminHeatmap);
 router.get("/drivers", getAllDrivers);
 router.get("/drivers/pending", getPendingDrivers);
 router.get("/drivers/:id", getDriverDetail);

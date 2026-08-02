@@ -410,7 +410,7 @@ export default function DriverProfilePage() {
           </div>
         ) : (
           <div className="space-y-4 stagger-1">
-            {reviews?.map?.((review) => (
+            {reviews?.map((review) => (
               <div key={review._id} className="bg-white rounded-2xl border border-gray-100 p-6 animate-scale-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

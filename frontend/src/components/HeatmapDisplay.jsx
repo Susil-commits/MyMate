@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import api from "../api/axios";
@@ -34,26 +34,26 @@ function HeatmapLayer({ points }) {
   return null;
 }
 
-export default function HeatmapDisplay() {
+export default function HeatmapDisplay({ endpoint = "/ai/heatmap" }) {
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const fetchHeatmap = async () => {
+  const fetchHeatmap = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/ai/heatmap");
+      const { data } = await api.get(endpoint);
       setPoints(data.heatPoints || []);
     } catch (err) {
       console.error("Failed to fetch heatmap data", err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [endpoint]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchHeatmap();
-  }, []);
+  }, [fetchHeatmap]);
 
   return (
     <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 relative">

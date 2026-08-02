@@ -23,15 +23,60 @@ export const recommendDrivers = async (req, res) => {
   const { hireType, vehicleType, lat, lng } = req.query;
 
   const filter: any = { kycStatus: "approved", isActive: true };
-  if (vehicleType) filter.vehicleTypes = vehicleType;
+  if (vehicleType) {
+    const types = String(vehicleType).split(",").map((t) => t.trim()).filter(Boolean);
+    if (types.length) filter.vehicleTypes = { $in: types };
+  }
 
   // Find active, approved drivers
   let drivers = await Driver.find(filter).select("-password -twoFactorSecret");
 
-  // Scoring weights: Rating (40%), Experience (30%), Proximity (30%)
   const userLat = parseFloat(lat);
   const userLng = parseFloat(lng);
 
+  // If we have Gemini configured, try to use it for smart matching
+  if (process.env.GEMINI_API_KEY && drivers.length > 0) {
+    try {
+      const prompt = `You are a smart matchmaking AI for a driver booking app. 
+      User requires: VehicleType: ${vehicleType || 'Any'}, HireType: ${hireType || 'Any'}.
+      Available drivers:
+      ${JSON.stringify(drivers.map(d => ({id: d._id, rating: d.averageRating, exp: d.experienceYears, vTypes: d.vehicleTypes})))}
+      
+      Rank the top 3 best matching drivers based on highest rating, experience, and vehicle match.
+      Return ONLY a JSON array of the top 3 driver IDs. Example: ["id1", "id2", "id3"]. Do not include markdown formatting like \`\`\`json.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+      });
+
+      const responseText = response.text.trim().replace(/```json/g, '').replace(/```/g, '');
+      const rankedIds = JSON.parse(responseText);
+
+      // Reorder drivers based on AI ranking
+      const scoredDrivers = [];
+      let score = 99; // Top match gets 99, next 98, etc.
+      for (const id of rankedIds) {
+        const d = drivers.find(drv => drv._id.toString() === id);
+        if (d) {
+          scoredDrivers.push({ ...d.toJSON(), aiScore: score-- });
+        }
+      }
+
+      // Fill in remaining drivers if AI didn't return 3
+      drivers.forEach(d => {
+        if (!rankedIds.includes(d._id.toString())) {
+          scoredDrivers.push({ ...d.toJSON(), aiScore: 70 });
+        }
+      });
+
+      return res.json({ recommended: scoredDrivers.slice(0, 3) });
+    } catch (err) {
+      console.error("GenAI Matching Error, falling back to manual scoring:", err);
+    }
+  }
+
+  // Fallback: Manual Scoring weights: Rating (40%), Experience (30%), Proximity (30%)
   const scoredDrivers = drivers.map(driver => {
     let score = 0;
     
@@ -42,8 +87,15 @@ export const recommendDrivers = async (req, res) => {
     const exp = Math.min(driver.experienceYears, 10);
     score += (exp / 10) * 30;
 
-    // Proximity Score - Not applicable without geocoding
-    score += 15;
+    // Proximity Score
+    if (!isNaN(userLat) && !isNaN(userLng) && driver.currentLocation?.lat && driver.currentLocation?.lng) {
+        const distance = getDistanceFromLatLonInKm(userLat, userLng, driver.currentLocation.lat, driver.currentLocation.lng);
+        // If within 5km, max score 30. If 20km away, score 0.
+        const distScore = Math.max(0, 30 - (distance * 1.5));
+        score += distScore;
+    } else {
+        score += 15; // Default middle proximity score
+    }
 
     return { ...driver.toJSON(), aiScore: Math.round(score) };
   });

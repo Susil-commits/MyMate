@@ -8,6 +8,10 @@ export interface IBooking extends Document {
   startDate: Date;
   endDate?: Date;
   pickupLocation: string;
+  pickupCoordinates?: {
+    lat: number;
+    lng: number;
+  };
   dropLocation: string;
   stops: string[];
   purpose: string;
@@ -27,6 +31,7 @@ export interface IBooking extends Document {
 
   cancellationReason: string;
   paymentStatus: "pending" | "paid" | "refunded";
+  driverArrivedNotified: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -48,6 +53,10 @@ const bookingSchema = new mongoose.Schema<IBooking>(
     startDate: { type: Date, required: true },
     endDate: { type: Date, default: null },
     pickupLocation: { type: String, required: true, trim: true },
+    pickupCoordinates: {
+      lat: { type: Number },
+      lng: { type: Number }
+    },
     dropLocation: { type: String, trim: true, default: "" },
     stops: [{ type: String, trim: true }],
     purpose: { type: String, required: true, trim: true },
@@ -71,6 +80,7 @@ const bookingSchema = new mongoose.Schema<IBooking>(
       enum: ["pending", "paid", "refunded"],
       default: "pending",
     },
+    driverArrivedNotified: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

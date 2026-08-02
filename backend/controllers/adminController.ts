@@ -157,3 +157,37 @@ export const exportBookingsCSV = async (req, res) => {
   res.attachment("bookings.csv");
   return res.send(csv);
 };
+
+export const getAdminHeatmap = async (req, res) => {
+  // Try to get actual coordinates from recent bookings and active drivers
+  const activeDrivers = await Driver.find({ isActive: true, currentLocation: { $exists: true } }).select("currentLocation");
+  const recentBookings = await Booking.find({ pickupCoordinates: { $exists: true } }).sort({ createdAt: -1 }).limit(100).select("pickupCoordinates");
+
+  const heatPoints: [number, number, number][] = [];
+
+  activeDrivers.forEach(d => {
+    if (d.currentLocation?.lat && d.currentLocation?.lng) {
+      heatPoints.push([d.currentLocation.lat, d.currentLocation.lng, 0.6]); // Moderate intensity for drivers
+    }
+  });
+
+  recentBookings.forEach(b => {
+    if (b.pickupCoordinates?.lat && b.pickupCoordinates?.lng) {
+      heatPoints.push([b.pickupCoordinates.lat, b.pickupCoordinates.lng, 1.0]); // High intensity for bookings
+    }
+  });
+
+  // If no data exists yet (due to legacy data), fallback to mock data around Mumbai for demo purposes
+  if (heatPoints.length === 0) {
+    const baseLat = 19.0760;
+    const baseLng = 72.8777;
+    for(let i = 0; i < 50; i++) {
+        const lat = baseLat + (Math.random() - 0.5) * 0.1;
+        const lng = baseLng + (Math.random() - 0.5) * 0.1;
+        const intensity = Math.random() * 0.8 + 0.2;
+        heatPoints.push([lat, lng, intensity]);
+    }
+  }
+
+  return ApiResponse.success(res, { heatPoints }, "Heatmap data retrieved");
+};

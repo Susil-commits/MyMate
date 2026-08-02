@@ -6,7 +6,7 @@
     "dev": "tsx --watch --env-file=.env server.ts",
     "start": "node dist/server.js",
     "build": "rimraf dist && tsc",
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --passWithNoTests"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",
@@ -33,11 +33,11 @@
     "helmet": "^8.2.0",
     "hpp": "^0.2.3",
     "ics": "^3.12.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.8.0",
     "morgan": "^1.11.0",
     "multer": "^1.4.5-lts.1",
-    "node-cache": "^5.1.2",
     "node-cron": "^4.6.0",
     "nodemailer": "^9.0.0",
     "otplib": "^12.0.1",

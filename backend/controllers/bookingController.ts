@@ -7,6 +7,8 @@ import { buildPagination } from "../utils/pagination.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
 import { getIo } from "../utils/socket.js";
+import { eventBus } from "../events/bookingEvents.js";
+import { calculateDynamicSurge } from "../utils/pricingEngine.js";
 import * as ics from "ics";
 import PDFDocument from "pdfkit";
 
@@ -75,15 +77,8 @@ export const createBooking = async (req, res) => {
   
   // 1. Compute Base Amount
   let baseAmount = computeAmount(hireType, start, end, driver);
-  let surgeMultiplier = 1;
-
-  // 2. Compute Surge Pricing (High demand hours: 8-10 AM, 5-7 PM)
-  const hour = start.getHours();
-  if ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19)) {
-    surgeMultiplier = 1.5;
-  } else if (hour >= 23 || hour <= 5) {
-    surgeMultiplier = 1.25; // Late night
-  }
+  // 2. Compute Dynamic Surge Pricing
+  let surgeMultiplier = await calculateDynamicSurge(start);
 
   let totalAmount = baseAmount * surgeMultiplier;
   let discountAmount = 0;
@@ -177,27 +172,15 @@ export const createBooking = async (req, res) => {
 
   const primaryBooking = createdBookings[0];
 
-  createNotification({
-    userId: driver._id, userModel: "Driver",
-    title: "New Booking Request",
-    message: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${(req.user as any).name || "a customer"}.`,
-    type: "booking", link: `/bookings/${primaryBooking._id}`,
-  }).catch(() => {});
-
-  sendBookingConfirmation(req.user, driver, primaryBooking).catch(() => {});
+  eventBus.emit("BOOKING_CREATED", {
+    primaryBooking,
+    driverId: driver._id,
+    user: req.user,
+    isRecurring,
+    hireType
+  });
 
   res.status(201).json({ booking: primaryBooking, totalCreated: createdBookings.length });
-
-  try {
-    const io = getIo();
-    io.to(String(driverId)).emit("new_notification", {
-      title: "New Booking Request",
-      body: `New ${hireType} booking request from ${(req.user as any).name || "a customer"}.`,
-      link: `/driver/bookings`,
-    });
-  } catch (err) {
-    console.error("Socket error on create booking:", err);
-  }
 };
 
 export const getUserBookings = async (req, res) => {
@@ -360,26 +343,18 @@ export const updateBookingStatus = async (req, res) => {
   if (req.body.cancellationReason) booking.cancellationReason = req.body.cancellationReason;
   await booking.save();
 
-  notifyBookingUpdate(booking, status, role).catch(() => {});
-
   const populated = await Booking.findById(booking._id)
     .populate("driver", "name phone locality avatar averageRating")
     .populate("user", "name phone avatar");
-  res.json({ booking: populated });
-
-  try {
-    const io = getIo();
-    io.to(`booking_${booking._id}`).emit("booking_update", populated);
     
-    const recipientId = role === "user" ? booking.driver : booking.user;
-    io.to(String(recipientId)).emit("new_notification", {
-      title: "Booking Update",
-      body: `Booking status changed to ${status}`,
-      link: `/bookings/${booking._id}`,
-    });
-  } catch (err) {
-    console.error("Socket error on update booking:", err);
-  }
+  eventBus.emit("BOOKING_STATUS_CHANGED", {
+    booking: populated,
+    user: (populated as any).user,
+    driver: (populated as any).driver,
+    status
+  });
+
+  res.json({ booking: populated });
 };
 
 export const downloadCalendar = async (req, res) => {

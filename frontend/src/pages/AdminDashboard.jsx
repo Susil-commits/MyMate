@@ -5,6 +5,7 @@ import { HiUserGroup, HiBadgeCheck, HiClipboardList, HiExclamation, HiCurrencyDo
 import toast from "react-hot-toast";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { SkeletonDashboard } from "../components/SkeletonLoader";
+import HeatmapDisplay from "../components/HeatmapDisplay";
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState({ totalDrivers: 0, activeDrivers: 0, totalUsers: 0, totalBookings: 0, pendingKyc: 0, completedBookings: 0, cancelledBookings: 0, revenue: 0 });
@@ -139,7 +140,7 @@ export default function AdminDashboard() {
             {recentBookings.length === 0 ? (
               <p className="text-sm text-gray-400">No bookings yet.</p>
             ) : (
-              recentBookings?.map?.((b) => (
+              recentBookings?.map((b) => (
                 <Link key={b._id} to={`/bookings/${b._id}`} className="flex items-center justify-between text-sm hover:bg-gray-50 -mx-2 px-2 py-1.5 rounded-lg transition-colors">
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900 truncate">{b.user?.name} → {b.driver?.name}</p>
@@ -158,6 +159,10 @@ export default function AdminDashboard() {
       </div>
 
       <div className="mt-8">
+        <HeatmapDisplay endpoint="/admin/heatmap" />
+      </div>
+
+      <div className="mt-8">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-extrabold text-gray-900">Pending KYC Verification</h2>
           <Link to="/admin/drivers" className="text-sm text-purple-600 hover:text-purple-700 font-semibold transition-colors">
@@ -171,7 +176,7 @@ export default function AdminDashboard() {
           </div>
         ) : (
           <div className="space-y-4 stagger-1">
-            {pendingDrivers?.map?.((driver) => (
+            {pendingDrivers?.map((driver) => (
               <div key={driver._id} className="bg-white rounded-2xl border border-gray-100 p-6 animate-scale-in">
                 <div className="flex items-start justify-between flex-wrap gap-4">
                   <div className="min-w-0">
