@@ -47,6 +47,7 @@ export const startCronJobs = () => {
       logger.error("Error in stale bookings cron job:", error);
     }
   });
+
   // Run every day at midnight to detect fraud (excessive cancellations)
   cron.schedule("0 0 * * *", async () => {
     try {
@@ -55,45 +56,81 @@ export const startCronJobs = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const cancelStats = await Booking.aggregate([
-        { 
-          $match: { 
-            status: "cancelled", 
-            updatedAt: { $gte: today } 
-          } 
-        },
-        {
-          $group: {
-            _id: { user: "$user", driver: "$driver" },
-            count: { $sum: 1 }
-          }
-        }
+      // Bug 18 Fix: Use two separate aggregation pipelines — one per user, one per driver.
+      // The old code grouped by { user, driver } COMBINATION, which meant a user who
+      // cancelled 2 bookings with Driver A and 2 with Driver B only had count:2 in each
+      // group — never hitting the >=3 threshold despite 4 total cancellations.
+      //
+      // Bug 10 Fix: Exclude auto-cancelled bookings (system-initiated) from the fraud count
+      // so legitimate users with inactive drivers aren't falsely flagged.
+      const [userCancelStats, driverCancelStats] = await Promise.all([
+        Booking.aggregate([
+          {
+            $match: {
+              status: "cancelled",
+              updatedAt: { $gte: today },
+              // Exclude system auto-cancellations — these should not penalise the user
+              cancellationReason: { $ne: "Auto-cancelled due to driver inactivity" },
+            },
+          },
+          {
+            $group: {
+              _id: "$user",
+              count: { $sum: 1 },
+            },
+          },
+        ]),
+        Booking.aggregate([
+          {
+            $match: {
+              status: "cancelled",
+              updatedAt: { $gte: today },
+              // Exclude system auto-cancellations from driver fraud assessment too
+              cancellationReason: { $ne: "Auto-cancelled due to driver inactivity" },
+            },
+          },
+          {
+            $group: {
+              _id: "$driver",
+              count: { $sum: 1 },
+            },
+          },
+        ]),
       ]);
 
-      const suspiciousUsers = new Set();
-      const suspiciousDrivers = new Set();
+      const suspiciousUsers = new Set<string>();
+      const suspiciousDrivers = new Set<string>();
 
-      cancelStats.forEach(stat => {
-        if (stat.count >= 3) {
-          if (stat._id.user) suspiciousUsers.add(stat._id.user);
-          if (stat._id.driver) suspiciousDrivers.add(stat._id.driver);
+      userCancelStats.forEach((stat) => {
+        if (stat.count >= 3 && stat._id) {
+          suspiciousUsers.add(String(stat._id));
+        }
+      });
+
+      driverCancelStats.forEach((stat) => {
+        if (stat.count >= 3 && stat._id) {
+          suspiciousDrivers.add(String(stat._id));
         }
       });
 
       if (suspiciousUsers.size > 0) {
+        // Bug 10 Fix: Mark users as suspicious rather than hard-suspending them.
+        // Use isSuspicious flag so admins can review and make the final decision.
         await User.updateMany(
           { _id: { $in: Array.from(suspiciousUsers) } },
-          { $set: { isSuspicious: true } } // Assumes a boolean field could be used, or just log
+          { $set: { isSuspicious: true } }
         );
-        logger.warn(`Fraud Alert: Flagged ${suspiciousUsers.size} users for excessive cancellations.`);
+        logger.warn(`Fraud Alert: Flagged ${suspiciousUsers.size} users for excessive manual cancellations.`);
       }
 
       if (suspiciousDrivers.size > 0) {
+        // Bug 10 Fix: Mark drivers as suspicious rather than immediately deactivating.
+        // Hard suspension without appeal is too aggressive for legitimate drivers.
         await Driver.updateMany(
           { _id: { $in: Array.from(suspiciousDrivers) } },
-          { $set: { isActive: false } } // Suspend driver
+          { $set: { isSuspicious: true } }
         );
-        logger.warn(`Fraud Alert: Suspended ${suspiciousDrivers.size} drivers for excessive cancellations.`);
+        logger.warn(`Fraud Alert: Flagged ${suspiciousDrivers.size} drivers for excessive cancellations (pending admin review).`);
       }
 
     } catch (error) {

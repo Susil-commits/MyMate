@@ -80,9 +80,17 @@ export const updateReview = async (req, res) => {
 export const deleteReview = async (req, res) => {
   const review = await Review.findById(req.params.id);
   if (!review) return res.status(404).json({ message: "Review not found" });
-  if (String(review.user) !== String(req.user._id)) {
+
+  // Bug 8 Fix: Added admin bypass so admins can delete abusive/spam reviews.
+  // Previously only the review author could delete, which meant admins had no
+  // way to remove harmful content from the platform without direct DB access.
+  const isAuthor = String(review.user) === String(req.user._id);
+  const isAdmin = req.userRole === "admin";
+
+  if (!isAuthor && !isAdmin) {
     return res.status(403).json({ message: "Not authorized" });
   }
+
   await Review.findByIdAndDelete(req.params.id);
   res.json({ message: "Review deleted" });
 };

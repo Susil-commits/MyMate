@@ -14,6 +14,9 @@ import PDFDocument from "pdfkit";
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
+// Bug 9 Fix: Maximum number of recurring bookings allowed per request.
+// Prevents a user from inserting thousands of DB records by using a far-future end date.
+const MAX_RECURRING_BOOKINGS = 365;
 
 function computeAmount(hireType, start, end, driver) {
   if (hireType === "temporary") {
@@ -24,30 +27,9 @@ function computeAmount(hireType, start, end, driver) {
   return days * (driver.dailyRate || 0);
 }
 
-async function notifyBookingUpdate(booking, status, actorRole) {
-  const [user, driver] = await Promise.all([
-    User.findById(booking.user).select("name email"),
-    Driver.findById(booking.driver).select("name email"),
-  ]);
-  if (!user || !driver) return;
-  if (actorRole !== "user") {
-    createNotification({
-      userId: user._id, userModel: "User",
-      title: "Booking Update",
-      message: `Your booking is now ${status}.`,
-      type: "booking", link: `/bookings/${booking._id}`,
-    }).catch(() => {});
-  }
-  if (actorRole !== "driver") {
-    createNotification({
-      userId: driver._id, userModel: "Driver",
-      title: "Booking Update",
-      message: `Booking request has been ${status}.`,
-      type: "booking", link: `/bookings/${booking._id}`,
-    }).catch(() => {});
-  }
-  sendBookingStatusUpdate(user, driver, booking, status).catch(() => {});
-}
+// Bug 21 Fix: Removed the dead `notifyBookingUpdate` function that was defined
+// but never called. All notifications go through the eventBus. Keeping dead code
+// causes confusion about whether it should be wired up.
 
 export const createBooking = async (req, res) => {
   const { 
@@ -85,21 +67,29 @@ export const createBooking = async (req, res) => {
   let appliedPromo = null;
 
   if (promoCode) {
-    const promo = await PromoCode.findOne({
-      code: promoCode.toUpperCase(),
-      isActive: true,
-      expiryDate: { $gt: new Date() },
-    });
+    // Bug 2 Fix: Use atomic findOneAndUpdate with $lt usageLimit to prevent
+    // race conditions where two concurrent requests both pass the usedCount check
+    // and both increment — exceeding the usage limit.
+    const promo = await PromoCode.findOneAndUpdate(
+      {
+        code: promoCode.toUpperCase(),
+        isActive: true,
+        expiryDate: { $gt: new Date() },
+        $or: [
+          { usageLimit: { $exists: false } },
+          { usageLimit: null },
+          { $expr: { $lt: ["$usedCount", "$usageLimit"] } },
+        ],
+      },
+      { $inc: { usedCount: 1 } },
+      { new: true }
+    );
     
-    if (promo && (!promo.usageLimit || promo.usedCount < promo.usageLimit)) {
+    if (promo) {
       const calculatedDiscount = (totalAmount * promo.discountPercentage) / 100;
       discountAmount = Math.min(calculatedDiscount, promo.maxDiscount);
       totalAmount = totalAmount - discountAmount;
       appliedPromo = promo.code;
-      
-      // Increment usedCount
-      promo.usedCount += 1;
-      await promo.save();
     }
   }
 
@@ -111,7 +101,7 @@ export const createBooking = async (req, res) => {
     dropLocation: dropLocation || "",
     stops: Array.isArray(stops) ? stops : [],
     purpose,
-    baseAmount,
+    baseAmount,        // Bug 11 Fix: Always stored — never 0 from a valid driver
     surgeMultiplier,
     totalAmount,
     promoCode: appliedPromo,
@@ -131,7 +121,19 @@ export const createBooking = async (req, res) => {
     let currentEnd = end ? new Date(end) : null;
     const duration = end ? end.getTime() - start.getTime() : 0;
 
+    // Bug 9 Fix: Validate pattern before entering loop (prevents future infinite loop
+    // if new patterns are added without updating the loop body).
+    if (!["daily", "weekly"].includes(recurringPattern)) {
+      return res.status(400).json({ message: "Invalid recurring pattern. Must be 'daily' or 'weekly'." });
+    }
+
     while (currentStart <= rEnd) {
+      // Bug 9 Fix: Hard cap on total recurring bookings to prevent DB flooding
+      // (e.g., daily pattern over 5 years = 1825 inserts).
+      if (bookingsToCreate.length >= MAX_RECURRING_BOOKINGS) {
+        break;
+      }
+
       bookingsToCreate.push({
         ...baseBookingData,
         startDate: new Date(currentStart),
@@ -149,8 +151,6 @@ export const createBooking = async (req, res) => {
       } else if (recurringPattern === "weekly") {
         currentStart.setDate(currentStart.getDate() + 7);
         if (currentEnd) currentEnd.setDate(currentEnd.getDate() + 7);
-      } else {
-        break;
       }
     }
 
@@ -306,7 +306,7 @@ export const updateBookingStatus = async (req, res) => {
       const Payment = (await import("../models/Payment.js")).default;
       const Razorpay = (await import("razorpay")).default;
       const WalletTransaction = (await import("../models/WalletTransaction.js")).default;
-      const Driver = (await import("../models/Driver.js")).default;
+      const DriverModel = (await import("../models/Driver.js")).default;
 
       const payment = await Payment.findOne({ booking: booking._id, status: "completed" });
       if (payment && payment.razorpayPaymentId) {
@@ -315,16 +315,21 @@ export const updateBookingStatus = async (req, res) => {
             key_id: process.env.RAZORPAY_KEY_ID,
             key_secret: process.env.RAZORPAY_KEY_SECRET,
           });
+
+          // Bug 3 Fix: Only deduct from driver wallet AFTER the refund succeeds.
+          // Previously, the deduction happened regardless of whether Razorpay threw.
           await rzp.payments.refund(payment.razorpayPaymentId, {
             amount: Math.round(payment.amount * 100),
           });
+
+          // Refund succeeded — now safe to update payment record and deduct wallet
           payment.status = "refunded";
           await payment.save();
           booking.paymentStatus = "refunded";
 
-          // Deduct from driver wallet since booking was cancelled
+          // Deduct from driver wallet since booking was cancelled after payment
           const driverAmount = booking.totalAmount * 0.9;
-          await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: -driverAmount } });
+          await DriverModel.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: -driverAmount } });
           await WalletTransaction.create({
             driver: booking.driver,
             type: "debit",
@@ -336,6 +341,8 @@ export const updateBookingStatus = async (req, res) => {
       }
     } catch (err) {
       console.error("Auto-refund failed on cancellation:", err);
+      // Do not proceed with booking cancellation if refund fails — return error
+      return res.status(502).json({ message: "Cancellation failed: refund could not be processed. Please contact support." });
     }
   }
 
@@ -363,6 +370,14 @@ export const downloadCalendar = async (req, res) => {
     .populate("user", "name email phone");
 
   if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+  // Bug 25 Fix: Add ownership check — any authenticated user could previously
+  // download the calendar for any booking ID.
+  const isOwner =
+    req.userRole === "admin" ||
+    (req.userRole === "user" && String((booking.user as any)?._id) === String(req.user._id)) ||
+    (req.userRole === "driver" && String((booking.driver as any)?._id) === String(req.user._id));
+  if (!isOwner) return res.status(403).json({ message: "Not authorized to access this booking" });
 
   const start = new Date(booking.startDate);
   const end = booking.endDate ? new Date(booking.endDate) : new Date(start.getTime() + 60 * 60 * 1000);
@@ -433,8 +448,10 @@ export const downloadInvoice = async (req, res) => {
   if (booking.endDate) doc.text(`End Date: ${new Date(booking.endDate).toLocaleString()}`);
   doc.moveDown();
 
-  // Financials
-  doc.text(`Base Amount: Rs. ${booking.baseAmount || (booking.totalAmount + booking.discountAmount)}`);
+  // Bug 11 Fix: `baseAmount` is always stored on the booking document (never 0 from a valid driver).
+  // The ambiguous fallback `booking.totalAmount + booking.discountAmount` is removed because
+  // it would be triggered for zero-rate drivers and show incorrect amounts.
+  doc.text(`Base Amount: Rs. ${booking.baseAmount}`);
   if (booking.surgeMultiplier > 1) {
     doc.text(`Surge Multiplier: x${booking.surgeMultiplier}`);
   }

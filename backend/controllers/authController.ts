@@ -7,6 +7,8 @@ import { storeFile } from "../middleware/upload.js";
 import { sanitizeDriver } from "../utils/sanitize.js";
 
 const VERIFY_EXPIRE = 24 * 60 * 60 * 1000;
+const VALID_ROLES = ["user", "driver"] as const;
+type ValidRole = typeof VALID_ROLES[number];
 
 function setTokenCookie(res, token) {
   res.cookie("token", token, {
@@ -33,6 +35,17 @@ async function attachVerification(account, role) {
   account.emailVerificationExpire = Date.now() + VERIFY_EXPIRE;
   await account.save();
   sendVerificationEmail(account.email, token).catch(() => {});
+}
+
+// Bug 5 Fix: Helper that validates the `role` field and returns the correct Model.
+// The old code used two different ternary conventions (driver ? Driver : User) vs
+// (user ? User : Driver) across functions, which was error-prone and inconsistent.
+// More critically, `forgotPassword` and `resetPassword` had no validation — sending
+// an unknown role silently fell through to the wrong model.
+function getModelForRole(role: string): typeof User | typeof Driver | null {
+  if (role === "user") return User as any;
+  if (role === "driver") return Driver as any;
+  return null;
 }
 
 export const userRegister = async (req, res) => {
@@ -161,8 +174,16 @@ export const getMe = async (req, res) => {
 
 export const forgotPassword = async (req, res) => {
   const { email, role } = req.body;
-  const Model = (role === "driver" ? Driver : User) as any;
-  const account = await Model.findOne({ email: String(email).toLowerCase() });
+
+  // Bug 5 Fix: Validate role explicitly — the old code used a bare ternary that
+  // silently treated any unrecognised role as "User", potentially leaking info
+  // about whether admin accounts exist. Now returns early with generic message.
+  const Model = getModelForRole(role);
+  if (!Model) {
+    return res.json({ message: "If an account exists, a reset link has been sent" });
+  }
+
+  const account = await (Model as any).findOne({ email: String(email).toLowerCase() });
   if (account) {
     const resetToken = account.getResetPasswordToken();
     await account.save();
@@ -173,7 +194,13 @@ export const forgotPassword = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   const { token, password, role } = req.body;
-  const Model = (role === "user" ? User : Driver) as any;
+
+  // Bug 5 Fix: Use unified getModelForRole for consistency
+  const Model = getModelForRole(role);
+  if (!Model) {
+    return res.status(400).json({ message: "Invalid role specified" });
+  }
+
   const user = await (Model as any).findOne({
     resetPasswordToken: hashToken(token),
     resetPasswordExpire: { $gt: Date.now() },
@@ -193,7 +220,13 @@ export const resetPassword = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   const { token, role } = req.body;
-  const Model = (role === "driver" ? Driver : User) as any;
+
+  // Bug 5 Fix: Use unified getModelForRole
+  const Model = getModelForRole(role);
+  if (!Model) {
+    return res.status(400).json({ message: "Invalid role specified" });
+  }
+
   const user = await (Model as any).findOne({
     emailVerificationToken: hashToken(token),
     emailVerificationExpire: { $gt: Date.now() },
@@ -210,8 +243,14 @@ export const verifyEmail = async (req, res) => {
 
 export const resendVerification = async (req, res) => {
   const { email, role } = req.body;
-  const Model = (role === "driver" ? Driver : User) as any;
-  const account = await Model.findOne({ email: String(email).toLowerCase() });
+
+  // Bug 5 Fix: Use unified getModelForRole
+  const Model = getModelForRole(role);
+  if (!Model) {
+    return res.json({ message: "If the email exists and is unverified, a new link has been sent" });
+  }
+
+  const account = await (Model as any).findOne({ email: String(email).toLowerCase() });
   if (account && !account.isEmailVerified) {
     await attachVerification(account, role);
   }

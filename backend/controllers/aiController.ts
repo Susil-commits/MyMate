@@ -19,6 +19,20 @@ function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// Bug 24 Fix: Safe helper to extract text from a Gemini response.
+// The `.text` shorthand is a convenience property that may not exist in all
+// SDK versions or response shapes. This falls back through the full candidate
+// path and returns null if no text is available.
+function extractGeminiText(response: any): string | null {
+  // Try the convenience shorthand first
+  if (typeof response?.text === "string") return response.text;
+  if (typeof response?.text === "function") {
+    try { return response.text(); } catch { /* fall through */ }
+  }
+  // Fall back to the full candidate path
+  return response?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+}
+
 export const recommendDrivers = async (req, res) => {
   const { hireType, vehicleType, lat, lng } = req.query;
 
@@ -31,8 +45,8 @@ export const recommendDrivers = async (req, res) => {
   // Find active, approved drivers
   let drivers = await Driver.find(filter).select("-password -twoFactorSecret");
 
-  const userLat = parseFloat(lat);
-  const userLng = parseFloat(lng);
+  const userLat = parseFloat(lat as string);
+  const userLng = parseFloat(lng as string);
 
   // If we have Gemini configured, try to use it for smart matching
   if (process.env.GEMINI_API_KEY && drivers.length > 0) {
@@ -50,8 +64,18 @@ export const recommendDrivers = async (req, res) => {
         contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
-      const responseText = response.text.trim().replace(/```json/g, '').replace(/```/g, '');
-      const rankedIds = JSON.parse(responseText);
+      // Bug 24 Fix: Use null-safe text extraction instead of direct response.text access
+      const responseText = extractGeminiText(response);
+      if (!responseText) {
+        throw new Error("Empty response from Gemini API");
+      }
+
+      const cleanedText = responseText.trim().replace(/```json/g, '').replace(/```/g, '');
+      const rankedIds = JSON.parse(cleanedText);
+
+      if (!Array.isArray(rankedIds)) {
+        throw new Error("Gemini response was not a JSON array");
+      }
 
       // Reorder drivers based on AI ranking
       const scoredDrivers = [];
@@ -131,7 +155,13 @@ and navigate the app. Be concise, polite, and strictly answer questions related 
         ]
     });
 
-    res.json({ response: response.text });
+    // Bug 24 Fix: Use null-safe text extraction
+    const responseText = extractGeminiText(response);
+    if (!responseText) {
+      throw new Error("No response text from Gemini API");
+    }
+
+    res.json({ response: responseText });
   } catch (err) {
     console.error("AI Chatbot error:", err);
     res.status(500).json({ message: "Chatbot encountered an error." });

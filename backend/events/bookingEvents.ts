@@ -6,7 +6,10 @@ import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 
 // Global Event Bus
+// Bug 17 Fix: Set maxListeners to 20 to prevent false "memory leak" warnings
+// when listeners are added across the app (e.g., during tests or hot-reload).
 export const eventBus = new EventEmitter();
+eventBus.setMaxListeners(20);
 
 // Listeners for BOOKING_CREATED
 eventBus.on("BOOKING_CREATED", async ({ primaryBooking, driverId, user, isRecurring, hireType }) => {

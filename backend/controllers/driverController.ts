@@ -4,6 +4,10 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
 import { storeFile, deleteFromCloudinary } from "../middleware/upload.js";
+// Bug 19 Fix: Import clearCachePrefix statically at the module level instead of
+// using dynamic import() inside the response handler. Dynamic import inside a
+// controller causes a new module resolution on every profile update.
+import { clearCachePrefix } from "../middleware/cache.js";
 
 const SORT_MAP = {
   rating: { averageRating: -1, totalReviews: -1 },
@@ -119,23 +123,30 @@ export const updateDriverProfile = async (req, res) => {
     const { url, publicId } = await storeFile(files.licenseImage[0], "mymate/licenses", req);
     driver.licenseImage = { url, publicId };
     
-    // AI OCR for KYC Verification
+    // Bug 13 Fix: Removed OCR auto-approval logic. Any image containing the words
+    // "ID", "DRIVING", or "LICENSE" (including fake/forged documents, business cards,
+    // or marketing materials) would have been automatically approved — a major KYC bypass.
+    //
+    // OCR analysis is now purely informational: it logs detected keywords for admin review
+    // but NEVER auto-sets kycStatus to "approved". Human admin review is always required.
     if (req.body.resubmitKyc === "true") {
       driver.kycStatus = "pending";
       const driverId = driver._id;
-      
-      // Run OCR in background to prevent blocking the API response
+      const capturedUrl = url;
+
+      // Run OCR in background — info only, does not affect kycStatus
       Promise.resolve().then(async () => {
         try {
           const Tesseract = (await import("tesseract.js")).default;
-          const { data: { text } } = await Tesseract.recognize(url, 'eng');
+          const { data: { text } } = await Tesseract.recognize(capturedUrl, "eng");
           const upperText = text.toUpperCase();
-          // If it contains ID-like keywords, auto-approve
-          if (upperText.includes("DRIVING") || upperText.includes("LICENCE") || upperText.includes("LICENSE") || upperText.includes("ID") || upperText.includes("DOB")) {
-            await Driver.findByIdAndUpdate(driverId, { kycStatus: "approved" });
-            console.log(`[OCR] Auto-approved driver ${driverId} based on text detection.`);
+          const detectedKeywords = ["DRIVING", "LICENCE", "LICENSE", "DOB"].filter(
+            (kw) => upperText.includes(kw)
+          );
+          if (detectedKeywords.length > 0) {
+            console.log(`[OCR] Driver ${driverId}: detected keywords [${detectedKeywords.join(", ")}]. Pending admin review.`);
           } else {
-            console.log(`[OCR] Manual review required for driver ${driverId}. Text: ${text.substring(0, 50)}...`);
+            console.log(`[OCR] Driver ${driverId}: no license keywords detected. Manual review required.`);
           }
         } catch (err) {
           console.error("[OCR] Failed to analyze license:", err);
@@ -154,13 +165,13 @@ export const updateDriverProfile = async (req, res) => {
 
   await driver.save();
   
-  // Invalidate search and stats caches since profile changed
-  import("../middleware/cache.js").then(({ clearCachePrefix }) => {
+  // Bug 19 Fix: Use statically-imported clearCachePrefix instead of dynamic import()
+  try {
     clearCachePrefix("drivers");
     clearCachePrefix("stats");
-  }).catch((err) => {
+  } catch (err) {
     console.error("Failed to invalidate cache:", err);
-  });
+  }
 
   const sanitized = sanitizeDriver(driver, { withContact: true });
   res.json({ message: "Profile updated", driver: sanitized });
@@ -183,4 +194,3 @@ export const getWalletTransactions = async (req, res) => {
     transactions,
   });
 };
-

@@ -147,15 +147,34 @@ export const getAllBookings = async (req, res) => {
 };
 
 export const exportBookingsCSV = async (req, res) => {
-  const bookings = await Booking.find().populate("user", "name").populate("driver", "name").sort({ createdAt: -1 });
-  let csv = "ID,User,Driver,Status,Amount,Date\n";
-  bookings.forEach(b => {
-    csv += `"${b._id}","${(b.user as any)?.name || ''}","${(b.driver as any)?.name || ''}","${b.status}","${(b as any).totalAmount}","${b.createdAt}"\n`;
-  });
-  
-  res.header("Content-Type", "text/csv");
-  res.attachment("bookings.csv");
-  return res.send(csv);
+  // Bug 15 Fix: The old implementation loaded ALL bookings into memory with Booking.find()
+  // — on a large dataset this causes OOM crashes. We now use a Mongoose cursor to stream
+  // the CSV row-by-row without ever holding more than one document in memory.
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", "attachment; filename=\"bookings.csv\"");
+
+  // Write header row
+  res.write("ID,User,Driver,Status,Amount,Date\n");
+
+  const cursor = Booking.find()
+    .populate("user", "name")
+    .populate("driver", "name")
+    .sort({ createdAt: -1 })
+    .cursor();
+
+  for await (const b of cursor) {
+    const row = [
+      `"${b._id}"`,
+      `"${(b.user as any)?.name || ""}"`,
+      `"${(b.driver as any)?.name || ""}"`,
+      `"${b.status}"`,
+      `"${(b as any).totalAmount}"`,
+      `"${b.createdAt}"`,
+    ].join(",");
+    res.write(row + "\n");
+  }
+
+  res.end();
 };
 
 export const getAdminHeatmap = async (req, res) => {

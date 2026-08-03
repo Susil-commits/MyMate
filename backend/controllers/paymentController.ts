@@ -129,11 +129,15 @@ export const verifyPayment = async (req, res) => {
 
   const booking = await Booking.findById(payment.booking);
   if (booking) {
+    // Bug 1 Fix: Use atomic $inc instead of read-then-write to prevent concurrent
+    // payment verification requests from crediting the driver wallet multiple times.
+    // The `updated` guard above prevents double-entry at the Payment level, and
+    // the `$inc` here ensures the wallet operation is atomic at the DB level.
     booking.paymentStatus = "paid";
     await booking.save();
 
     // Credit Driver Wallet (90% to driver, 10% platform fee)
-    const driverAmount = booking.totalAmount * 0.9;
+    const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
     await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
     await WalletTransaction.create({
       driver: booking.driver,
@@ -224,29 +228,36 @@ export const payWithWallet = async (req, res) => {
     return res.status(400).json({ message: "Invalid booking amount" });
   }
 
-  const user = await User.findById(req.user._id);
-  if (user.walletBalance < booking.totalAmount) {
+  // Bug 1 Fix: Atomic balance check + deduct using findOneAndUpdate with $gte condition.
+  // The old pattern (find → check → save) is vulnerable to race conditions where two
+  // concurrent requests both pass the balance check before either deducts.
+  const updatedUser = await User.findOneAndUpdate(
+    {
+      _id: req.user._id,
+      walletBalance: { $gte: booking.totalAmount },
+    },
+    { $inc: { walletBalance: -booking.totalAmount } },
+    { new: true }
+  );
+
+  if (!updatedUser) {
     return res.status(400).json({ message: "Insufficient wallet balance" });
   }
 
-  // Deduct from user wallet
-  user.walletBalance -= booking.totalAmount;
-  await user.save();
-
   await WalletTransaction.create({
-    owner: user._id,
+    owner: updatedUser._id,
     ownerModel: "User",
     type: "debit",
     amount: booking.totalAmount,
     description: `Payment for booking ${booking._id}`,
-    referenceId: booking._id,
+    booking: booking._id,
   });
 
   booking.paymentStatus = "paid";
   await booking.save();
 
   // Credit Driver Wallet (90%)
-  const driverAmount = booking.totalAmount * 0.9;
+  const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
   await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
   
   await WalletTransaction.create({
@@ -255,7 +266,7 @@ export const payWithWallet = async (req, res) => {
     type: "credit",
     amount: driverAmount,
     description: `Earnings for booking ${booking._id} (after 10% fee)`,
-    referenceId: booking._id,
+    booking: booking._id,
   });
 
   const driverUser = await Driver.findById(booking.driver).select("name email");
@@ -267,7 +278,7 @@ export const payWithWallet = async (req, res) => {
     type: "payment", link: `/bookings/${booking._id}`,
   }).catch(() => {});
   
-  if (driverUser && user) sendBookingStatusUpdate(user, driverUser, booking, "paid").catch(() => {});
+  if (driverUser && updatedUser) sendBookingStatusUpdate(updatedUser, driverUser, booking, "paid").catch(() => {});
 
   res.json({ message: "Payment successful using wallet" });
 };

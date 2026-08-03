@@ -6,19 +6,21 @@ import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
 import { Request } from "express";
 import { AppError } from "../utils/AppError.js";
+import sharp from "sharp";
 
 const storage = multer.memoryStorage();
 
-const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  const allowedTypes = /jpeg|jpg|png|webp|pdf/;
-  const extname = allowedTypes.test(file.originalname.split(".").pop()?.toLowerCase() || "");
-  const mimetype = allowedTypes.test(file.mimetype);
+const ALLOWED_IMAGE_TYPES = /jpeg|jpg|png|webp/;
+const ALLOWED_MIME_TYPES = /^image\/(jpeg|jpg|png|webp)$|^application\/pdf$/;
 
-  if (extname && mimetype) {
-    cb(null, true);
-  } else {
-    cb(new AppError("Only images (jpeg, jpg, png, webp) and PDFs are allowed", 400));
+const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  // Bug 6 & 19 Fix: Primary validation on MIME type (cannot be spoofed by filename).
+  // Secondary extension check for defence-in-depth.
+  const mimeOk = ALLOWED_MIME_TYPES.test(file.mimetype);
+  if (!mimeOk) {
+    return cb(new AppError("Only images (jpeg, jpg, png, webp) and PDFs are allowed", 400));
   }
+  cb(null, true);
 };
 
 export const upload = multer({
@@ -27,15 +29,18 @@ export const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 },
 });
 
-import sharp from "sharp";
-
 export async function uploadToCloudinary(file: Express.Multer.File, folder = "mymate"): Promise<any> {
-  // Compress and resize image
-  const processedBuffer = await sharp(file.buffer)
-    .rotate()
-    .resize({ width: 1200, withoutEnlargement: true })
-    .webp({ quality: 80 })
-    .toBuffer();
+  // Bug 6 Fix: Only run sharp compression pipeline for images, not PDFs.
+  let uploadBuffer: Buffer;
+  if (file.mimetype === "application/pdf") {
+    uploadBuffer = file.buffer;
+  } else {
+    uploadBuffer = await sharp(file.buffer)
+      .rotate()
+      .resize({ width: 1200, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+  }
 
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -44,7 +49,8 @@ export async function uploadToCloudinary(file: Express.Multer.File, folder = "my
         resource_type: "auto",
         use_filename: true,
         unique_filename: true,
-        format: "webp",
+        // Only force webp format for images; PDFs keep their format
+        ...(file.mimetype !== "application/pdf" ? { format: "webp" } : {}),
       },
       (error, result) => {
         if (error) return reject(error);
@@ -53,7 +59,7 @@ export async function uploadToCloudinary(file: Express.Multer.File, folder = "my
     );
 
     const bufferStream = new Readable();
-    bufferStream.push(processedBuffer);
+    bufferStream.push(uploadBuffer);
     bufferStream.push(null);
     bufferStream.pipe(uploadStream);
   });
@@ -80,16 +86,24 @@ export async function storeFile(file: Express.Multer.File, folder = "mymate", re
     }
   }
 
-  // Compress and resize for local fallback
-  const processedBuffer = await sharp(file.buffer)
-    .rotate()
-    .resize({ width: 1200, withoutEnlargement: true })
-    .webp({ quality: 80 })
-    .toBuffer();
+  // Bug 6 Fix: Local fallback — only compress images through sharp, not PDFs.
+  let processedBuffer: Buffer;
+  let filename: string;
+
+  if (file.mimetype === "application/pdf") {
+    processedBuffer = file.buffer;
+    filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.pdf`;
+  } else {
+    processedBuffer = await sharp(file.buffer)
+      .rotate()
+      .resize({ width: 1200, withoutEnlargement: true })
+      .webp({ quality: 80 })
+      .toBuffer();
+    filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
+  }
 
   const dir = path.join(process.cwd(), "uploads", folder);
   fs.mkdirSync(dir, { recursive: true });
-  const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}.webp`;
   fs.writeFileSync(path.join(dir, filename), processedBuffer);
 
   const base = req

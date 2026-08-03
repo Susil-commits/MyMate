@@ -2,18 +2,32 @@ import { Request, Response } from "express";
 import WalletTransaction from "../models/WalletTransaction.js";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
-import Razorpay from "razorpay";
 import crypto from "crypto";
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID || "",
-  key_secret: process.env.RAZORPAY_KEY_SECRET || "",
-});
+// Bug 4 Fix: Do NOT instantiate Razorpay at module load time with empty-string fallbacks.
+// If RAZORPAY_KEY_ID is not set at startup, the old code created a bad Razorpay instance.
+// Use lazy initialisation: only create on first call, after confirming env vars exist.
+import Razorpay from "razorpay";
+let _razorpay: InstanceType<typeof Razorpay> | null = null;
+function getRazorpay(): InstanceType<typeof Razorpay> | null {
+  if (_razorpay) return _razorpay;
+  if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    _razorpay = new Razorpay({
+      key_id: process.env.RAZORPAY_KEY_ID,
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
+    });
+  }
+  return _razorpay;
+}
 
 export const getWalletTransactions = async (req: Request, res: Response) => {
   try {
-    const ownerId = req.user?.id;
-    const ownerModel = req.user?.role === "driver" ? "Driver" : "User";
+    // Bug 20 Fix: Use req.user._id (ObjectId) instead of req.user?.id (string virtual).
+    // While Mongoose's .id virtual works for findById, it's inconsistent with all other
+    // controllers and can cause subtle type mismatches in aggregation pipelines.
+    const ownerId = (req as any).user?._id;
+    const ownerRole = (req as any).user?.role || (req as any).userRole;
+    const ownerModel = ownerRole === "driver" ? "Driver" : "User";
 
     const transactions = await WalletTransaction.find({ owner: ownerId, ownerModel })
       .sort({ createdAt: -1 })
@@ -39,7 +53,8 @@ export const createWalletOrder = async (req: Request, res: Response) => {
     const { amount } = req.body;
     if (!amount || amount <= 0) return res.status(400).json({ message: "Invalid amount" });
 
-    if (!process.env.RAZORPAY_KEY_ID) {
+    const rzp = getRazorpay();
+    if (!rzp) {
       return res.status(400).json({ message: "Payment gateway not configured" });
     }
 
@@ -49,7 +64,7 @@ export const createWalletOrder = async (req: Request, res: Response) => {
       receipt: `wallet_rcpt_${Date.now()}`,
     };
 
-    const order = await razorpay.orders.create(options);
+    const order = await rzp.orders.create(options);
     res.json({ orderId: order.id, keyId: process.env.RAZORPAY_KEY_ID });
   } catch (err) {
     res.status(500).json({ message: "Failed to create order", error: (err as Error).message });
@@ -60,9 +75,13 @@ export const verifyWalletPayment = async (req: Request, res: Response) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, amount } = req.body;
 
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(400).json({ message: "Payment gateway not configured" });
+    }
+
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET || "")
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest("hex");
 
@@ -70,8 +89,10 @@ export const verifyWalletPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
-    const ownerId = req.user?.id;
-    const ownerModel = req.user?.role === "driver" ? "Driver" : "User";
+    // Bug 20 Fix: Use req.user._id consistently
+    const ownerId = (req as any).user?._id;
+    const ownerRole = (req as any).user?.role || (req as any).userRole;
+    const ownerModel = ownerRole === "driver" ? "Driver" : "User";
 
     // Add to wallet
     if (ownerModel === "Driver") {
@@ -86,7 +107,7 @@ export const verifyWalletPayment = async (req: Request, res: Response) => {
       amount,
       type: "credit",
       description: "Wallet recharge via Razorpay",
-      referenceId: razorpay_payment_id,
+      booking: undefined,
     });
 
     res.json({ success: true, message: "Wallet recharged successfully" });

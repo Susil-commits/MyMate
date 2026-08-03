@@ -126,15 +126,21 @@ if (process.env.NODE_ENV !== "test") {
 
     const shutdown = (signal) => {
       console.log(`${signal} received, shutting down gracefully`);
+      // Bug 16 Fix: Create the timer reference BEFORE using it inside the callback,
+      // so we can clearTimeout when the server closes cleanly. Without this,
+      // `process.exit(1)` would fire even after a successful `process.exit(0)`
+      // in container environments that keep the event loop alive briefly.
+      let forceExitTimer: NodeJS.Timeout;
       if (server) {
         server.close(() => {
           console.log("Server closed");
+          clearTimeout(forceExitTimer);
           process.exit(0);
         });
       } else {
         process.exit(0);
       }
-      setTimeout(() => process.exit(1), 10000);
+      forceExitTimer = setTimeout(() => process.exit(1), 10000);
     };
 
     process.on("SIGTERM", () => shutdown("SIGTERM"));

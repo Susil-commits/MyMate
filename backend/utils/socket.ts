@@ -84,6 +84,11 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
 
     // Live Location Tracking
     socket.on("location_update", async (data: { bookingId: string, lat: number, lng: number, heading?: number }) => {
+      // Validate incoming coordinates are numbers
+      if (typeof data.lat !== "number" || typeof data.lng !== "number" || isNaN(data.lat) || isNaN(data.lng)) {
+        return; // Silently ignore malformed location events
+      }
+
       socket.to(`booking_${data.bookingId}`).emit("location_update", {
         driverId: socket.user?.id,
         lat: data.lat,
@@ -106,7 +111,17 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
 
           // Geofencing Check
           const booking = await Booking.findById(data.bookingId);
-          if (booking && booking.status === "ongoing" && !booking.driverArrivedNotified && booking.pickupCoordinates?.lat) {
+
+          // Bug 7 Fix: Validate that this driver actually owns the booking before
+          // triggering any geofencing logic. Without this check, any driver could
+          // send a spoofed bookingId and trigger arrival notifications for arbitrary users.
+          if (
+            booking &&
+            booking.status === "ongoing" &&
+            !booking.driverArrivedNotified &&
+            booking.pickupCoordinates?.lat &&
+            String(booking.driver) === String(driverId) // Ownership check
+          ) {
             const distance = getDistanceInMeters(
               data.lat, data.lng, 
               booking.pickupCoordinates.lat, booking.pickupCoordinates.lng
