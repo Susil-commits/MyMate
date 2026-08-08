@@ -11,9 +11,9 @@ export interface IDriver extends Document {
   phone: string;
   nationality: string;
   locality: string;
-  currentLocation?: {
-    lat: number;
-    lng: number;
+  location?: {
+    type: "Point";
+    coordinates: number[];
   };
   licenseNumber?: string;
   licenseImage?: { url: string; publicId: string };
@@ -54,9 +54,9 @@ const driverSchema = new mongoose.Schema<IDriver>(
     phone: { type: String, trim: true, default: "" },
     nationality: { type: String, trim: true, default: "" },
     locality: { type: String, trim: true, default: "" },
-    currentLocation: {
-      lat: { type: Number },
-      lng: { type: Number }
+    location: {
+      type: { type: String, enum: ["Point"], default: "Point" },
+      coordinates: { type: [Number], default: [0, 0] }
     },
     licenseNumber: { type: String, trim: true, sparse: true, unique: true },
     licenseImage: {
@@ -133,5 +133,23 @@ driverSchema.methods.toJSON = function (): Partial<IDriver> {
 // 2. Sorting fields or secondary filters come next.
 driverSchema.index({ kycStatus: 1, isActive: 1, locality: 1, averageRating: -1, experienceYears: -1 });
 driverSchema.index({ kycStatus: 1, isActive: 1, vehicleTypes: 1 });
+driverSchema.index({ location: "2dsphere" });
+
+// Phase 5: MongoDB Full-Text Search
+driverSchema.index(
+  {
+    name: "text",
+    bio: "text",
+    languages: "text",
+  },
+  {
+    weights: {
+      name: 10,
+      languages: 5,
+      bio: 1,
+    },
+    name: "DriverTextIndex",
+  }
+);
 
 export default mongoose.model<IDriver>("Driver", driverSchema);

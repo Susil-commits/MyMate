@@ -13,25 +13,17 @@ import { fileURLToPath } from "url";
 import { morganMiddleware } from "./config/morgan.js";
 import { xss } from "./middleware/xss.js";
 import connectDB from "./config/db.js";
-import authRoutes from "./routes/authRoutes.js";
-import driverRoutes from "./routes/driverRoutes.js";
-import bookingRoutes from "./routes/bookingRoutes.js";
-import reviewRoutes from "./routes/reviewRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
-import userRoutes from "./routes/userRoutes.js";
-import favoriteRoutes from "./routes/favoriteRoutes.js";
-import messageRoutes from "./routes/messageRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
-import twoFactorRoutes from "./routes/twoFactorRoutes.js";
-import walletRoutes from "./routes/walletRoutes.js";
-import promoRoutes from "./routes/promoRoutes.js";
-import aiRoutes from "./routes/aiRoutes.js";
+import v1Routes from "./routes/v1/index.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { generalLimiter, authLimiter, paymentLimiter } from "./middleware/rateLimiter.js";
 import { createServer } from "http";
 import { initSocket } from "./utils/socket.js";
 import { startCronJobs } from "./utils/cronJobs.js";
+import { setupSwagger } from "./config/swagger.js";
+import { setupMetrics } from "./utils/metrics.js";
+import { initializeChangeStreams } from "./events/changeStreams.js";
+import { setupQueueBoard } from "./utils/queueBoard.js";
+import { setupGraphQL } from "./graphql/schema.js";
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = path.dirname(_filename);
@@ -85,8 +77,39 @@ app.use(mongoSanitize());
 app.use(xss);
 app.use(hpp());
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok", uptime: process.uptime(), timestamp: new Date().toISOString() });
+setupMetrics(app);
+setupSwagger(app);
+
+import mongoose from "mongoose";
+import redisClient from "./config/redis.js";
+
+app.get("/health", async (req, res) => {
+  try {
+    // Ping MongoDB
+    const mongoStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
+    if (mongoStatus !== "connected") {
+      throw new Error("MongoDB disconnected");
+    }
+
+    // Ping Redis
+    await redisClient.ping();
+
+    res.json({
+      status: "ok",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      dependencies: {
+        mongodb: "ok",
+        redis: "ok"
+      }
+    });
+  } catch (err: any) {
+    res.status(503).json({
+      status: "error",
+      message: "Service Unavailable",
+      error: err.message
+    });
+  }
 });
 
 app.get("/", (req, res) => {
@@ -101,34 +124,36 @@ app.get("/", (req, res) => {
 app.use("/uploads", express.static(path.join(_dirname, "uploads")));
 
 app.use("/api", generalLimiter);
-app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/drivers", driverRoutes);
-app.use("/api/bookings", bookingRoutes);
-app.use("/api/reviews", reviewRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/favorites", favoriteRoutes);
-app.use("/api/messages", messageRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/2fa", twoFactorRoutes);
-app.use("/api/wallet", walletRoutes);
-app.use("/api/promos", promoRoutes);
-app.use("/api/ai", aiRoutes);
 
-app.use((req, res) => {
-  res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
-});
+// v1 API Routes
+app.use("/api/v1", v1Routes);
 
-app.use(errorHandler);
+// Alias /api to v1 for backward compatibility
+app.use("/api", v1Routes);
+
+setupQueueBoard(app);
 
 const PORT = process.env.PORT || 5000;
 
 if (process.env.NODE_ENV !== "test") {
-  connectDB().then(() => {
+  connectDB().then(async () => {
     const httpServer = createServer(app);
     initSocket(httpServer, allowedOrigins);
     startCronJobs();
+    
+    // Initialize BullMQ Workers
+    import("./utils/queue.js").catch(err => console.error("Failed to initialize queues", err));
+    
+    // Initialize MongoDB Change Streams
+    initializeChangeStreams();
+
+    await setupGraphQL(app);
+
+    // Add 404 and error handlers AFTER async routes are mounted
+    app.use((req, res) => {
+      res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
+    });
+    app.use(errorHandler);
 
     const server = httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);

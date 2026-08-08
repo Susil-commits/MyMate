@@ -2,7 +2,7 @@
 import logger from "./logger.js";
 import nodemailer from "nodemailer";
 
-const transporter = nodemailer.createTransport({
+export const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || "587"),
   secure: false,
@@ -14,16 +14,23 @@ const transporter = nodemailer.createTransport({
 
 export const sendEmail = async ({ to, subject, html, text }: { to: string; subject: string; html?: string; text?: string }) => {
   try {
-    const info = await transporter.sendMail({
-      from: `"MyMate" <${process.env.SMTP_USER}>`,
-      to,
-      subject,
-      text,
-      html,
-    });
-    logger.info(`Email sent: ${info.messageId}`);
+    const { emailQueue } = await import("../utils/queue.js");
+    if (emailQueue) {
+      await emailQueue.add("sendEmail", { to, subject, html, text });
+      logger.info(`Email job queued for: ${to}`);
+    } else {
+      // Fallback if Redis/Queue is disabled
+      const info = await transporter.sendMail({
+        from: `"MyMate" <${process.env.SMTP_USER}>`,
+        to,
+        subject,
+        text,
+        html,
+      });
+      logger.info(`Email sent: ${info.messageId}`);
+    }
   } catch (error) {
-    logger.error("Error sending email", error);
+    logger.error("Error queueing/sending email", error);
   }
 };
 

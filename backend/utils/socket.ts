@@ -4,6 +4,8 @@ import jwt from "jsonwebtoken";
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import { createNotification } from "../models/Notification.js";
+import { createAdapter } from "@socket.io/redis-adapter";
+import { Redis } from "ioredis";
 
 interface AuthenticatedSocket extends Socket {
   user?: any;
@@ -34,6 +36,17 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
       credentials: true,
     },
   });
+
+  if (process.env.REDIS_URL || process.env.NODE_ENV !== 'test') {
+    try {
+      const pubClient = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+      const subClient = pubClient.duplicate();
+      io.adapter(createAdapter(pubClient, subClient));
+      console.log("[Socket.io] Redis adapter attached.");
+    } catch (err) {
+      console.error("[Socket.io] Redis adapter failed to attach:", err);
+    }
+  }
 
   // Socket authentication middleware
   io.use((socket: AuthenticatedSocket, next) => {
@@ -106,7 +119,7 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
         try {
           // Update driver's current location
           await Driver.findByIdAndUpdate(driverId, {
-            currentLocation: { lat: data.lat, lng: data.lng }
+            location: { type: "Point", coordinates: [data.lng, data.lat] }
           });
 
           // Geofencing Check

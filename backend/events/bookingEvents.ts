@@ -92,3 +92,24 @@ eventBus.on("BOOKING_STATUS_CHANGED", async ({ booking, user, driver, status }) 
     console.error("[EventBus] Error processing BOOKING_STATUS_CHANGED:", err);
   }
 });
+
+// Listeners for DRIVER_VERIFIED
+eventBus.on("DRIVER_VERIFIED", async ({ driver, status }) => {
+  try {
+    const { sendKycStatusEmail } = await import("../config/email.js");
+    await sendKycStatusEmail(driver, status);
+
+    await createNotification({
+      userId: driver._id,
+      userModel: "Driver",
+      title: "KYC Verification Update",
+      message: status === "approved"
+        ? "Your KYC has been approved. You are now live on the platform."
+        : "Your KYC was rejected. Please update your documents and resubmit.",
+      type: "kyc",
+      link: "/driver/profile",
+    });
+  } catch (err) {
+    console.error("[EventBus] Error processing DRIVER_VERIFIED:", err);
+  }
+});

@@ -16,8 +16,8 @@ export async function findBestDrivers(userLat: number, userLng: number, limit: n
   const candidates: DriverCandidate[] = driversFromDb.map(d => {
     // Basic euclidean distance placeholder, normally use Haversine or similar
     const dist = Math.sqrt(
-      Math.pow((d.currentLocation?.lat || userLat) - userLat, 2) + 
-      Math.pow((d.currentLocation?.lng || userLng) - userLng, 2)
+      Math.pow(((d.location?.coordinates && d.location.coordinates[1]) || userLat) - userLat, 2) + 
+      Math.pow(((d.location?.coordinates && d.location.coordinates[0]) || userLng) - userLng, 2)
     ) * 111; // roughly km
     
     return {

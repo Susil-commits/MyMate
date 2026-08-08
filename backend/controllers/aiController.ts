@@ -2,9 +2,19 @@ import { GoogleGenAI } from "@google/genai";
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
 
+import { createCircuitBreaker } from "../utils/circuitBreaker.js";
+
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "dummy_key_if_not_set"
 });
+
+const fetchGeminiResponse = async (prompt: string) => {
+  return await ai.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: [{ role: 'user', parts: [{ text: prompt }] }]
+  });
+};
+const geminiBreaker = createCircuitBreaker(fetchGeminiResponse);
 
 // Calculate distance between two coordinates in km (Haversine formula)
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -42,11 +52,22 @@ export const recommendDrivers = async (req, res) => {
     if (types.length) filter.vehicleTypes = { $in: types };
   }
 
-  // Find active, approved drivers
-  let drivers = await Driver.find(filter).select("-password -twoFactorSecret");
-
   const userLat = parseFloat(lat as string);
   const userLng = parseFloat(lng as string);
+  const hasLocation = !isNaN(userLat) && !isNaN(userLng);
+
+  if (hasLocation) {
+    filter.location = {
+      $near: {
+        $geometry: { type: "Point", coordinates: [userLng, userLat] },
+        $maxDistance: 50000 // 50km
+      }
+    };
+  }
+
+  // Find active, approved drivers (already sorted by proximity if $near is used)
+  let drivers = await Driver.find(filter).select("-password -twoFactorSecret");
+
 
   // If we have Gemini configured, try to use it for smart matching
   if (process.env.GEMINI_API_KEY && drivers.length > 0) {
@@ -59,10 +80,7 @@ export const recommendDrivers = async (req, res) => {
       Rank the top 3 best matching drivers based on highest rating, experience, and vehicle match.
       Return ONLY a JSON array of the top 3 driver IDs. Example: ["id1", "id2", "id3"]. Do not include markdown formatting like \`\`\`json.`;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
+      const response = await geminiBreaker.fire(prompt);
 
       // Bug 24 Fix: Use null-safe text extraction instead of direct response.text access
       const responseText = extractGeminiText(response);
@@ -112,8 +130,10 @@ export const recommendDrivers = async (req, res) => {
     score += (exp / 10) * 30;
 
     // Proximity Score
-    if (!isNaN(userLat) && !isNaN(userLng) && driver.currentLocation?.lat && driver.currentLocation?.lng) {
-        const distance = getDistanceFromLatLonInKm(userLat, userLng, driver.currentLocation.lat, driver.currentLocation.lng);
+    if (hasLocation && driver.location?.coordinates?.length === 2) {
+        const driverLng = driver.location.coordinates[0];
+        const driverLat = driver.location.coordinates[1];
+        const distance = getDistanceFromLatLonInKm(userLat, userLng, driverLat, driverLng);
         // If within 5km, max score 30. If 20km away, score 0.
         const distScore = Math.max(0, 30 - (distance * 1.5));
         score += distScore;
@@ -145,15 +165,7 @@ export const chat = async (req, res) => {
 You help users book drivers, understand pricing (including surge pricing between 8-10 AM and 5-7 PM), 
 and navigate the app. Be concise, polite, and strictly answer questions related to the platform.`;
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: [
-            {
-                role: 'user',
-                parts: [{ text: systemPrompt + "\n\nUser Question: " + message }]
-            }
-        ]
-    });
+    const response = await geminiBreaker.fire(systemPrompt + "\n\nUser Question: " + message);
 
     // Bug 24 Fix: Use null-safe text extraction
     const responseText = extractGeminiText(response);

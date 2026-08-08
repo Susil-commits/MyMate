@@ -20,10 +20,15 @@ const SORT_MAP = {
 export const getDrivers = async (req, res) => {
   const {
     locality, minExperience, minRating, vehicleType, hireType,
-    languages, minRate, maxRate, sort, page, limit,
+    languages, minRate, maxRate, sort, page, limit, search,
   } = req.query;
 
   const filter: any = { kycStatus: "approved", isActive: true };
+
+  // Phase 5: MongoDB Full-Text Search
+  if (search) {
+    filter.$text = { $search: String(search) };
+  }
 
   if (locality) filter.locality = { $regex: locality, $options: "i" };
   if (minExperience) (filter as any).experienceYears = { $gte: Number(minExperience) };
@@ -47,14 +52,24 @@ export const getDrivers = async (req, res) => {
     }
   }
 
-  const sortOption = SORT_MAP[sort] || SORT_MAP.rating;
+  let sortOption = SORT_MAP[sort] || SORT_MAP.rating;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 12, 50);
   const skip = (pageNum - 1) * limitNum;
 
+  let query = Driver.find(filter);
+  
+  if (search) {
+    // Project and sort by text score
+    query = query.select({ score: { $meta: "textScore" } });
+    if (!sort) {
+      sortOption = { score: { $meta: "textScore" } } as any;
+    }
+  }
+
   const [total, drivers] = await Promise.all([
     Driver.countDocuments(filter),
-    Driver.find(filter).sort(sortOption).skip(skip).limit(limitNum).lean(),
+    query.sort(sortOption).skip(skip).limit(limitNum).lean(),
   ]);
 
   res.json({

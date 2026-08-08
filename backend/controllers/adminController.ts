@@ -4,27 +4,26 @@ import Booking from "../models/Booking.js";
 import Payment from "../models/Payment.js";
 import { clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
-import { createNotification } from "../models/Notification.js";
-import { sendKycStatusEmail } from "../config/email.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { logAudit } from "../controllers/auditController.js";
+import { eventBus } from "../events/bookingEvents.js";
 
 export const getDashboardStats = async (req, res) => {
   const [
     totalDrivers, activeDrivers, totalUsers, totalBookings, pendingKyc,
     completedBookings, cancelledBookings, revenueAgg,
   ] = await Promise.all([
-    Driver.countDocuments(),
-    Driver.countDocuments({ isActive: true, kycStatus: "approved" }),
-    User.countDocuments(),
-    Booking.countDocuments(),
-    Driver.countDocuments({ kycStatus: "pending" }),
-    Booking.countDocuments({ status: "completed" }),
-    Booking.countDocuments({ status: { $in: ["cancelled", "rejected"] } }),
+    Driver.countDocuments().read('secondaryPreferred'),
+    Driver.countDocuments({ isActive: true, kycStatus: "approved" }).read('secondaryPreferred'),
+    User.countDocuments().read('secondaryPreferred'),
+    Booking.countDocuments().read('secondaryPreferred'),
+    Driver.countDocuments({ kycStatus: "pending" }).read('secondaryPreferred'),
+    Booking.countDocuments({ status: "completed" }).read('secondaryPreferred'),
+    Booking.countDocuments({ status: { $in: ["cancelled", "rejected"] } }).read('secondaryPreferred'),
     Payment.aggregate([
       { $match: { status: "completed" } },
       { $group: { _id: null, revenue: { $sum: "$amount" } } },
-    ]),
+    ]).read('secondaryPreferred'),
   ]);
   return ApiResponse.success(res, {
     totalDrivers,
@@ -79,18 +78,7 @@ export const verifyDriver = async (req, res) => {
   }
   await driver.save();
 
-  sendKycStatusEmail(driver, status).catch(() => {});
-  createNotification({
-    userId: driver._id,
-    userModel: "Driver",
-    title: "KYC Verification Update",
-    message:
-      status === "approved"
-        ? "Your KYC has been approved. You are now live on the platform."
-        : "Your KYC was rejected. Please update your documents and resubmit.",
-    type: "kyc",
-    link: "/driver/profile",
-  }).catch(() => {});
+  eventBus.emit("DRIVER_VERIFIED", { driver, status });
 
   logAudit(req.user, "Admin", "VERIFY_DRIVER", { driverId: driver._id, status }, req.ip);
 
@@ -179,14 +167,14 @@ export const exportBookingsCSV = async (req, res) => {
 
 export const getAdminHeatmap = async (req, res) => {
   // Try to get actual coordinates from recent bookings and active drivers
-  const activeDrivers = await Driver.find({ isActive: true, currentLocation: { $exists: true } }).select("currentLocation");
-  const recentBookings = await Booking.find({ pickupCoordinates: { $exists: true } }).sort({ createdAt: -1 }).limit(100).select("pickupCoordinates");
+  const activeDrivers = await Driver.find({ isActive: true, location: { $exists: true } }).select("location").read('secondaryPreferred');
+  const recentBookings = await Booking.find({ pickupCoordinates: { $exists: true } }).sort({ createdAt: -1 }).limit(100).select("pickupCoordinates").read('secondaryPreferred');
 
   const heatPoints: [number, number, number][] = [];
 
   activeDrivers.forEach(d => {
-    if (d.currentLocation?.lat && d.currentLocation?.lng) {
-      heatPoints.push([d.currentLocation.lat, d.currentLocation.lng, 0.6]); // Moderate intensity for drivers
+    if (d.location?.coordinates && d.location.coordinates.length === 2) {
+      heatPoints.push([d.location.coordinates[1], d.location.coordinates[0], 0.6]); // Moderate intensity for drivers
     }
   });
 

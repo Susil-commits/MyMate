@@ -20,6 +20,16 @@ MyMate is a modern web application designed to connect users with verified local
 ## Architecture Highlights
 - **Pure Core / Impure Shell Pattern**: The driver-matching scoring logic is completely decoupled from I/O (Database access, Time). The business logic (`scoreDriver` and `rankDrivers` in `backend/utils/driverScoring.ts`) is 100% pure. All I/O stays in a separate "shell" function (`driverMatchingService.ts`) that handles fetching drivers and config before delegating to the pure functions. This separation dramatically improves testability and correctness. A standalone Haskell Proof of Concept exploring this pattern further is available in `/fp-poc`.
 
+## Enterprise System Design Upgrades
+Over five iterative phases, the MyMate backend was overhauled from a monolithic REST server into a highly scalable, observable, and resilient distributed architecture:
+- **Scalability & Caching**: Shifted load away from MongoDB by implementing **Redis Connection Pooling**, global route caching (`redisClient.get/setEx`), and distributed rate limiting (`RedisStore`).
+- **Resilience & Safety**: Integrated **Opossum Circuit Breakers** around external API calls (Google Gemini) to prevent catastrophic cascading failures, and implemented **Idempotency Keys** using Redis to completely eliminate duplicate charges on network retries.
+- **Asynchronous Processing**: Decoupled heavy I/O operations (like email dispatching) using **BullMQ** job queues and the internal Node.js `EventEmitter` (EventBus pattern).
+- **Advanced Data & Search**: Upgraded geographic queries using native MongoDB `2dsphere` indexes, implemented weighted `$text` inverted indexes for lightning-fast text searches, and shifted heavy admin analytics to **MongoDB Read Replicas** (`secondaryPreferred`) to maximize throughput.
+- **Real-Time State**: Synchronized the frontend effortlessly via **MongoDB Change Streams** combined with **Socket.io + Redis Adapter** for horziontal multi-server broadcasting.
+- **API Evolution**: Built a robust **GraphQL (Apollo Server)** endpoint alongside the versioned `/api/v1` REST interface to solve frontend over-fetching.
+- **Observability**: Added enterprise monitoring via **Prometheus Metrics** (`prom-client`), an interactive **Bull-Board Queue Dashboard**, auto-generated **Swagger Interactive Documentation**, and comprehensive **Deep Health Checks** that actively ping both Redis and MongoDB.
+
 ## Tech Stack
 - **Frontend**: React (Vite), TailwindCSS, Framer Motion, Socket.io-client, React Router.
 - **Backend**: Node.js, Express, MongoDB (Mongoose), Socket.io, JSON Web Tokens (JWT).
