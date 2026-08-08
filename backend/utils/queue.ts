@@ -3,8 +3,17 @@ import redisClient from "../config/redis.js";
 import logger from "../config/logger.js";
 import { transporter } from "../config/email.js";
 
+const getBullConnection = () => {
+  if (!redisClient) return null;
+  const client = redisClient.duplicate({ maxRetriesPerRequest: null });
+  // Attach an error handler to prevent Node from throwing unhandled 'error' events
+  // when Redis is unreachable.
+  client.on("error", () => {});
+  return client;
+};
+
 export const emailQueue = redisClient
-  ? new Queue("emailQueue", { connection: redisClient.duplicate({ maxRetriesPerRequest: null }) })
+  ? new Queue("emailQueue", { connection: getBullConnection()! })
   : null;
 
 if (redisClient) {
@@ -23,8 +32,9 @@ if (redisClient) {
       });
       logger.info(`Email sent via Queue: ${info.messageId}`);
     },
-    { connection: redisClient.duplicate({ maxRetriesPerRequest: null }) }
+    { connection: getBullConnection()! }
   );
 } else {
   logger.warn("Redis not configured. Email queue is disabled (falling back to inline).");
 }
+
