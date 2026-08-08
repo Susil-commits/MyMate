@@ -1,6 +1,6 @@
 import { createBullBoard } from '@bull-board/api';
 // @ts-ignore
-import { BullMQAdapter } from '@bull-board/api/bullMQAdapter.js';
+import { BullMQAdapter } from '@bull-board/api/bullMQAdapter';
 // @ts-ignore
 import { ExpressAdapter } from '@bull-board/express';
 import { emailQueue } from './queue.js';

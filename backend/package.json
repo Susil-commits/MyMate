@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
+    "@as-integrations/express4": "^1.1.2",
     "@bull-board/api": "^8.6.0",
     "@bull-board/express": "^8.6.0",
     "@google/genai": "^2.13.0",

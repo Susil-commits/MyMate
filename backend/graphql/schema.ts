@@ -75,7 +75,7 @@ export const resolvers = {
 
 import { ApolloServer } from '@apollo/server';
 // @ts-ignore
-import { expressMiddleware } from '@apollo/server/express4';
+import { expressMiddleware } from '@as-integrations/express4';
 import { Express } from 'express';
 
 export const setupGraphQL = async (app: Express) => {
