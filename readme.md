@@ -17,6 +17,9 @@ MyMate is a modern web application designed to connect users with verified local
 - **Progressive Web App (PWA)**: Installable, offline-capable, and completely optimized for mobile devices with top-tier Lighthouse scores.
 - **High-Performance UI**: Modern, premium design using React, TailwindCSS, and Framer Motion for elegant micro-animations.
 
+## Architecture Highlights
+- **Pure Core / Impure Shell Pattern**: The driver-matching scoring logic is completely decoupled from I/O (Database access, Time). The business logic (`scoreDriver` and `rankDrivers` in `backend/utils/driverScoring.ts`) is 100% pure. All I/O stays in a separate "shell" function (`driverMatchingService.ts`) that handles fetching drivers and config before delegating to the pure functions. This separation dramatically improves testability and correctness. A standalone Haskell Proof of Concept exploring this pattern further is available in `/fp-poc`.
+
 ## Tech Stack
 - **Frontend**: React (Vite), TailwindCSS, Framer Motion, Socket.io-client, React Router.
 - **Backend**: Node.js, Express, MongoDB (Mongoose), Socket.io, JSON Web Tokens (JWT).
