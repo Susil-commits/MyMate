@@ -4,7 +4,7 @@ import logger from "../config/logger.js";
 import { transporter } from "../config/email.js";
 
 export const emailQueue = redisClient
-  ? new Queue("emailQueue", { connection: redisClient })
+  ? new Queue("emailQueue", { connection: redisClient.duplicate({ maxRetriesPerRequest: null }) })
   : null;
 
 if (redisClient) {
@@ -23,7 +23,7 @@ if (redisClient) {
       });
       logger.info(`Email sent via Queue: ${info.messageId}`);
     },
-    { connection: redisClient }
+    { connection: redisClient.duplicate({ maxRetriesPerRequest: null }) }
   );
 } else {
   logger.warn("Redis not configured. Email queue is disabled (falling back to inline).");
