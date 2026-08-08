@@ -42,6 +42,16 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
+// Validate critical environment variables
+const requiredEnvVars = ["MONGO_URI", "JWT_SECRET"];
+if (process.env.NODE_ENV !== "test") {
+  const missing = requiredEnvVars.filter((key) => !process.env[key]);
+  if (missing.length > 0) {
+    console.error(`FATAL ERROR: Missing required environment variables: ${missing.join(", ")}`);
+    process.exit(1);
+  }
+}
+
 const app = express();
 
 app.set("trust proxy", 1);

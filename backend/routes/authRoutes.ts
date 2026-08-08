@@ -15,6 +15,7 @@ import {
   resendVerification,
   logout,
 } from "../controllers/authController.js";
+import { passwordResetLimiter } from "../middleware/rateLimiter.js";
 import { protect, authorizeUser, authorizeDriver, optionalAuth } from "../middleware/auth.js";
 import { upload } from "../middleware/upload.js";
 import {
@@ -41,8 +42,8 @@ router.put("/driver/complete-profile", protect, authorizeDriver, upload.single("
 
 router.post("/admin/login", adminLoginValidator, adminLogin);
 router.get("/me", optionalAuth, getMe);
-router.post("/forgot-password", forgotPasswordValidator, forgotPassword);
-router.post("/reset-password", resetPasswordValidator, resetPassword);
+router.post("/forgot-password", passwordResetLimiter, forgotPasswordValidator, forgotPassword);
+router.post("/reset-password", passwordResetLimiter, resetPasswordValidator, resetPassword);
 router.post("/verify-email", verifyEmail);
 router.post("/resend-verification", forgotPasswordValidator, resendVerification);
 router.post("/logout", logout);
