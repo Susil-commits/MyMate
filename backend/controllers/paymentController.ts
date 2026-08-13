@@ -131,10 +131,7 @@ export const verifyPayment = async (req, res) => {
 
   const booking = await Booking.findById(payment.booking);
   if (booking) {
-    // Bug 1 Fix: Use atomic $inc instead of read-then-write to prevent concurrent
-    // payment verification requests from crediting the driver wallet multiple times.
-    // The `updated` guard above prevents double-entry at the Payment level, and
-    // the `$inc` here ensures the wallet operation is atomic at the DB level.
+    // Atomically credit driver wallet (90% to driver, 10% platform fee)
     booking.paymentStatus = "paid";
     await booking.save();
 
@@ -241,9 +238,7 @@ export const payWithWallet = async (req, res) => {
     return res.status(400).json({ message: "Invalid booking amount" });
   }
 
-  // Bug 1 Fix: Atomic balance check + deduct using findOneAndUpdate with $gte condition.
-  // The old pattern (find → check → save) is vulnerable to race conditions where two
-  // concurrent requests both pass the balance check before either deducts.
+  // Atomically check and deduct wallet balance
   const updatedUser = await User.findOneAndUpdate(
     {
       _id: req.user._id,

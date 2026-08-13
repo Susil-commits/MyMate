@@ -16,8 +16,7 @@ import PDFDocument from "pdfkit";
 
 const HOUR = 1000 * 60 * 60;
 const DAY = HOUR * 24;
-// Bug 9 Fix: Maximum number of recurring bookings allowed per request.
-// Prevents a user from inserting thousands of DB records by using a far-future end date.
+// Maximum recurring bookings limit
 const MAX_RECURRING_BOOKINGS = 365;
 
 function computeAmount(hireType, start, end, driver) {
@@ -29,9 +28,7 @@ function computeAmount(hireType, start, end, driver) {
   return days * (driver.dailyRate || 0);
 }
 
-// Bug 21 Fix: Removed the dead `notifyBookingUpdate` function that was defined
-// but never called. All notifications go through the eventBus. Keeping dead code
-// causes confusion about whether it should be wired up.
+
 
 export const createBooking = async (req, res) => {
   const { 
@@ -69,9 +66,7 @@ export const createBooking = async (req, res) => {
   let appliedPromo = null;
 
   if (promoCode) {
-    // Bug 2 Fix: Use atomic findOneAndUpdate with $lt usageLimit to prevent
-    // race conditions where two concurrent requests both pass the usedCount check
-    // and both increment — exceeding the usage limit.
+    // Atomic increment ensuring promo code usage limit is not exceeded
     const promo = await PromoCode.findOneAndUpdate(
       {
         code: promoCode.toUpperCase(),
@@ -103,7 +98,7 @@ export const createBooking = async (req, res) => {
     dropLocation: dropLocation || "",
     stops: Array.isArray(stops) ? stops : [],
     purpose,
-    baseAmount,        // Bug 11 Fix: Always stored — never 0 from a valid driver
+    baseAmount,
     surgeMultiplier,
     totalAmount,
     promoCode: appliedPromo,
@@ -123,15 +118,13 @@ export const createBooking = async (req, res) => {
     let currentEnd = end ? new Date(end) : null;
     const duration = end ? end.getTime() - start.getTime() : 0;
 
-    // Bug 9 Fix: Validate pattern before entering loop (prevents future infinite loop
-    // if new patterns are added without updating the loop body).
+    // Validate recurring pattern interval
     if (!["daily", "weekly"].includes(recurringPattern)) {
       return res.status(400).json({ message: "Invalid recurring pattern. Must be 'daily' or 'weekly'." });
     }
 
     while (currentStart <= rEnd) {
-      // Bug 9 Fix: Hard cap on total recurring bookings to prevent DB flooding
-      // (e.g., daily pattern over 5 years = 1825 inserts).
+      // Cap total recurring bookings to prevent unbounded creation
       if (bookingsToCreate.length >= MAX_RECURRING_BOOKINGS) {
         break;
       }
@@ -327,8 +320,7 @@ export const updateBookingStatus = async (req, res) => {
             key_secret: process.env.RAZORPAY_KEY_SECRET,
           });
 
-          // Bug 3 Fix: Only deduct from driver wallet AFTER the refund succeeds.
-          // Previously, the deduction happened regardless of whether Razorpay threw.
+          // Process refund through payment gateway before adjusting balances
           await rzp.payments.refund(payment.razorpayPaymentId, {
             amount: Math.round(payment.amount * 100),
           });
@@ -390,8 +382,7 @@ export const downloadCalendar = async (req, res) => {
 
   if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-  // Bug 25 Fix: Add ownership check — any authenticated user could previously
-  // download the calendar for any booking ID.
+  // Verify requester is an authorized participant or admin
   const isOwner =
     req.userRole === "admin" ||
     (req.userRole === "user" && String((booking.user as any)?._id) === String(req.user._id)) ||
@@ -467,9 +458,6 @@ export const downloadInvoice = async (req, res) => {
   if (booking.endDate) doc.text(`End Date: ${new Date(booking.endDate).toLocaleString()}`);
   doc.moveDown();
 
-  // Bug 11 Fix: `baseAmount` is always stored on the booking document (never 0 from a valid driver).
-  // The ambiguous fallback `booking.totalAmount + booking.discountAmount` is removed because
-  // it would be triggered for zero-rate drivers and show incorrect amounts.
   doc.text(`Base Amount: Rs. ${booking.baseAmount}`);
   if (booking.surgeMultiplier > 1) {
     doc.text(`Surge Multiplier: x${booking.surgeMultiplier}`);

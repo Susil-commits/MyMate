@@ -6,7 +6,7 @@ import { createCircuitBreaker } from "../utils/circuitBreaker.js";
 import { runKycOcr } from "../services/kycOcrService.js";
 import { findBestDrivers } from "../services/driverMatchingService.js";
 
-// ─── Gemini Client ────────────────────────────────────────────────────────────
+// Initialize Google GenAI client
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "dummy_key_if_not_set",
 });
@@ -28,9 +28,8 @@ const fetchGeminiMultiTurn = async (contents: any[], systemInstruction?: string)
 };
 const geminiBreaker = createCircuitBreaker(fetchGeminiMultiTurn);
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Haversine formula — same implementation as aiController recommend uses */
+// Helpers
+/** Haversine formula for great-circle distance calculation */
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -44,10 +43,7 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 /**
- * Bug 24 Fix: Safe helper to extract text from a Gemini response.
- * The `.text` shorthand is a convenience property that may not exist in all
- * SDK versions or response shapes. This falls back through the full candidate
- * path and returns null if no text is available.
+ * Helper to safely extract text from Gemini API response structures.
  */
 function extractGeminiText(response: any): string | null {
   if (typeof response?.text === "string") return response.text;
@@ -66,7 +62,7 @@ function cleanJsonResponse(text: string): string {
   return text.trim().replace(/```json/g, "").replace(/```/g, "").trim();
 }
 
-// ─── Controllers ──────────────────────────────────────────────────────────────
+// Controller handlers
 
 /**
  * GET /api/ai/recommend
@@ -100,7 +96,7 @@ export const recommendDrivers = async (req, res) => {
 
   let drivers = await Driver.find(filter).select("-password -twoFactorSecret");
 
-  // ── Gemini AI Ranking ──────────────────────────────────────────────────────
+  // Gemini AI Ranking
   if (process.env.GEMINI_API_KEY && drivers.length > 0) {
     try {
       const driverSummaries = drivers.map((d) => ({
@@ -161,7 +157,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
     }
   }
 
-  // ── Heuristic Fallback ─────────────────────────────────────────────────────
+  // Heuristic Fallback Ranking
   const scoredDrivers = drivers.map((driver) => {
     let score = 0;
     score += (driver.averageRating / 5) * 40; // Rating (40%)
@@ -186,7 +182,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
   res.json({ recommended: scoredDrivers.slice(0, 3), rankedBy: "heuristic" });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 /**
  * POST /api/ai/chat
@@ -256,7 +252,7 @@ Rules:
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 /**
  * GET /api/ai/heatmap
@@ -284,7 +280,7 @@ export const getHeatmap = async (req, res) => {
     1.0, // uniform intensity for real points; can weight by count if needed
   ]);
 
-  // ── Synthetic fallback if DB has no coordinates yet ────────────────────────
+  // Fallback hotspot generation if dataset is empty
   if (heatPoints.length < 5) {
     // Generate plausible hotspots around a few Indian metro centres
     const cities = [
@@ -308,7 +304,7 @@ export const getHeatmap = async (req, res) => {
   res.json({ heatPoints, source: recentBookings.length >= 5 ? "live" : "synthetic" });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 /**
  * POST /api/ai/verify-kyc
@@ -352,7 +348,7 @@ export const verifyKyc = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 
 /**
  * GET /api/ai/match

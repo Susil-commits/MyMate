@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { HiChat, HiX, HiPaperAirplane, HiTrash } from "react-icons/hi";
 import api from "../api/axios";
 
-// ── Suggested quick-reply chips shown on first open ──────────────────────────
+// Quick-reply prompt suggestions
 const QUICK_REPLIES = [
   "How do I book a driver?",
   "What are surge pricing hours?",
@@ -11,7 +11,7 @@ const QUICK_REPLIES = [
   "What payment methods are accepted?",
 ];
 
-// ── Minimal markdown renderer (bold + bullet lists) ───────────────────────────
+// Markdown renderer for bold text and list items
 function renderMarkdown(text) {
   // Bold: **text**
   const withBold = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
@@ -33,7 +33,7 @@ function renderMarkdown(text) {
     .replace(/<\/li>\n<li>/g, "</li><li>");
 }
 
-// ── Typing indicator dots ─────────────────────────────────────────────────────
+// Chat typing indicator animation
 function TypingDots() {
   return (
     <div className="flex justify-start">
@@ -55,8 +55,6 @@ function TypingDots() {
     </div>
   );
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 export default function AIChatbotWidget() {
   const [isOpen, setIsOpen] = useState(false);
@@ -92,7 +90,7 @@ export default function AIChatbotWidget() {
     }
   }, [isOpen]);
 
-  // ── Send a message (user text or quick-reply chip) ──────────────────────────
+  // Dispatch user message to AI backend
   const handleSend = useCallback(
     async (messageText) => {
       const text = (messageText ?? input).trim();

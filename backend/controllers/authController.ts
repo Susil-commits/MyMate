@@ -37,11 +37,9 @@ async function attachVerification(account, role) {
   sendVerificationEmail(account.email, token).catch(() => {});
 }
 
-// Bug 5 Fix: Helper that validates the `role` field and returns the correct Model.
-// The old code used two different ternary conventions (driver ? Driver : User) vs
-// (user ? User : Driver) across functions, which was error-prone and inconsistent.
-// More critically, `forgotPassword` and `resetPassword` had no validation — sending
-// an unknown role silently fell through to the wrong model.
+/**
+ * Helper to resolve the appropriate Mongoose model for a given user role.
+ */
 function getModelForRole(role: string): typeof User | typeof Driver | null {
   if (role === "user") return User as any;
   if (role === "driver") return Driver as any;
@@ -175,9 +173,6 @@ export const getMe = async (req, res) => {
 export const forgotPassword = async (req, res) => {
   const { email, role } = req.body;
 
-  // Bug 5 Fix: Validate role explicitly — the old code used a bare ternary that
-  // silently treated any unrecognised role as "User", potentially leaking info
-  // about whether admin accounts exist. Now returns early with generic message.
   const Model = getModelForRole(role);
   if (!Model) {
     return res.json({ message: "If an account exists, a reset link has been sent" });
@@ -195,7 +190,6 @@ export const forgotPassword = async (req, res) => {
 export const resetPassword = async (req, res) => {
   const { token, password, role } = req.body;
 
-  // Bug 5 Fix: Use unified getModelForRole for consistency
   const Model = getModelForRole(role);
   if (!Model) {
     return res.status(400).json({ message: "Invalid role specified" });
@@ -221,7 +215,6 @@ export const resetPassword = async (req, res) => {
 export const verifyEmail = async (req, res) => {
   const { token, role } = req.body;
 
-  // Bug 5 Fix: Use unified getModelForRole
   const Model = getModelForRole(role);
   if (!Model) {
     return res.status(400).json({ message: "Invalid role specified" });
@@ -244,7 +237,6 @@ export const verifyEmail = async (req, res) => {
 export const resendVerification = async (req, res) => {
   const { email, role } = req.body;
 
-  // Bug 5 Fix: Use unified getModelForRole
   const Model = getModelForRole(role);
   if (!Model) {
     return res.json({ message: "If the email exists and is unverified, a new link has been sent" });

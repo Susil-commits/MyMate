@@ -143,9 +143,7 @@ export const getAllBookings = async (req, res) => {
 };
 
 export const exportBookingsCSV = async (req, res) => {
-  // Bug 15 Fix: The old implementation loaded ALL bookings into memory with Booking.find()
-  // — on a large dataset this causes OOM crashes. We now use a Mongoose cursor to stream
-  // the CSV row-by-row without ever holding more than one document in memory.
+  // Stream bookings row-by-row via cursor to maintain low memory footprint
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", "attachment; filename=\"bookings.csv\"");
 

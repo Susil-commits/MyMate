@@ -119,8 +119,7 @@ export const sendMessage = async (req, res) => {
     text: String(text).trim(),
   });
 
-  // Bug 22 Fix: Truncate the preview stored on the conversation to 100 chars.
-  // Storing the full message text is wasteful and sends large payloads in list views.
+  // Store truncated preview on the conversation model
   conv.lastMessage = message.text.length > 100 ? message.text.slice(0, 97) + "..." : message.text;
   conv.lastMessageAt = message.createdAt;
   conv.lastSenderModel = me;

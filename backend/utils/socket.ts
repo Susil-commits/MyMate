@@ -125,15 +125,13 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
           // Geofencing Check
           const booking = await Booking.findById(data.bookingId);
 
-          // Bug 7 Fix: Validate that this driver actually owns the booking before
-          // triggering any geofencing logic. Without this check, any driver could
-          // send a spoofed bookingId and trigger arrival notifications for arbitrary users.
+          // Ensure driver is assigned to this booking before triggering geofence notifications
           if (
             booking &&
             booking.status === "ongoing" &&
             !booking.driverArrivedNotified &&
             booking.pickupCoordinates?.lat &&
-            String(booking.driver) === String(driverId) // Ownership check
+            String(booking.driver) === String(driverId)
           ) {
             const distance = getDistanceInMeters(
               data.lat, data.lng, 

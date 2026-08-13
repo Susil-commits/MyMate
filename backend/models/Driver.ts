@@ -135,7 +135,7 @@ driverSchema.index({ kycStatus: 1, isActive: 1, locality: 1, averageRating: -1, 
 driverSchema.index({ kycStatus: 1, isActive: 1, vehicleTypes: 1 });
 driverSchema.index({ location: "2dsphere" });
 
-// Phase 5: MongoDB Full-Text Search
+// Compound Text Index for driver discovery search
 driverSchema.index(
   {
     name: "text",

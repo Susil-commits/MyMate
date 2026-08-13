@@ -2,18 +2,15 @@ import { EventEmitter } from "events";
 import { getIo } from "../utils/socket.js";
 import Driver from "../models/Driver.js";
 
-// Global Event Bus
-// Bug 17 Fix: Set maxListeners to 20 to prevent false "memory leak" warnings
-// when listeners are added across the app (e.g., during tests or hot-reload).
+// Global Event Bus (configured for real-time WebSocket pushes)
 export const eventBus = new EventEmitter();
 eventBus.setMaxListeners(20);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// IMPORTANT: This EventEmitter is ONLY responsible for REAL-TIME Socket.io pushes.
-// All durable side-effects (DB notifications, emails, wallet credits) are
-// handled exclusively by Kafka consumers in kafka/consumers/*.ts
-// This clean separation prevents duplicate notifications/emails.
-// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * Event bus strictly handles real-time Socket.io pushes.
+ * Durable side-effects (database persistence, emails, wallet processing)
+ * are handled asynchronously by Kafka consumers.
+ */
 
 // BOOKING_CREATED — Socket push to the assigned driver only
 eventBus.on("BOOKING_CREATED", async ({ primaryBooking, driverId, user, isRecurring, hireType }) => {

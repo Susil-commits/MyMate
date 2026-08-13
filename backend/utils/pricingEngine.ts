@@ -9,7 +9,7 @@ export const calculateDynamicSurge = async (start: Date): Promise<number> => {
   if ((hour >= 8 && hour <= 10) || (hour >= 17 && hour <= 19)) {
     baseMultiplier += 0.5; // +50%
   } else if (hour >= 23 || hour < 5) {
-    // Bug 12 Fix: was `hour <= 5` — 5 AM should NOT be penalised as late-night
+    // Late-night surcharge (11 PM - 5 AM)
     baseMultiplier += 0.25; // +25%
   }
 

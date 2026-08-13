@@ -11,20 +11,17 @@ import { cacheMiddleware } from "../middleware/cache.js";
 
 const router = Router();
 
-// ── Driver recommendation (Gemini + heuristic fallback) ─────────────────────
-// Public — no auth required so guests on the landing page can preview
+// Driver recommendation (Gemini + heuristic fallback)
 router.get(
   "/recommend",
   cacheMiddleware("ai_recommend", 300),
   recommendDrivers
 );
 
-// ── Multi-turn AI chatbot (Gemini) ───────────────────────────────────────────
-// Protected — only logged-in users to prevent API abuse
+// Multi-turn AI chatbot (Gemini)
 router.post("/chat", protect, chat);
 
-// ── Demand heatmap for drivers ───────────────────────────────────────────────
-// Driver-only — only verified drivers need to see booking hotspots
+// Demand heatmap for drivers
 router.get(
   "/heatmap",
   protect,
@@ -33,12 +30,10 @@ router.get(
   getHeatmap
 );
 
-// ── KYC OCR verification (admin-only) ───────────────────────────────────────
-// Returns OCR result + recommendation for admin to approve/reject
+// KYC OCR verification (admin-only)
 router.post("/verify-kyc", protect, authorizeAdmin, verifyKyc);
 
-// ── Pure-core driver match endpoint ──────────────────────────────────────────
-// Exposes the functional scoring engine (driverMatchingService) via REST
+// Driver scoring and matchmaking endpoint
 router.get(
   "/match",
   protect,

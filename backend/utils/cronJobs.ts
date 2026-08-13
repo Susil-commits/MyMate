@@ -56,20 +56,14 @@ export const startCronJobs = () => {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Bug 18 Fix: Use two separate aggregation pipelines — one per user, one per driver.
-      // The old code grouped by { user, driver } COMBINATION, which meant a user who
-      // cancelled 2 bookings with Driver A and 2 with Driver B only had count:2 in each
-      // group — never hitting the >=3 threshold despite 4 total cancellations.
-      //
-      // Bug 10 Fix: Exclude auto-cancelled bookings (system-initiated) from the fraud count
-      // so legitimate users with inactive drivers aren't falsely flagged.
+      // Aggregate cancellations independently per user and per driver
       const [userCancelStats, driverCancelStats] = await Promise.all([
         Booking.aggregate([
           {
             $match: {
               status: "cancelled",
               updatedAt: { $gte: today },
-              // Exclude system auto-cancellations — these should not penalise the user
+              // Exclude system auto-cancellations
               cancellationReason: { $ne: "Auto-cancelled due to driver inactivity" },
             },
           },
@@ -85,7 +79,6 @@ export const startCronJobs = () => {
             $match: {
               status: "cancelled",
               updatedAt: { $gte: today },
-              // Exclude system auto-cancellations from driver fraud assessment too
               cancellationReason: { $ne: "Auto-cancelled due to driver inactivity" },
             },
           },
@@ -114,8 +107,7 @@ export const startCronJobs = () => {
       });
 
       if (suspiciousUsers.size > 0) {
-        // Bug 10 Fix: Mark users as suspicious rather than hard-suspending them.
-        // Use isSuspicious flag so admins can review and make the final decision.
+        // Flag user accounts as suspicious for admin review
         await User.updateMany(
           { _id: { $in: Array.from(suspiciousUsers) } },
           { $set: { isSuspicious: true } }
@@ -124,8 +116,7 @@ export const startCronJobs = () => {
       }
 
       if (suspiciousDrivers.size > 0) {
-        // Bug 10 Fix: Mark drivers as suspicious rather than immediately deactivating.
-        // Hard suspension without appeal is too aggressive for legitimate drivers.
+        // Flag driver accounts as suspicious for admin review
         await Driver.updateMany(
           { _id: { $in: Array.from(suspiciousDrivers) } },
           { $set: { isSuspicious: true } }

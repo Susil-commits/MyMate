@@ -14,8 +14,7 @@ const ALLOWED_IMAGE_TYPES = /jpeg|jpg|png|webp/;
 const ALLOWED_MIME_TYPES = /^image\/(jpeg|jpg|png|webp)$|^application\/pdf$/;
 
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-  // Bug 6 & 19 Fix: Primary validation on MIME type (cannot be spoofed by filename).
-  // Secondary extension check for defence-in-depth.
+  // Validate MIME type against allowed image and PDF formats
   const mimeOk = ALLOWED_MIME_TYPES.test(file.mimetype);
   if (!mimeOk) {
     return cb(new AppError("Only images (jpeg, jpg, png, webp) and PDFs are allowed", 400));
@@ -30,7 +29,7 @@ export const upload = multer({
 });
 
 export async function uploadToCloudinary(file: Express.Multer.File, folder = "mymate"): Promise<any> {
-  // Bug 6 Fix: Only run sharp compression pipeline for images, not PDFs.
+  // Image compression pipeline (bypass for PDF documents)
   let uploadBuffer: Buffer;
   if (file.mimetype === "application/pdf") {
     uploadBuffer = file.buffer;
@@ -86,7 +85,7 @@ export async function storeFile(file: Express.Multer.File, folder = "mymate", re
     }
   }
 
-  // Bug 6 Fix: Local fallback — only compress images through sharp, not PDFs.
+  // Local fallback with image optimization
   let processedBuffer: Buffer;
   let filename: string;
 

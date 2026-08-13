@@ -1,326 +1,319 @@
-# MyMate - Local Driver Hiring Platform
+# 🚗 MyMate — Local Driver Hiring Platform
 
-## 📖 Overview
-**MyMate** is a production-grade, enterprise-ready full-stack web application designed to connect users with verified local drivers for on-demand rides, temporary hiring, and long-term contracts. The platform emphasizes real-time state synchronization, AI-powered driver matching, fraud prevention, and a resilient **Apache Kafka event-driven messaging architecture**.
+[![React 19](https://img.shields.io/badge/Frontend-React%2019%20%7C%20Vite%20%7C%20TailwindCSS%20v4-blue?style=flat-square)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/Backend-Node.js%20%7C%20TypeScript%20%7C%20Express-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Database](https://img.shields.io/badge/Database-MongoDB%20Atlas%20%7C%20Redis-47A248?style=flat-square&logo=mongodb&logoColor=white)](https://www.mongodb.com/)
+[![Event Streaming](https://img.shields.io/badge/Event%20Streaming-Apache%20Kafka-231F20?style=flat-square&logo=apachekafka&logoColor=white)](https://kafka.apache.org/)
+[![AI & ML](https://img.shields.io/badge/AI-Google%20Gemini%20%7C%20Tesseract.js-8E75B2?style=flat-square)](https://ai.google.dev/)
+[![Payments](https://img.shields.io/badge/Payments-Razorpay-02042B?style=flat-square&logo=razorpay&logoColor=white)](https://razorpay.com/)
+[![GraphQL](https://img.shields.io/badge/API-REST%20%7C%20GraphQL%20%7C%20Swagger-E10098?style=flat-square&logo=graphql&logoColor=white)](https://graphql.org/)
+
+**MyMate** is an enterprise-grade, full-stack on-demand and contract driver hiring platform. It seamlessly connects customers with verified, professional local drivers for hourly trips, daily commutes, outstation journeys, and long-term contracts. 
+
+The platform is engineered with a **hybrid distributed architecture**: ultra-low latency real-time communication via **Socket.io & Redis**, coupled with a durable, fault-tolerant **Apache Kafka event-driven messaging layer** for persistent background tasks, audit logging, and transactional workflows.
 
 ---
 
-## 🏛️ System Architecture Diagrams
+## 🏛️ System Architecture
 
-### 1. High-Level Distributed System Architecture
+### 1. High-Level Distributed Architecture
 ```mermaid
 flowchart TB
-    subgraph ClientLayer["🖥️ Client Layer (Frontend)"]
-        UserWeb["User Web & PWA (React 19 + Vite)"]
-        DriverWeb["Driver Dashboard & PWA"]
-        AdminWeb["Admin Management Portal"]
+    subgraph ClientLayer["🖥️ Client Layer (Frontend PWA)"]
+        CustomerApp["Customer Portal & PWA\n(React 19 + Vite + Tailwind v4)"]
+        DriverApp["Driver Dashboard & PWA\n(Live Dispatch & State Machine)"]
+        AdminApp["Admin Management Portal\n(KYC Review & Analytics)"]
     end
 
     subgraph Gateway["🚪 API Gateway & Server Layer"]
-        ExpressApp["Node.js / Express Server"]
-        GraphQL["GraphQL / Apollo Server"]
+        ExpressApp["Node.js / Express Server (TypeScript)"]
+        GraphQL["GraphQL Server (/graphql)"]
         SocketIO["Socket.io WebSocket Server"]
         AuthMiddleware["JWT & 2FA Auth Guard"]
     end
 
     subgraph DataLayer["💾 Data & Cache Infrastructure"]
-        MongoDB[("MongoDB Atlas\n(Geospatial 2dsphere & Text Index)")]
-        RedisDB[("Redis Cache / Adapter\n(Rate Limiting & Socket Mesh)")]
-        BullMQ["BullMQ Background Workers"]
+        MongoDB[("MongoDB Atlas\n(2dsphere Geospatial & Text Indexes)")]
+        RedisDB[("Redis In-Memory Store\n(Socket Mesh & Rate Limiting)")]
+        BullMQ["BullMQ Job Queues"]
     end
 
     subgraph EventStream["⚡ Event Streaming Backbone"]
-        KafkaBroker["Apache Kafka (Aiven / Confluent)\n(Distributed Event Log)"]
+        KafkaBroker["Apache Kafka Cluster\n(Durable Asynchronous Event Log)"]
     end
 
     subgraph ExternalServices["🌐 Third-Party Integrations"]
         Gemini["Google Gemini 2.5 Flash (AI Chat & Ranking)"]
-        Razorpay["Razorpay Gateway (Payments & Wallets)"]
-        Cloudinary["Cloudinary (License & Media Storage)"]
+        Razorpay["Razorpay Gateway (Checkout & Webhooks)"]
+        Cloudinary["Cloudinary CDN (Documents & Avatars)"]
         Brevo["Brevo SMTP (Transactional Emails)"]
         Tesseract["Tesseract.js (KYC OCR Engine)"]
     end
 
-    UserWeb & DriverWeb & AdminWeb -->|HTTPS / REST / GraphQL| ExpressApp
-    UserWeb & DriverWeb -->|WSS / Real-time| SocketIO
+    CustomerApp & DriverApp & AdminApp -->|REST / GraphQL| ExpressApp
+    CustomerApp & DriverApp -->|WebSockets (WSS)| SocketIO
     ExpressApp --> AuthMiddleware
-    AuthMiddleware --> GraphQL & MongoDB
+    AuthMiddleware --> MongoDB & GraphQL
     ExpressApp --> RedisDB
     RedisDB -.-> SocketIO
     RedisDB --> BullMQ
-    ExpressApp -->|Publish Events| KafkaBroker
-    ExpressApp --> Gemini & Razorpay & Cloudinary & Tesseract
+    ExpressApp -->|Publish Domain Events| KafkaBroker
+    ExpressApp --> Gemini & Razorpay & Cloudinary & Tesseract & Brevo
 ```
 
 ---
 
-### 2. Apache Kafka Event-Driven Architecture & Consumer Groups
-```mermaid
-flowchart LR
-    subgraph EventProducers["📤 Event Producers (Controllers)"]
-        BC["bookingController.ts"]
-        PC["paymentController.ts"]
-        AC["adminController.ts"]
-    end
+### 2. Dual-Stream Event & Notification Architecture
+MyMate deliberately separates instant ephemeral UI updates from durable business side-effects:
 
-    subgraph ProducerWrapper["📦 Resilient Kafka Producer"]
-        KP["publishKafkaEvent()\n(JSON Serializer + Timestamps + Reconnect)"]
-    end
-
-    subgraph KafkaTopics["⚡ Kafka Topics (Aiven Cluster)"]
-        T1[("mymate.booking.created")]
-        T2[("mymate.booking.status_changed")]
-        T3[("mymate.payment.completed")]
-        T4[("mymate.driver.kyc_status")]
-    end
-
-    subgraph ConsumerGroups["📥 Specialized Consumer Groups"]
-        CG1["Booking Consumer Group\n(mymate-consumer-group-booking)"]
-        CG2["Payment Consumer Group\n(mymate-consumer-group-payment)"]
-        CG3["KYC Consumer Group\n(mymate-consumer-group-kyc)"]
-    end
-
-    subgraph Execution["🎯 Durable Side-Effects"]
-        DBNotif[("MongoDB Notifications Collection")]
-        EmailSvc["Brevo SMTP Email Dispatcher"]
-        AuditLedger["Payment Ledger & Wallet Balance"]
-        DriverProfile["Driver Status Live Sync"]
-    end
-
-    BC -->|Emit Booking Created| KP
-    BC -->|Emit Status Update| KP
-    PC -->|Emit Payment Success| KP
-    AC -->|Emit KYC Decision| KP
-
-    KP --> T1 & T2 & T3 & T4
-
-    T1 & T2 --> CG1
-    T3 --> CG2
-    T4 --> CG3
-
-    CG1 --> DBNotif & EmailSvc
-    CG2 --> DBNotif & AuditLedger
-    CG3 --> DBNotif & EmailSvc & DriverProfile
-```
-
----
-
-### 3. Dual-Stream Booking Execution Flow (Real-Time vs Asynchronous)
 ```mermaid
 sequenceDiagram
     autonumber
     actor Customer as 👤 Customer
-    participant API as 🚪 Booking Controller
+    participant API as 🚪 API Gateway (Express)
     participant DB as 💾 MongoDB Atlas
-    participant Socket as ⚡ Socket.io Mesh
+    participant Socket as ⚡ Socket.io Mesh (Redis)
     participant Kafka as 📨 Apache Kafka
-    participant Consumer as ⚙️ Booking Consumer
+    participant Consumer as ⚙️ Specialized Consumers
     actor Driver as 🚗 Assigned Driver
 
     Customer->>API: POST /api/v1/bookings (Create Booking)
-    API->>DB: Save Booking (status: "pending")
-    API-->>Customer: 201 Created (Booking ID)
+    API->>DB: Save Booking Record (status: "pending")
+    API-->>Customer: 201 Created (Booking Details)
 
-    par Real-Time Notification Stream (Instant)
+    par Real-Time Ephemeral Stream (Instant UI Push)
         API->>Socket: eventBus.emit("BOOKING_CREATED")
-        Socket->>Driver: Socket push: "new_notification" (Pop-up sound & alert)
-    and Durable Asynchronous Stream (Kafka)
+        Socket->>Driver: Socket push: "new_notification" (Audio + Modal Alert)
+    and Durable Asynchronous Stream (Kafka Event Log)
         API->>Kafka: publishKafkaEvent("mymate.booking.created")
-        Kafka->>Consumer: Consume event with offset commit
-        Consumer->>DB: createNotification(Driver & Customer)
-        Consumer->>Consumer: sendBookingConfirmation() via Brevo SMTP
+        Kafka->>Consumer: Consume with offset commit
+        Consumer->>DB: Persist in-app Notification records
+        Consumer->>Consumer: Dispatch Brevo confirmation email
     end
 ```
 
 ---
 
-### 4. AI Driver Matchmaking Pipeline (Pure Core / Impure Shell)
+### 3. AI Driver Matchmaking & Scoring Engine
 ```mermaid
 flowchart TD
-    Start(["📍 User Requests Driver (Coords, Vehicle Type, Time)"]) --> Shell["🐚 Impure Shell: Data Retrieval"]
+    Start(["📍 User Requests Driver\n(Coords, Vehicle Type, Time)"]) --> Query["🐚 Impure Shell: MongoDB 2dsphere Query\n(Find drivers within radius)"]
+    Query --> LoadData["Load Driver Stats (Rating, Trips, Acceptance Rate, Idle Time)"]
     
-    subgraph ImpureShell["Impure Shell (I/O & DB)"]
-        Shell --> GeoQuery["MongoDB 2dsphere $nearSphere\n(Fetch drivers within max radius)"]
-        GeoQuery --> LoadDriverStats["Load Ratings, Total Trips & Acceptance Rates"]
+    LoadData --> ScoringEngine["🧠 Pure Functional Scoring Engine"]
+    
+    subgraph ScoringEngine["Deterministic Weighted Calculation"]
+        S1["Haversine Distance Score (Weight: AI_WEIGHT_DISTANCE)"]
+        S2["Driver Rating Score (Weight: AI_WEIGHT_RATING)"]
+        S3["Acceptance Rate Score (Weight: AI_WEIGHT_ACCEPT_RATE)"]
+        S4["Idle Time Factor Score (Weight: AI_WEIGHT_IDLE)"]
+        S1 & S2 & S3 & S4 --> Composite["Compute Weighted Composite Score"]
     end
 
-    LoadDriverStats --> Core["🧠 Pure Core Scoring Engine (Deterministic)"]
+    Composite --> AICheck{"🤖 Gemini AI Available?"}
+    AICheck -- Yes --> GeminiReRank["AI Contextual Re-ranking\n(Vehicle fit, customer preferences, ride history)"]
+    AICheck -- Fallback / No --> HeuristicRank["Sort by Composite Score DESC"]
 
-    subgraph PureCore["Pure Core Function (Zero Side-Effects)"]
-        Core --> S1["Calculate Haversine Distance (Weight: AI_WEIGHT_DISTANCE)"]
-        S1 --> S2["Calculate Rating Score (Weight: AI_WEIGHT_RATING)"]
-        S2 --> S3["Calculate Acceptance Ratio (Weight: AI_WEIGHT_ACCEPT_RATE)"]
-        S3 --> S4["Calculate Idle Time Factor (Weight: AI_WEIGHT_IDLE)"]
-        S4 --> CompositeScore["Compute Weighted Composite Score"]
-    end
-
-    CompositeScore --> GeminiRank{"🤖 Gemini 2.5 Flash\nAvailable?"}
-    GeminiRank -- Yes --> AICandidateRank["AI Contextual Re-ranking\n(Vehicle fit, customer preferences)"]
-    GeminiRank -- No / Fallback --> HeuristicRank["Sort by Composite Score DESC"]
-    
-    AICandidateRank --> FinalResponse["Top Recommended Drivers Returned to Client"]
-    HeuristicRank --> FinalResponse
+    GeminiReRank --> Output(["Top Ranked Driver Candidates Returned"])
+    HeuristicRank --> Output
 ```
 
 ---
 
-### 5. Automated Driver KYC OCR & Verification Lifecycle
-```mermaid
-stateDiagram-v2
-    [*] --> DocumentUploaded: Driver Uploads License Image
-    DocumentUploaded --> CloudinaryStored: Upload to Cloudinary CDN
-    CloudinaryStored --> TesseractOCR: Run Tesseract.js OCR Pipeline
-    
-    state TesseractOCR {
-        [*] --> TextExtraction: Extract alphanumeric characters
-        TextExtraction --> RegexValidation: Match DL Regex (^[A-Z]{2}[0-9]{2}[0-9]{11}$)
-        RegexValidation --> ConfidenceScoring: Calculate OCR Confidence %
-    }
+## ✨ Complete Feature & Implementation Matrix
 
-    TesseractOCR --> AdminQueue: Submit with Auto-recommendation
-    
-    state AdminQueue {
-        AdminReview: Admin reviews document in portal
-        AdminReview --> Approved: Click Approve
-        AdminReview --> Rejected: Click Reject (with reason)
-    }
+### 1. 🚗 Booking & Trip Lifecycle Management
+- **Flexible Hire Types**:
+  - **Hourly / On-Demand**: Quick point-to-point rides.
+  - **Daily**: Full-day dedicated personal driver.
+  - **Outstation**: Inter-city multi-day journeys.
+  - **Recurring / Contract**: Scheduled weekly or monthly driver subscriptions.
+- **Robust State Machine**: Strict status transitions (`pending` → `accepted` → `in_progress` → `completed` / `cancelled`).
+- **Dynamic Pricing Engine**: Computes base fare, duration, distance multipliers, vehicle class surcharges, and promo code discounts.
+- **Intelligent Cancellation Policies**: Enforces cancellation reason tracking and penalty rules based on trip state.
+- **Interactive Routing & Geocoding**: Interactive pickup/drop location picker with OpenStreetMap & Leaflet.
 
-    Approved --> KafkaEvent: Trigger Kafka Event
-    Rejected --> KafkaEvent: Trigger Kafka Event
+### 2. 👥 Multi-Role User Ecosystem
+- **Customer Portal**:
+  - Search drivers with real-time filters (rating, vehicle capability, experience, distance).
+  - One-click booking with live driver tracking on interactive maps.
+  - In-app direct messaging with assigned drivers.
+  - Bookmark favorite drivers for quick re-hiring.
+  - Multi-criteria rating & review system after trip completion.
+- **Driver Portal**:
+  - Live dispatch radar with instant audio-visual ride acceptance prompts.
+  - Status management (`online` / `offline` toggle, live GPS broadcast).
+  - Trip execution controls (Start Trip, Complete Trip, Navigate).
+  - Earnings overview, trip history, and driver digital wallet.
+- **Admin Management Portal**:
+  - Comprehensive dashboard with platform metrics (revenue, total bookings, active drivers).
+  - User and Driver lifecycle moderation (activate, suspend, verify).
+  - KYC document verification suite with OCR assistance and approval/rejection workflows.
+  - Promo code management engine (percentage/fixed discounts, expiry, usage limits).
+  - Full audit logging for security-sensitive administrative operations.
 
-    state KafkaEvent {
-        KafkaEventPublished: publishKafkaEvent("mymate.driver.kyc_status")
-        KafkaEventPublished --> KycConsumer: KycConsumer processes event
-    }
+### 3. 🤖 AI & Computer Vision Capabilities
+- **Google Gemini 2.5 Flash Customer Support AI (`/api/v1/ai/chat`)**:
+  - Multi-turn conversational support assistant with memory and markdown rendering.
+  - Circuit-breaker protected via **Opossum** for high availability and graceful degradation.
+- **AI Driver Matchmaking (`/api/v1/ai/match` & `/api/v1/ai/recommend`)**:
+  - Hybrid engine combining a deterministic pure functional scoring model with Gemini AI contextual re-ranking.
+- **Automated Driving License OCR Verification (`/api/v1/ai/verify-kyc`)**:
+  - **Tesseract.js** OCR pipeline extracting alphanumeric details from driver licenses.
+  - Regex-based format validation against Indian Driving License standards with confidence scoring.
+- **Geospatial Demand Heatmap (`/api/v1/ai/heatmap`)**:
+  - MongoDB `2dsphere` geospatial aggregation identifying high-density booking pickup zones to help drivers reposition efficiently.
 
-    KycConsumer --> NotificationSent: Send Email via Brevo & Push Socket Update
-    NotificationSent --> [*]
-```
+### 4. ⚡ Apache Kafka Event-Driven Messaging Layer
+MyMate uses **Apache Kafka** (`kafkajs`) to guarantee high-throughput, non-blocking asynchronous event processing:
 
----
-
-## ⚡ Apache Kafka Event-Driven Messaging Layer
-
-MyMate employs **Apache Kafka** (`kafkajs`) to decouple critical HTTP request/response flows from asynchronous, durable background tasks (emails, notifications, audit trails, and reconciliation).
-
-### Architecture Separation: Real-Time vs Durable Async
-- **Local WebSocket Pushes (`EventEmitter` + `Socket.io`)**: Handles zero-latency UI updates to active client sessions (e.g. driver assigned, status banner changed).
-- **Kafka Consumers (`kafkajs`)**: Handles durable, retryable side-effects (database notifications, transactional emails via Brevo/SMTP, financial ledger logging) with independent consumer group offsets.
-
-### Kafka Topics & Schemas
-| Topic | Key | Payload Contents | Handled By |
+| Topic Name | Message Key | Payload Summary | Processing Consumer & Side-Effects |
 |---|---|---|---|
-| `mymate.booking.created` | `bookingId` | `primaryBooking`, `driverId`, `user`, `hireType`, `isRecurring` | `bookingConsumer` |
-| `mymate.booking.status_changed` | `bookingId` | `booking`, `user`, `driver`, `status` | `bookingConsumer` |
-| `mymate.payment.completed` | `bookingId` / `orderId` | `bookingId`, `driverId`, `totalAmount`, `driverAmount`, `paymentMethod` | `paymentConsumer` |
-| `mymate.driver.kyc_status` | `driverId` | `driver`, `status` (`approved` / `rejected`), `reason` | `kycConsumer` |
+| `mymate.booking.created` | `bookingId` | Booking ID, Customer details, Driver ID, Hire type | `bookingConsumer`: Persists in-app notifications, dispatches Brevo confirmation emails. |
+| `mymate.booking.status_changed` | `bookingId` | Booking ID, previous status, new status, timestamps | `bookingConsumer`: Updates user/driver notification feeds and triggers status alerts. |
+| `mymate.payment.completed` | `bookingId` / `orderId` | Booking ID, total amount, driver payout, payment method | `paymentConsumer`: Credits driver wallet, writes immutable audit ledger entries, generates invoice. |
+| `mymate.driver.kyc_status` | `driverId` | Driver ID, status (`approved` / `rejected`), review notes | `kycConsumer`: Synchronizes driver live permissions, sends status update emails via SMTP. |
 
----
+- **Resilient Kafka Producer**: Singleton instance with auto-reconnection, exponential backoff, and JSON serialization.
+- **Consumer Groups**: Independent consumer groups (`mymate-consumer-group-booking`, `mymate-consumer-group-payment`, `mymate-consumer-group-kyc`) ensuring horizontal scalability and zero message loss.
+- **Dynamic Topic Provisioning**: Automatically provisions required topics on cluster boot with graceful fallback when Kafka is disabled in local test modes (`KAFKA_ENABLED=false`).
 
-## 📂 Detailed Breakdown of Pushed Kafka Files
+### 5. 💳 Payments, Wallets & Financial Engine
+- **Razorpay Payment Gateway**: Secure order creation, checkout modal, HMAC-SHA256 signature verification, and webhook handling.
+- **Digital Driver Wallet**: Real-time balance accrual upon ride completion, comprehensive transaction history, and payout withdrawal management.
+- **Automated PDF Invoicing**: Generates downloadable PDF ride receipts on the fly using **PDFKit**.
 
-Below is a precise explanation of the files added and updated in the Kafka integration:
+### 6. 💬 Real-Time Communication & WebSockets
+- **Socket.io + Redis Adapter**: Scalable WebSocket mesh enabling cross-server communication and socket rooms.
+- **Live Location Broadcasting**: High-frequency driver GPS coordinate streaming to customer map interfaces.
+- **Direct In-App Messaging**: Instant customer-driver chat rooms with unread counters and message persistence.
+- **Push Notification Center**: Real-time alert badges, sound effects, and notification history.
 
-### 1. Configuration & Infrastructure
-- **[`backend/config/kafka.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/config/kafka.ts)**
-  - Initializes the global Kafka client instance (`KafkaConfig`).
-  - Supports SASL authentication (`PLAIN`, `SCRAM-SHA-256`, `SCRAM-SHA-512`) and TLS/SSL encryption.
-  - Supports SSL custom certificates via local file path (`KAFKA_CA_PATH`) or direct inline environment string (`KAFKA_CA_CERT`) for zero-file cloud deployments (e.g., Render, Railway, AWS).
-  - Handles environment toggle (`KAFKA_ENABLED=false`) with graceful fallback.
+### 7. 🔒 Security, Authentication & Guardrails
+- **Two-Factor Authentication (2FA)**: Time-based One-Time Password (TOTP) via Authenticator apps (Google Authenticator, Authy) with QR code setup and recovery codes.
+- **JWT Authentication & RBAC**: HTTP-only secure cookie tokens, token refresh flows, and role-based route guards (`user`, `driver`, `admin`).
+- **Defense in Depth**:
+  - **Helmet**: Secures HTTP response headers.
+  - **CORS**: Strict domain whitelisting with credential support.
+  - **Rate Limiting**: Multi-tiered rate limiting (Auth, Payment, and General API) backed by Redis.
+  - **Data Sanitization**: MongoDB query injection protection (`express-mongo-sanitize`), XSS cleaning, and HTTP Parameter Pollution (`hpp`) guards.
+- **Fault Tolerance**: Circuit breaker pattern (`opossum`) guarding external AI and third-party API dependencies.
 
-- **[`backend/kafka/topics.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/topics.ts)**
-  - Defines strongly-typed constants for all event topics (`KAFKA_TOPICS`).
-  - Exports TypeScript `KafkaTopic` union type ensuring compile-time validation for event emitters.
+### 8. 📱 Progressive Web App (PWA) & Modern UI/UX
+- **React 19 & Vite**: Blazing fast rendering and optimized bundle chunking.
+- **TailwindCSS v4**: Modern design system with fluid typography, glassmorphism, and seamless Dark/Light mode toggle.
+- **Framer Motion**: Smooth page transitions, skeleton loaders, animated modals, and micro-interactions.
+- **PWA Ready**: Offline caching, installable web application shell, and service worker updates via `vite-plugin-pwa`.
 
-- **[`backend/kafka/producer.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/producer.ts)**
-  - Resilient singleton producer wrapper (`publishKafkaEvent`).
-  - Implements lazy connection on first message dispatch and automatic reconnection.
-  - Automatically JSON-serializes payloads and appends high-precision Unix timestamps.
-
-- **[`backend/kafka/index.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/index.ts)**
-  - Master orchestrator for the messaging engine.
-  - Auto-provisions required topics on cluster startup using the Kafka Admin Client (`createKafkaTopics`).
-  - Boots up all specialized consumer workers in parallel and manages graceful shutdown on application exit.
-
-### 2. Specialized Event Consumers
-- **[`backend/kafka/consumers/bookingConsumer.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/consumers/bookingConsumer.ts)**
-  - Subscribes to `mymate.booking.created` & `mymate.booking.status_changed` under consumer group `mymate-consumer-group-booking`.
-  - Dispatches customer & driver in-app notifications and email confirmations asynchronously.
-
-- **[`backend/kafka/consumers/paymentConsumer.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/consumers/paymentConsumer.ts)**
-  - Subscribes to `mymate.payment.completed` under consumer group `mymate-consumer-group-payment`.
-  - Writes audit logs and sends payment confirmation notifications to drivers and customers.
-
-- **[`backend/kafka/consumers/kycConsumer.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/kafka/consumers/kycConsumer.ts)**
-  - Subscribes to `mymate.driver.kyc_status` under consumer group `mymate-consumer-group-kyc`.
-  - Sends approval/rejection emails and driver profile updates.
-
-### 3. Controller & Lifecycle Integrations
-- **[`backend/controllers/bookingController.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/controllers/bookingController.ts)**
-  - Emits `BOOKING_CREATED` and `BOOKING_STATUS_CHANGED` Kafka events upon ride creation, driver acceptance, ride start, and trip completion.
-- **[`backend/controllers/paymentController.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/controllers/paymentController.ts)**
-  - Emits `PAYMENT_COMPLETED` Kafka events upon successful Razorpay signature verification and driver wallet crediting.
-- **[`backend/controllers/adminController.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/controllers/adminController.ts)**
-  - Emits `DRIVER_KYC_STATUS` Kafka events when an administrator reviews and approves/rejects driver documents.
-- **[`backend/events/bookingEvents.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/events/bookingEvents.ts)**
-  - Refactored to eliminate duplicate side-effects: retains **only real-time WebSocket emissions**, offloading persistent storage and email generation to Kafka.
-- **[`backend/server.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/server.ts)**
-  - Wires `startKafka()` during server startup.
-  - Exposes live Kafka broker status on the deep `/health` endpoint.
-  - Integrates `stopKafka()` into graceful termination signals (`SIGINT`, `SIGTERM`).
-
-### 4. Testing & Verification
-- **[`backend/tests/kafka.test.ts`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/backend/tests/kafka.test.ts)**
-  - ESM-compatible Jest unit test suite using `jest.unstable_mockModule`.
-  - Validates topic namespaces, producer event routing, payload structure, timestamps, and error recovery.
-
----
-
-## 🤖 AI & Machine Learning Capabilities
-
-1. **Multi-Turn AI Support Assistant (`/api/v1/ai/chat`)**
-   - Built on Google Gemini (`@google/genai`) with circuit-breaker protection (Opossum).
-   - Multi-turn conversation context memory, markdown rendering, and quick-action chips.
-
-2. **Intelligent Driver Matchmaking (`/api/v1/ai/match` & `/api/v1/ai/recommend`)**
-   - **Gemini Matchmaking**: Analyzes ratings, vehicle capabilities, and trip distance.
-   - **Pure Functional Heuristic Engine**: Pure-core/impure-shell architecture ranking drivers deterministically with tunable weights (`AI_WEIGHT_DISTANCE`, `AI_WEIGHT_RATING`, `AI_WEIGHT_ACCEPT_RATE`, `AI_WEIGHT_IDLE`).
-
-3. **Automated KYC OCR Verification (`/api/v1/ai/verify-kyc`)**
-   - Tesseract.js OCR engine extracting details from Indian Driving Licenses with format validation and confidence scoring.
-
-4. **Live Geospatial Demand Heatmap (`/api/v1/ai/heatmap`)**
-   - MongoDB `2dsphere` geospatial aggregation calculating high-density pickup zones for driver repositioning.
+### 9. 📊 Observability, APIs & Developer Tools
+- **Dual API Architecture**: Comprehensive RESTful API (`/api/v1`) plus Apollo Server **GraphQL** endpoint (`/graphql`).
+- **Interactive Swagger Documentation**: Live API explorer available at `/api-docs`.
+- **Prometheus Metrics**: System health, request durations, and throughput metrics exported at `/metrics`.
+- **Structured Logging**: Production Winston logger with Morgan request tracking.
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer | Technologies |
-|---|---|
-| **Frontend** | React 19, Vite, TailwindCSS v4, Framer Motion, Leaflet, Socket.io-client, React Hook Form, Zod, PWA (vite-plugin-pwa) |
-| **Backend API** | Node.js, Express, TypeScript, GraphQL (Apollo Server), MongoDB (Mongoose) |
-| **Messaging & Events** | **Apache Kafka** (`kafkajs`), Redis Adapter, Node.js EventEmitter, BullMQ |
-| **AI & OCR** | Google Gemini API (`@google/genai`), Tesseract.js, Opossum Circuit Breakers |
-| **Authentication & Security** | JWT, bcrypt, Two-Factor Authentication (2FA), Helmet, Express Rate Limit |
-| **Payments & Media** | Razorpay SDK, Cloudinary, PDFKit (Invoice Generation), Brevo SMTP |
-| **Observability & Docs** | Prometheus metrics, Swagger UI (`/api-docs`), Winston Logger |
+```
+├── Frontend
+│   ├── Framework: React 19 + Vite 8
+│   ├── Styling: TailwindCSS v4 + Framer Motion
+│   ├── Mapping: Leaflet + React-Leaflet + OpenStreetMap
+│   ├── Real-Time: Socket.io-client
+│   ├── Forms & Validation: React Hook Form + Zod
+│   └── PWA: vite-plugin-pwa + Service Workers
+│
+├── Backend API
+│   ├── Runtime: Node.js (ES Modules) + TypeScript
+│   ├── Framework: Express 4
+│   ├── GraphQL: Apollo Server (@apollo/server)
+│   ├── Authentication: JWT + OTPLib (2FA) + bcryptjs
+│   └── Documentation: Swagger UI + swagger-jsdoc
+│
+├── Distributed Systems & Storage
+│   ├── Database: MongoDB Atlas (Mongoose 8) + 2dsphere Geospatial
+│   ├── Cache & Socket Adapter: Redis (ioredis)
+│   ├── Event Streaming: Apache Kafka (kafkajs)
+│   └── Background Workers: BullMQ + Node-Cron
+│
+├── AI, OCR & Third-Party Services
+│   ├── AI Assistant & Ranking: Google Gemini API (@google/genai)
+│   ├── Document OCR: Tesseract.js
+│   ├── Payments: Razorpay SDK
+│   ├── Media Storage: Cloudinary
+│   ├── Transactional Email: Brevo SMTP (Nodemailer)
+│   └── PDF Generation: PDFKit
+│
+└── Quality & Observability
+    ├── Testing: Jest + ts-jest + Supertest + Vitest
+    ├── Metrics: prom-client (Prometheus)
+    ├── Circuit Breaker: Opossum
+    └── Logging: Winston + Morgan
+```
 
 ---
 
-## ⚙️ Environment Variables Guide
+## 📂 Project Directory Structure
 
-Configure these in `backend/.env`:
+```
+MyMate/
+├── backend/
+│   ├── config/              # Database, Redis, Kafka, Morgan & Swagger configs
+│   ├── controllers/         # REST API route controllers
+│   ├── events/              # EventBus listeners and MongoDB change streams
+│   ├── graphql/             # Apollo GraphQL type definitions & resolvers
+│   ├── kafka/               # Kafka producers, consumer workers & topic registry
+│   │   ├── consumers/       # Booking, Payment, and KYC event consumers
+│   │   ├── producer.ts      # Resilient event publisher
+│   │   └── topics.ts        # Strongly typed topic constants
+│   ├── middleware/          # Auth, RBAC, RateLimit, XSS & Error handlers
+│   ├── models/              # Mongoose schemas & data models
+│   ├── routes/              # Express API route declarations (/api/v1)
+│   ├── services/            # Pure scoring engine & KYC OCR services
+│   ├── tests/               # Unit, integration & Kafka test suites
+│   ├── utils/               # Socket.io, Cron, CircuitBreaker, PricingEngine
+│   └── server.ts            # Application bootstrap & lifecycle orchestrator
+│
+├── frontend/
+│   ├── src/
+│   │   ├── api/             # Axios API client & interceptors
+│   │   ├── components/      # Reusable UI widgets, Modals, Maps & Chatbot
+│   │   ├── context/         # Auth, Theme, Socket & Notification contexts
+│   │   ├── hooks/           # Custom React hooks (Geolocation, debounce, etc.)
+│   │   ├── pages/           # Customer, Driver & Admin page views
+│   │   ├── layouts/         # Navigation bars, Footers & Protected Shells
+│   │   └── index.css        # TailwindCSS v4 design tokens & theme classes
+│   ├── vite.config.js       # Vite configuration with PWA plugin
+│   └── package.json
+│
+└── readme.md                # Project documentation
+```
+
+---
+
+## ⚙️ Environment Configuration
+
+Create a `.env` file in the `backend/` directory:
 
 ```env
-# Database & Core
-MONGO_URI=mongodb+srv://<user>:<password>@cluster.mongodb.net/mymate
-JWT_SECRET=your_jwt_secret_key
+# =================================================================
+# Server & Database Configuration
+# =================================================================
 PORT=5000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
+MONGO_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/mymate?retryWrites=true&w=majority
+JWT_SECRET=your_super_secret_jwt_key_here
 
+# =================================================================
+# Redis Configuration (Cache & Socket Mesh)
+# =================================================================
+REDIS_URL=redis://default:password@your-redis-host:6379
+
+# =================================================================
 # Apache Kafka (Cloud Brokers: Aiven, Confluent, Upstash, or Local)
+# =================================================================
 KAFKA_BROKERS=your-kafka-broker.aivencloud.com:13575
 KAFKA_CLIENT_ID=mymate-backend
 KAFKA_GROUP_ID=mymate-consumer-group
@@ -332,60 +325,113 @@ KAFKA_SSL=true
 KAFKA_CA_PATH=ca.pem
 # KAFKA_CA_CERT="-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----"
 
-# AI Configuration
+# =================================================================
+# AI & Heuristic Matchmaking Weights
+# =================================================================
 GEMINI_API_KEY=your_gemini_api_key
-AI_WEIGHT_DISTANCE=2
-AI_WEIGHT_RATING=10
+AI_WEIGHT_DISTANCE=2.0
+AI_WEIGHT_RATING=10.0
 AI_WEIGHT_ACCEPT_RATE=0.5
-AI_WEIGHT_IDLE=1
+AI_WEIGHT_IDLE=1.0
 
-# Payments & Storage
-RAZORPAY_KEY_ID=rzp_test_...
+# =================================================================
+# Payments & Media Storage
+# =================================================================
+RAZORPAY_KEY_ID=rzp_test_your_key_id
 RAZORPAY_KEY_SECRET=your_razorpay_secret
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_CLOUD_NAME=your_cloudinary_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
-# Email (SMTP)
+# =================================================================
+# Transactional Email (Brevo / SMTP)
+# =================================================================
 SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587
-SMTP_USER=your_smtp_user
+SMTP_USER=your_smtp_login
 SMTP_PASS=your_smtp_password
 SMTP_FROM=support@mymate.com
 ```
 
 ---
 
-## 🚀 Running & Testing
+## 🚀 Quickstart & Development Guide
 
-### 1. Run Unit & Kafka Tests
+### Prerequisites
+- **Node.js**: `v18.0.0` or higher
+- **MongoDB**: Local MongoDB or MongoDB Atlas instance
+- **Redis**: Local Redis instance or cloud host (Upstash/Aiven)
+- **Apache Kafka** *(Optional in dev)*: Cloud broker (Aiven/Confluent) or toggle `KAFKA_ENABLED=false`
+
+---
+
+### 1. Clone & Install Dependencies
+
 ```bash
+# Clone the repository
+git clone https://github.com/Susil-commits/MyMate.git
+cd MyMate
+
+# Install backend dependencies
 cd backend
-npm test
+npm install
+
+# Install frontend dependencies
+cd ../frontend
+npm install
 ```
 
-### 2. Start Backend in Development
+---
+
+### 2. Run in Development Mode
+
 ```bash
+# Start Backend (runs with TSX live watcher & env loader)
 cd backend
 npm run dev
-```
 
-### 3. Start Frontend in Development
-```bash
+# In a separate terminal, start Frontend (Vite)
 cd frontend
 npm run dev
 ```
 
-### 4. Build for Production
-```bash
-# Backend build check
-cd backend
-npx tsc --noEmit
+- **Frontend App**: `http://localhost:5173`
+- **Backend API**: `http://localhost:5000`
+- **Swagger Documentation**: `http://localhost:5000/api-docs`
+- **GraphQL Playground**: `http://localhost:5000/graphql`
+- **Prometheus Metrics**: `http://localhost:5000/metrics`
+- **System Health Check**: `http://localhost:5000/health`
 
-# Frontend production build
+---
+
+### 3. Running Test Suites
+
+```bash
+# Run backend unit, integration, and Kafka mock tests
+cd backend
+npm test
+
+# Run frontend tests
+cd frontend
+npm run test
+```
+
+---
+
+### 4. Production Build
+
+```bash
+# Backend type check & build
+cd backend
+npm run build
+
+# Frontend production bundle
 cd frontend
 npm run build
 ```
 
 ---
-*Built with modern web technologies, AI intelligence, and scalable distributed messaging.*
+
+## 📄 License & Attribution
+
+Distributed under the **MIT License**. Built with modern open-source web technologies, distributed event streaming, and AI intelligence.

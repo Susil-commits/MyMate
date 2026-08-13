@@ -4,9 +4,6 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import { sanitizeDriver, clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
 import { storeFile, deleteFromCloudinary } from "../middleware/upload.js";
-// Bug 19 Fix: Import clearCachePrefix statically at the module level instead of
-// using dynamic import() inside the response handler. Dynamic import inside a
-// controller causes a new module resolution on every profile update.
 import { clearCachePrefix } from "../middleware/cache.js";
 
 const SORT_MAP = {
@@ -25,7 +22,7 @@ export const getDrivers = async (req, res) => {
 
   const filter: any = { kycStatus: "approved", isActive: true };
 
-  // Phase 5: MongoDB Full-Text Search
+  // Full-text search filter
   if (search) {
     filter.$text = { $search: String(search) };
   }
@@ -138,12 +135,7 @@ export const updateDriverProfile = async (req, res) => {
     const { url, publicId } = await storeFile(files.licenseImage[0], "mymate/licenses", req);
     driver.licenseImage = { url, publicId };
     
-    // Bug 13 Fix: Removed OCR auto-approval logic. Any image containing the words
-    // "ID", "DRIVING", or "LICENSE" (including fake/forged documents, business cards,
-    // or marketing materials) would have been automatically approved — a major KYC bypass.
-    //
-    // OCR analysis is now purely informational: it logs detected keywords for admin review
-    // but NEVER auto-sets kycStatus to "approved". Human admin review is always required.
+    // Set KYC status to pending for administrative verification
     if (req.body.resubmitKyc === "true") {
       driver.kycStatus = "pending";
       const driverId = driver._id;
@@ -180,7 +172,6 @@ export const updateDriverProfile = async (req, res) => {
 
   await driver.save();
   
-  // Bug 19 Fix: Use statically-imported clearCachePrefix instead of dynamic import()
   try {
     clearCachePrefix("drivers");
     clearCachePrefix("stats");

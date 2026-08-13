@@ -4,9 +4,7 @@ import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import crypto from "crypto";
 
-// Bug 4 Fix: Do NOT instantiate Razorpay at module load time with empty-string fallbacks.
-// If RAZORPAY_KEY_ID is not set at startup, the old code created a bad Razorpay instance.
-// Use lazy initialisation: only create on first call, after confirming env vars exist.
+// Lazy singleton initialisation for Razorpay
 import Razorpay from "razorpay";
 let _razorpay: InstanceType<typeof Razorpay> | null = null;
 function getRazorpay(): InstanceType<typeof Razorpay> | null {
@@ -22,9 +20,6 @@ function getRazorpay(): InstanceType<typeof Razorpay> | null {
 
 export const getWalletTransactions = async (req: Request, res: Response) => {
   try {
-    // Bug 20 Fix: Use req.user._id (ObjectId) instead of req.user?.id (string virtual).
-    // While Mongoose's .id virtual works for findById, it's inconsistent with all other
-    // controllers and can cause subtle type mismatches in aggregation pipelines.
     const ownerId = (req as any).user?._id;
     const ownerRole = (req as any).user?.role || (req as any).userRole;
     const ownerModel = ownerRole === "driver" ? "Driver" : "User";
@@ -89,7 +84,6 @@ export const verifyWalletPayment = async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 
-    // Bug 20 Fix: Use req.user._id consistently
     const ownerId = (req as any).user?._id;
     const ownerRole = (req as any).user?.role || (req as any).userRole;
     const ownerModel = ownerRole === "driver" ? "Driver" : "User";
