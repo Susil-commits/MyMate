@@ -1,3 +1,9 @@
 node_modules/
 uploads/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.log

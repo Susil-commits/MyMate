@@ -7,6 +7,8 @@ import User from "../models/User.js";
 import WalletTransaction from "../models/WalletTransaction.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingStatusUpdate } from "../config/email.js";
+import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
+
 
 let razorpayInstance = null;
 function getRazorpay() {
@@ -158,7 +160,18 @@ export const verifyPayment = async (req, res) => {
       User.findById(booking.user).select("name email"),
     ]);
     if (driver && user) sendBookingStatusUpdate(user, driver, booking, "paid").catch(() => {});
+
+    publishKafkaEvent(KAFKA_TOPICS.PAYMENT_COMPLETED, String(payment._id), {
+      paymentId: payment._id,
+      bookingId: booking._id,
+      driverId: booking.driver,
+      userId: booking.user,
+      totalAmount: booking.totalAmount,
+      driverAmount,
+      paymentMethod: "razorpay",
+    }).catch(() => {});
   }
+
 
   res.json({ message: "Payment verified successfully" });
 };
@@ -280,5 +293,15 @@ export const payWithWallet = async (req, res) => {
   
   if (driverUser && updatedUser) sendBookingStatusUpdate(updatedUser, driverUser, booking, "paid").catch(() => {});
 
+  publishKafkaEvent(KAFKA_TOPICS.PAYMENT_COMPLETED, String(booking._id), {
+    bookingId: booking._id,
+    driverId: booking.driver,
+    userId: booking.user,
+    totalAmount: booking.totalAmount,
+    driverAmount,
+    paymentMethod: "wallet",
+  }).catch(() => {});
+
   res.json({ message: "Payment successful using wallet" });
+
 };

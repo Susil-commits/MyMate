@@ -1,8 +1,5 @@
 import { EventEmitter } from "events";
-import { createNotification } from "../models/Notification.js";
-import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
 import { getIo } from "../utils/socket.js";
-import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 
 // Global Event Bus
@@ -11,31 +8,21 @@ import Driver from "../models/Driver.js";
 export const eventBus = new EventEmitter();
 eventBus.setMaxListeners(20);
 
-// Listeners for BOOKING_CREATED
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPORTANT: This EventEmitter is ONLY responsible for REAL-TIME Socket.io pushes.
+// All durable side-effects (DB notifications, emails, wallet credits) are
+// handled exclusively by Kafka consumers in kafka/consumers/*.ts
+// This clean separation prevents duplicate notifications/emails.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// BOOKING_CREATED — Socket push to the assigned driver only
 eventBus.on("BOOKING_CREATED", async ({ primaryBooking, driverId, user, isRecurring, hireType }) => {
   try {
-    const driver = await Driver.findById(driverId);
-    if (!driver) return;
-
-    // 1. Create In-App Notification
-    await createNotification({
-      userId: driverId,
-      userModel: "Driver",
-      title: "New Booking Request",
-      message: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${user.name || "a customer"}.`,
-      type: "booking", 
-      link: `/bookings/${primaryBooking._id}`,
-    });
-
-    // 2. Send Confirmation Email
-    await sendBookingConfirmation(user, driver, primaryBooking);
-
-    // 3. Emit Real-time Socket Event
     try {
       const io = getIo();
       io.to(String(driverId)).emit("new_notification", {
         title: "New Booking Request",
-        body: `New ${hireType} booking request from ${user.name || "a customer"}.`,
+        body: `New ${hireType} booking request${isRecurring ? ' (Recurring)' : ''} from ${user.name || "a customer"}.`,
         link: `/driver/bookings`,
       });
     } catch (err) {
@@ -46,13 +33,12 @@ eventBus.on("BOOKING_CREATED", async ({ primaryBooking, driverId, user, isRecurr
   }
 });
 
-// Listeners for BOOKING_STATUS_CHANGED
+// BOOKING_STATUS_CHANGED — Socket push to user and driver rooms
 eventBus.on("BOOKING_STATUS_CHANGED", async ({ booking, user, driver, status }) => {
   try {
-    // Determine notification copy
     let title = "Booking Update";
     let message = `Your booking status changed to ${status}.`;
-    
+
     if (status === "accepted") {
       title = "Booking Accepted!";
       message = `${driver.name} has accepted your booking.`;
@@ -67,20 +53,6 @@ eventBus.on("BOOKING_STATUS_CHANGED", async ({ booking, user, driver, status }) 
       message = "Your ride has ended. Thank you for using MyMate!";
     }
 
-    // 1. Send Email
-    await sendBookingStatusUpdate(user, driver, booking, status).catch(() => {});
-
-    // 2. Create Notification
-    await createNotification({
-      userId: user._id,
-      userModel: "User",
-      title,
-      message,
-      type: "booking",
-      link: `/bookings/${booking._id}`
-    });
-
-    // 3. Socket Push
     try {
       const io = getIo();
       io.to(String(user._id)).emit("notification", { title, message });
@@ -93,23 +65,12 @@ eventBus.on("BOOKING_STATUS_CHANGED", async ({ booking, user, driver, status }) 
   }
 });
 
-// Listeners for DRIVER_VERIFIED
+// DRIVER_VERIFIED — Socket push to driver (email/notification handled by Kafka kycConsumer)
 eventBus.on("DRIVER_VERIFIED", async ({ driver, status }) => {
   try {
-    const { sendKycStatusEmail } = await import("../config/email.js");
-    await sendKycStatusEmail(driver, status);
-
-    await createNotification({
-      userId: driver._id,
-      userModel: "Driver",
-      title: "KYC Verification Update",
-      message: status === "approved"
-        ? "Your KYC has been approved. You are now live on the platform."
-        : "Your KYC was rejected. Please update your documents and resubmit.",
-      type: "kyc",
-      link: "/driver/profile",
-    });
+    const io = getIo();
+    io.to(String(driver._id)).emit("kyc_update", { status });
   } catch (err) {
-    console.error("[EventBus] Error processing DRIVER_VERIFIED:", err);
+    // Socket may not be initialized in test/dev environments
   }
 });

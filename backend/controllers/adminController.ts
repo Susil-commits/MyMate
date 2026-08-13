@@ -7,6 +7,8 @@ import { buildPagination } from "../utils/pagination.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { logAudit } from "../controllers/auditController.js";
 import { eventBus } from "../events/bookingEvents.js";
+import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
+
 
 export const getDashboardStats = async (req, res) => {
   const [
@@ -80,7 +82,13 @@ export const verifyDriver = async (req, res) => {
 
   eventBus.emit("DRIVER_VERIFIED", { driver, status });
 
+  publishKafkaEvent(KAFKA_TOPICS.DRIVER_KYC_STATUS, String(driver._id), {
+    driverId: driver._id,
+    status,
+  }).catch(() => {});
+
   logAudit(req.user, "Admin", "VERIFY_DRIVER", { driverId: driver._id, status }, req.ip);
+
 
   return ApiResponse.success(res, { driver }, "Driver verification status updated");
 };

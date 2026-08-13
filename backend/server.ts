@@ -24,6 +24,8 @@ import { setupMetrics } from "./utils/metrics.js";
 import { initializeChangeStreams } from "./events/changeStreams.js";
 import { setupQueueBoard } from "./utils/queueBoard.js";
 import { setupGraphQL } from "./graphql/schema.js";
+import { startKafka, stopKafka, isKafkaConnected } from "./kafka/index.js";
+
 
 const _filename = fileURLToPath(import.meta.url);
 const _dirname = path.dirname(_filename);
@@ -100,9 +102,11 @@ app.get("/health", async (req, res) => {
       timestamp: new Date().toISOString(),
       dependencies: {
         mongodb: "ok",
-        redis: "ok"
+        redis: "ok",
+        kafka: isKafkaConnected() ? "ok" : "disconnected_or_disabled"
       }
     });
+
   } catch (err: any) {
     res.status(503).json({
       status: "error",
@@ -147,6 +151,9 @@ if (process.env.NODE_ENV !== "test") {
     // Initialize MongoDB Change Streams
     initializeChangeStreams();
 
+    // Initialize Kafka Messaging System
+    startKafka().catch(err => console.error("Failed to start Kafka:", err));
+
     await setupGraphQL(app);
 
     // Add 404 and error handlers AFTER async routes are mounted
@@ -159,12 +166,9 @@ if (process.env.NODE_ENV !== "test") {
       console.log(`Server running on port ${PORT}`);
     });
 
-    const shutdown = (signal) => {
+    const shutdown = async (signal) => {
       console.log(`${signal} received, shutting down gracefully`);
-      // Bug 16 Fix: Create the timer reference BEFORE using it inside the callback,
-      // so we can clearTimeout when the server closes cleanly. Without this,
-      // `process.exit(1)` would fire even after a successful `process.exit(0)`
-      // in container environments that keep the event loop alive briefly.
+      await stopKafka();
       let forceExitTimer: NodeJS.Timeout;
       if (server) {
         server.close(() => {
@@ -177,6 +181,7 @@ if (process.env.NODE_ENV !== "test") {
       }
       forceExitTimer = setTimeout(() => process.exit(1), 10000);
     };
+
 
     process.on("SIGTERM", () => shutdown("SIGTERM"));
     process.on("SIGINT", () => shutdown("SIGINT"));

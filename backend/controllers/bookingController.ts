@@ -8,7 +8,9 @@ import { createNotification } from "../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../config/email.js";
 import { getIo } from "../utils/socket.js";
 import { eventBus } from "../events/bookingEvents.js";
+import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
 import { calculateDynamicSurge } from "../utils/pricingEngine.js";
+
 import * as ics from "ics";
 import PDFDocument from "pdfkit";
 
@@ -179,6 +181,15 @@ export const createBooking = async (req, res) => {
     isRecurring,
     hireType
   });
+
+  publishKafkaEvent(KAFKA_TOPICS.BOOKING_CREATED, String(primaryBooking._id), {
+    primaryBooking,
+    driverId: driver._id,
+    user: req.user,
+    isRecurring,
+    hireType
+  }).catch(() => {});
+
 
   res.status(201).json({ booking: primaryBooking, totalCreated: createdBookings.length });
 };
@@ -360,6 +371,14 @@ export const updateBookingStatus = async (req, res) => {
     driver: (populated as any).driver,
     status
   });
+
+  publishKafkaEvent(KAFKA_TOPICS.BOOKING_STATUS_CHANGED, String(populated._id), {
+    booking: populated,
+    user: (populated as any).user,
+    driver: (populated as any).driver,
+    status
+  }).catch(() => {});
+
 
   res.json({ booking: populated });
 };

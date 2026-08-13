@@ -2,6 +2,11 @@ node_modules/
 dist/
 build/
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
 *.log
 logs/
 uploads/
