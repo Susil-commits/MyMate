@@ -5,33 +5,196 @@
 
 ---
 
-## 🏗️ System Architecture & Design
+## 🏛️ System Architecture Diagrams
 
+### 1. High-Level Distributed System Architecture
+```mermaid
+flowchart TB
+    subgraph ClientLayer["🖥️ Client Layer (Frontend)"]
+        UserWeb["User Web & PWA (React 19 + Vite)"]
+        DriverWeb["Driver Dashboard & PWA"]
+        AdminWeb["Admin Management Portal"]
+    end
+
+    subgraph Gateway["🚪 API Gateway & Server Layer"]
+        ExpressApp["Node.js / Express Server"]
+        GraphQL["GraphQL / Apollo Server"]
+        SocketIO["Socket.io WebSocket Server"]
+        AuthMiddleware["JWT & 2FA Auth Guard"]
+    end
+
+    subgraph DataLayer["💾 Data & Cache Infrastructure"]
+        MongoDB[("MongoDB Atlas\n(Geospatial 2dsphere & Text Index)")]
+        RedisDB[("Redis Cache / Adapter\n(Rate Limiting & Socket Mesh)")]
+        BullMQ["BullMQ Background Workers"]
+    end
+
+    subgraph EventStream["⚡ Event Streaming Backbone"]
+        KafkaBroker["Apache Kafka (Aiven / Confluent)\n(Distributed Event Log)"]
+    end
+
+    subgraph ExternalServices["🌐 Third-Party Integrations"]
+        Gemini["Google Gemini 2.5 Flash (AI Chat & Ranking)"]
+        Razorpay["Razorpay Gateway (Payments & Wallets)"]
+        Cloudinary["Cloudinary (License & Media Storage)"]
+        Brevo["Brevo SMTP (Transactional Emails)"]
+        Tesseract["Tesseract.js (KYC OCR Engine)"]
+    end
+
+    UserWeb & DriverWeb & AdminWeb -->|HTTPS / REST / GraphQL| ExpressApp
+    UserWeb & DriverWeb -->|WSS / Real-time| SocketIO
+    ExpressApp --> AuthMiddleware
+    AuthMiddleware --> GraphQL & MongoDB
+    ExpressApp --> RedisDB
+    RedisDB -.-> SocketIO
+    RedisDB --> BullMQ
+    ExpressApp -->|Publish Events| KafkaBroker
+    ExpressApp --> Gemini & Razorpay & Cloudinary & Tesseract
 ```
-                     ┌────────────────────────┐
-                     │   React + Vite Client   │
-                     └───────────┬────────────┘
-                                 │ HTTP / REST / GraphQL & WebSocket
-                                 ▼
-                     ┌────────────────────────┐
-                     │   Node.js / Express    │
-                     │     API Gateway        │
-                     └─────┬────────────┬─────┘
-                           │            │
-             ┌─────────────┴─────┐      └──────────────┐
-             │                   │                     │
-             ▼                   ▼                     ▼
-    ┌─────────────────┐ ┌──────────────────┐ ┌──────────────────┐
-    │  MongoDB Atlas  │ │ Redis / BullMQ   │ │   Apache Kafka   │
-    │ (2dsphere/Text) │ │  (Cache / Queues)│ │  (Event Broker)  │
-    └─────────────────┘ └──────────────────┘ └────────┬─────────┘
-                                                      │
-                            ┌─────────────────────────┼─────────────────────────┐
-                            ▼                         ▼                         ▼
-                 ┌────────────────────┐    ┌────────────────────┐    ┌────────────────────┐
-                 │  Booking Consumer  │    │  Payment Consumer  │    │    KYC Consumer    │
-                 │(Email/Notification)│    │(Audit & Receipts)  │    │(Driver Verification│
-                 └────────────────────┘    └────────────────────┘    └────────────────────┘
+
+---
+
+### 2. Apache Kafka Event-Driven Architecture & Consumer Groups
+```mermaid
+flowchart LR
+    subgraph EventProducers["📤 Event Producers (Controllers)"]
+        BC["bookingController.ts"]
+        PC["paymentController.ts"]
+        AC["adminController.ts"]
+    end
+
+    subgraph ProducerWrapper["📦 Resilient Kafka Producer"]
+        KP["publishKafkaEvent()\n(JSON Serializer + Timestamps + Reconnect)"]
+    end
+
+    subgraph KafkaTopics["⚡ Kafka Topics (Aiven Cluster)"]
+        T1[("mymate.booking.created")]
+        T2[("mymate.booking.status_changed")]
+        T3[("mymate.payment.completed")]
+        T4[("mymate.driver.kyc_status")]
+    end
+
+    subgraph ConsumerGroups["📥 Specialized Consumer Groups"]
+        CG1["Booking Consumer Group\n(mymate-consumer-group-booking)"]
+        CG2["Payment Consumer Group\n(mymate-consumer-group-payment)"]
+        CG3["KYC Consumer Group\n(mymate-consumer-group-kyc)"]
+    end
+
+    subgraph Execution["🎯 Durable Side-Effects"]
+        DBNotif[("MongoDB Notifications Collection")]
+        EmailSvc["Brevo SMTP Email Dispatcher"]
+        AuditLedger["Payment Ledger & Wallet Balance"]
+        DriverProfile["Driver Status Live Sync"]
+    end
+
+    BC -->|Emit Booking Created| KP
+    BC -->|Emit Status Update| KP
+    PC -->|Emit Payment Success| KP
+    AC -->|Emit KYC Decision| KP
+
+    KP --> T1 & T2 & T3 & T4
+
+    T1 & T2 --> CG1
+    T3 --> CG2
+    T4 --> CG3
+
+    CG1 --> DBNotif & EmailSvc
+    CG2 --> DBNotif & AuditLedger
+    CG3 --> DBNotif & EmailSvc & DriverProfile
+```
+
+---
+
+### 3. Dual-Stream Booking Execution Flow (Real-Time vs Asynchronous)
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Customer
+    participant API as 🚪 Booking Controller
+    participant DB as 💾 MongoDB Atlas
+    participant Socket as ⚡ Socket.io Mesh
+    participant Kafka as 📨 Apache Kafka
+    participant Consumer as ⚙️ Booking Consumer
+    actor Driver as 🚗 Assigned Driver
+
+    Customer->>API: POST /api/v1/bookings (Create Booking)
+    API->>DB: Save Booking (status: "pending")
+    API-->>Customer: 201 Created (Booking ID)
+
+    par Real-Time Notification Stream (Instant)
+        API->>Socket: eventBus.emit("BOOKING_CREATED")
+        Socket->>Driver: Socket push: "new_notification" (Pop-up sound & alert)
+    and Durable Asynchronous Stream (Kafka)
+        API->>Kafka: publishKafkaEvent("mymate.booking.created")
+        Kafka->>Consumer: Consume event with offset commit
+        Consumer->>DB: createNotification(Driver & Customer)
+        Consumer->>Consumer: sendBookingConfirmation() via Brevo SMTP
+    end
+```
+
+---
+
+### 4. AI Driver Matchmaking Pipeline (Pure Core / Impure Shell)
+```mermaid
+flowchart TD
+    Start(["📍 User Requests Driver (Coords, Vehicle Type, Time)"]) --> Shell["🐚 Impure Shell: Data Retrieval"]
+    
+    subgraph ImpureShell["Impure Shell (I/O & DB)"]
+        Shell --> GeoQuery["MongoDB 2dsphere $nearSphere\n(Fetch drivers within max radius)"]
+        GeoQuery --> LoadDriverStats["Load Ratings, Total Trips & Acceptance Rates"]
+    end
+
+    LoadDriverStats --> Core["🧠 Pure Core Scoring Engine (Deterministic)"]
+
+    subgraph PureCore["Pure Core Function (Zero Side-Effects)"]
+        Core --> S1["Calculate Haversine Distance (Weight: AI_WEIGHT_DISTANCE)"]
+        S1 --> S2["Calculate Rating Score (Weight: AI_WEIGHT_RATING)"]
+        S2 --> S3["Calculate Acceptance Ratio (Weight: AI_WEIGHT_ACCEPT_RATE)"]
+        S3 --> S4["Calculate Idle Time Factor (Weight: AI_WEIGHT_IDLE)"]
+        S4 --> CompositeScore["Compute Weighted Composite Score"]
+    end
+
+    CompositeScore --> GeminiRank{"🤖 Gemini 2.5 Flash\nAvailable?"}
+    GeminiRank -- Yes --> AICandidateRank["AI Contextual Re-ranking\n(Vehicle fit, customer preferences)"]
+    GeminiRank -- No / Fallback --> HeuristicRank["Sort by Composite Score DESC"]
+    
+    AICandidateRank --> FinalResponse["Top Recommended Drivers Returned to Client"]
+    HeuristicRank --> FinalResponse
+```
+
+---
+
+### 5. Automated Driver KYC OCR & Verification Lifecycle
+```mermaid
+stateDiagram-v2
+    [*] --> DocumentUploaded: Driver Uploads License Image
+    DocumentUploaded --> CloudinaryStored: Upload to Cloudinary CDN
+    CloudinaryStored --> TesseractOCR: Run Tesseract.js OCR Pipeline
+    
+    state TesseractOCR {
+        [*] --> TextExtraction: Extract alphanumeric characters
+        TextExtraction --> RegexValidation: Match DL Regex (^[A-Z]{2}[0-9]{2}[0-9]{11}$)
+        RegexValidation --> ConfidenceScoring: Calculate OCR Confidence %
+    }
+
+    TesseractOCR --> AdminQueue: Submit with Auto-recommendation
+    
+    state AdminQueue {
+        AdminReview: Admin reviews document in portal
+        AdminReview --> Approved: Click Approve
+        AdminReview --> Rejected: Click Reject (with reason)
+    }
+
+    Approved --> KafkaEvent: Trigger Kafka Event
+    Rejected --> KafkaEvent: Trigger Kafka Event
+
+    state KafkaEvent {
+        KafkaEventPublished: publishKafkaEvent("mymate.driver.kyc_status")
+        KafkaEventPublished --> KycConsumer: KycConsumer processes event
+    }
+
+    KycConsumer --> NotificationSent: Send Email via Brevo & Push Socket Update
+    NotificationSent --> [*]
 ```
 
 ---
