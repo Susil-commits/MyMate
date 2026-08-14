@@ -1,5 +1,6 @@
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
+import logger from "../config/logger.js";
 
 export const calculateDynamicSurge = async (start: Date): Promise<number> => {
   let baseMultiplier = 1;
@@ -34,8 +35,8 @@ export const calculateDynamicSurge = async (start: Date): Promise<number> => {
         baseMultiplier += 0.1; // Moderate demand
       }
     }
-  } catch (error) {
-    console.error("Error calculating dynamic surge:", error);
+  } catch (error: any) {
+    logger.warn("[Pricing] Dynamic surge calculation failed, defaulting to base multiplier.", { message: error?.message });
   }
 
   // Cap surge at 3.0x

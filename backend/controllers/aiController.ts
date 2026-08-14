@@ -5,6 +5,7 @@ import Booking from "../models/Booking.js";
 import { createCircuitBreaker } from "../utils/circuitBreaker.js";
 import { runKycOcr } from "../services/kycOcrService.js";
 import { findBestDrivers } from "../services/driverMatchingService.js";
+import logger from "../config/logger.js";
 
 // Initialize Google GenAI client
 const ai = new GoogleGenAI({
@@ -353,7 +354,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
 
       return res.json({ recommended: scoredDrivers.slice(0, 3), rankedBy: "gemini" });
     } catch (err) {
-      console.error("GenAI Matching Error, falling back to heuristic scoring:", err);
+      logger.warn("[AI Recommend] Gemini ranking failed, falling back to heuristic.", { message: err?.message });
     }
   }
 
@@ -415,18 +416,21 @@ export const chat = async (req, res) => {
     const { contents, safeHistory } = sanitizeConversationHistory(history, cleanMessage);
 
     let responseText: string | null = null;
+    let responseSource: "ai" | "local-engine" = "ai";
 
     try {
       const geminiRes = await geminiBreaker.fire(contents, SYSTEM_INSTRUCTION);
       responseText = extractGeminiText(geminiRes);
     } catch (apiErr) {
-      console.warn("Gemini API invocation failed, activating resilient local knowledge engine:", apiErr?.message || apiErr);
+      logger.warn("[AI Chat] Gemini API failed, activating local knowledge engine.", { message: apiErr?.message });
       // Seamless degradation to local platform knowledge engine
       responseText = getLocalPlatformResponse(cleanMessage);
+      responseSource = "local-engine";
     }
 
     if (!responseText) {
       responseText = getLocalPlatformResponse(cleanMessage);
+      responseSource = "local-engine";
     }
 
     const updatedHistory = [
@@ -435,9 +439,9 @@ export const chat = async (req, res) => {
       { role: "model", text: responseText },
     ];
 
-    return res.json({ response: responseText, history: updatedHistory, source: "ai" });
+    return res.json({ response: responseText, history: updatedHistory, source: responseSource });
   } catch (err) {
-    console.error("AI Chatbot unexpected controller error:", err);
+    logger.error("[AI Chat] Unexpected controller error.", { message: err?.message });
     // Graceful zero-downtime fallback
     const fallbackText = getLocalPlatformResponse(req.body?.message || "");
     return res.json({
@@ -526,7 +530,7 @@ export const verifyKyc = async (req, res) => {
       recommendation: result.isValid && licenseMatch !== false ? "approve" : "review",
     });
   } catch (err: any) {
-    console.error("KYC OCR error:", err);
+    logger.error("[KYC OCR] Processing failed.", { message: err?.message });
     res.status(500).json({ message: "OCR processing failed", error: err.message });
   }
 };
