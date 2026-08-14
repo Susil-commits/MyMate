@@ -22,22 +22,36 @@ if (process.env.KAFKA_SASL_USERNAME && process.env.KAFKA_SASL_PASSWORD) {
   };
 }
 
-let sslConfig: boolean | { ca: string[] } | undefined = process.env.KAFKA_SSL === "true" ? true : undefined;
+let sslConfig: boolean | { ca?: string[]; rejectUnauthorized?: boolean } | undefined = undefined;
 
 if (process.env.KAFKA_SSL === "true") {
+  const rejectUnauthorized = process.env.KAFKA_SSL_REJECT_UNAUTHORIZED !== "false";
+  let ca: string[] | undefined = undefined;
+
   if (process.env.KAFKA_CA_CERT) {
-    // Direct PEM certificate passed via environment variable (ideal for Render/cloud)
-    sslConfig = { ca: [process.env.KAFKA_CA_CERT] };
+    // Direct PEM certificate passed via environment variable (handles literal \n from cloud envs)
+    ca = [process.env.KAFKA_CA_CERT.replace(/\\n/g, "\n")];
   } else if (process.env.KAFKA_CA_PATH) {
     try {
       const caPath = path.resolve(process.cwd(), process.env.KAFKA_CA_PATH);
       if (fs.existsSync(caPath)) {
         const caCert = fs.readFileSync(caPath, "utf-8");
-        sslConfig = { ca: [caCert] };
+        ca = [caCert];
+      } else {
+        logger.warn(`[Kafka Config] CA certificate file not found at path: ${caPath}`);
       }
     } catch (error: any) {
       logger.warn(`[Kafka Config] Failed to read CA certificate from path (${process.env.KAFKA_CA_PATH}): ${error.message}`);
     }
+  }
+
+  if (ca || !rejectUnauthorized) {
+    sslConfig = {
+      ...(ca ? { ca } : {}),
+      rejectUnauthorized,
+    };
+  } else {
+    sslConfig = true;
   }
 }
 

@@ -11,7 +11,7 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY || "dummy_key_if_not_set",
 });
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-flash-latest";
 
 /**
  * Wraps a multi-turn Gemini request in the circuit breaker.
