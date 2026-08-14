@@ -44,3 +44,12 @@ export const passwordResetLimiter = rateLimit({
   legacyHeaders: false,
   store: getStore(),
 });
+
+export const aiChatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 40,
+  message: { message: "You've sent too many chat messages. Please wait a few minutes before asking more questions." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: getStore(),
+});

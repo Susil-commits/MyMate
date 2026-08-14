@@ -1,50 +1,75 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { HiChat, HiX, HiPaperAirplane, HiTrash } from "react-icons/hi";
+import { HiChat, HiX, HiPaperAirplane, HiTrash, HiRefresh } from "react-icons/hi";
 import api from "../api/axios";
 
-// Quick-reply prompt suggestions
+// Quick-reply prompt suggestions focused on platform design & usage
 const QUICK_REPLIES = [
   "How do I book a driver?",
   "What are surge pricing hours?",
-  "How do I cancel a booking?",
   "How does KYC verification work?",
-  "What payment methods are accepted?",
+  "What safety features exist?",
+  "What is MyMate's tech stack?",
 ];
 
-// Markdown renderer for bold text and list items
-function renderMarkdown(text) {
-  // Bold: **text**
-  const withBold = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-  // Bullet points: lines starting with - or •
-  const lines = withBold.split("\n");
-  const rendered = lines
-    .map((line) => {
-      const trimmed = line.trim();
-      if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
-        return `<li>${trimmed.slice(2)}</li>`;
-      }
-      return trimmed ? `<span>${line}</span>` : "<br/>";
-    })
-    .join("\n");
+// Helper to escape raw HTML characters to prevent XSS
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
-  // Wrap consecutive <li> items in a <ul>
-  return rendered
-    .replace(/((<li>.*?<\/li>\n?)+)/gs, "<ul>$1</ul>")
-    .replace(/<\/li>\n<li>/g, "</li><li>");
+// Markdown renderer for bold, lists, code, headers, and linebreaks
+function renderMarkdown(rawText) {
+  if (!rawText) return "";
+
+  // 1. First escape raw HTML
+  let text = escapeHtml(rawText);
+
+  // 2. Inline code: `code`
+  text = text.replace(/`([^`]+)`/g, '<code class="bg-blue-50 dark:bg-gray-800 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded text-xs font-mono">$1</code>');
+
+  // 3. Bold: **text**
+  text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // 4. Italic: *text* or _text_
+  text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+  // 5. Headings: ### Heading
+  text = text.replace(/^###\s+(.+)$/gm, '<h4 class="font-bold text-sm text-gray-900 dark:text-white mt-2 mb-1">$1</h4>');
+
+  // 6. Lists
+  const lines = text.split("\n");
+  const parsedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    // Bullet list
+    if (trimmed.startsWith("- ") || trimmed.startsWith("• ") || trimmed.startsWith("* ")) {
+      return `<li class="ml-4 list-disc">${trimmed.replace(/^[-•*]\s+/, "")}</li>`;
+    }
+    // Numbered list
+    if (/^\d+\.\s+/.test(trimmed)) {
+      return `<li class="ml-4 list-decimal">${trimmed.replace(/^\d+\.\s+/, "")}</li>`;
+    }
+    return trimmed ? `<p class="my-0.5">${line}</p>` : '<div class="h-1.5"></div>';
+  });
+
+  return parsedLines.join("\n");
 }
 
 // Chat typing indicator animation
 function TypingDots() {
   return (
-    <div className="flex justify-start">
+    <div className="flex justify-start items-center gap-1.5 py-1">
+      <span className="text-base select-none">🤖</span>
       <div
-        className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-4 py-2 text-sm flex gap-1"
-        style={{ background: "var(--chat-bot-bg, #fff)" }}
+        className="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm rounded-2xl rounded-tl-none px-4 py-2.5 text-sm flex gap-1.5 items-center"
       >
         {[0, 0.2, 0.4].map((delay, i) => (
           <span
             key={i}
-            className="inline-block w-1.5 h-1.5 rounded-full bg-blue-400"
+            className="inline-block w-2 h-2 rounded-full bg-blue-500"
             style={{
               animation: "chatBounce 1s infinite",
               animationDelay: `${delay}s`,
@@ -61,14 +86,13 @@ export default function AIChatbotWidget() {
   const [messages, setMessages] = useState([
     {
       role: "bot",
-      text: "👋 Hello! I'm **MyMate AI**. I can help you book a driver, understand pricing, or navigate the app.\n\nWhat can I do for you today?",
+      text: "👋 Hello! I'm **MyMate AI**, your dedicated assistant for the MyMate driver platform.\n\nI can assist you with:\n- **Booking verified drivers** (Hourly, Daily, Outstation, Valet)\n- **Pricing & surge hours**\n- **Driver KYC & safety features**\n- **Platform architecture & design**\n\nHow can I help you today?",
     },
   ]);
-  // history mirrors messages but in the Gemini role format (user/model)
-  // stored separately so we pass it to the backend without UI metadata
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [lastFailedMsg, setLastFailedMsg] = useState(null);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const messagesEndRef = useRef(null);
@@ -85,7 +109,6 @@ export default function AIChatbotWidget() {
   useEffect(() => {
     if (isOpen) {
       setUnreadCount(0);
-      // Auto-focus input when chat opens
       setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpen]);
@@ -97,6 +120,7 @@ export default function AIChatbotWidget() {
       if (!text || loading) return;
 
       setInput("");
+      setLastFailedMsg(null);
       setHasInteracted(true);
 
       const userMsg = { role: "user", text };
@@ -106,20 +130,24 @@ export default function AIChatbotWidget() {
       try {
         const { data } = await api.post("/ai/chat", {
           message: text,
-          history, // pass conversation history for multi-turn context
+          history, // pass sanitized history for multi-turn context
         });
 
         const botMsg = { role: "bot", text: data.response };
         setMessages((prev) => [...prev, botMsg]);
-        setHistory(data.history ?? []); // backend returns updated history
+        setHistory(data.history ?? []);
 
         if (!isOpen) setUnreadCount((c) => c + 1);
       } catch (err) {
-        console.error(err);
+        console.error("AI Chatbot request error:", err);
+        const serverError = err?.response?.data?.message;
+        const fallbackNotice = serverError || "⚠️ I encountered a temporary connection issue. Please try asking again.";
+
         setMessages((prev) => [
           ...prev,
-          { role: "bot", text: "⚠️ I encountered an error. Please try again." },
+          { role: "bot", text: fallbackNotice, isError: true },
         ]);
+        setLastFailedMsg(text);
       } finally {
         setLoading(false);
       }
@@ -140,11 +168,18 @@ export default function AIChatbotWidget() {
     setMessages([
       {
         role: "bot",
-        text: "Conversation cleared! How can I help you?",
+        text: "👋 Conversation cleared! How can I assist you with MyMate today?",
       },
     ]);
     setHistory([]);
+    setLastFailedMsg(null);
     setHasInteracted(false);
+  };
+
+  const handleRetry = () => {
+    if (lastFailedMsg) {
+      handleSend(lastFailedMsg);
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -156,7 +191,6 @@ export default function AIChatbotWidget() {
 
   return (
     <>
-      {/* Keyframe styles injected once */}
       <style>{`
         @keyframes chatBounce {
           0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
@@ -167,9 +201,10 @@ export default function AIChatbotWidget() {
           to   { opacity: 1; transform: translateY(0) scale(1); }
         }
         .chat-slide-up { animation: chatSlideUp 0.22s ease-out forwards; }
-        .chat-msg-prose ul { list-style: disc; padding-left: 1.25rem; margin: 0.25rem 0; }
-        .chat-msg-prose li { margin: 0.1rem 0; }
-        .chat-msg-prose br { display: block; margin: 0.2rem 0; content: ""; }
+        .chat-msg-prose p { margin: 0.2rem 0; line-height: 1.45; }
+        .chat-msg-prose strong { font-weight: 600; color: inherit; }
+        .chat-msg-prose ul, .chat-msg-prose ol { margin: 0.25rem 0; padding-left: 0.5rem; }
+        .chat-msg-prose li { margin: 0.15rem 0; }
       `}</style>
 
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
@@ -177,19 +212,22 @@ export default function AIChatbotWidget() {
         {isOpen && (
           <div
             className="chat-slide-up w-80 md:w-96 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 flex flex-col overflow-hidden origin-bottom-right"
-            style={{ height: "480px" }}
+            style={{ height: "490px" }}
             role="dialog"
-            aria-label="MyMate AI Support Chat"
+            aria-label="MyMate AI Platform Support Chat"
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 flex items-center justify-between text-white flex-shrink-0">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 flex items-center justify-between text-white flex-shrink-0 shadow-md">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-xl select-none">
                   🤖
                 </div>
                 <div>
-                  <h3 className="font-bold text-sm leading-none">MyMate AI</h3>
-                  <p className="text-xs text-blue-100 mt-0.5">Powered by Gemini · Always online</p>
+                  <h3 className="font-bold text-sm leading-none flex items-center gap-1.5">
+                    MyMate AI
+                    <span className="w-2 h-2 rounded-full bg-green-400 inline-block animate-pulse" title="Online" />
+                  </h3>
+                  <p className="text-[11px] text-blue-100 mt-0.5">Platform & Design Assistant</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -212,7 +250,7 @@ export default function AIChatbotWidget() {
               </div>
             </div>
 
-            {/* Messages */}
+            {/* Messages Container */}
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50/60 dark:bg-gray-800/40">
               {messages.map((msg, idx) => (
                 <div
@@ -223,9 +261,11 @@ export default function AIChatbotWidget() {
                     <span className="mr-1.5 mt-1 text-base select-none flex-shrink-0">🤖</span>
                   )}
                   <div
-                    className={`max-w-[82%] rounded-2xl px-3.5 py-2 text-sm leading-relaxed ${
+                    className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                       msg.role === "user"
                         ? "bg-gradient-to-br from-blue-600 to-indigo-600 text-white rounded-tr-none shadow"
+                        : msg.isError
+                        ? "bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 shadow-sm rounded-tl-none"
                         : "bg-white dark:bg-gray-700 border border-gray-100 dark:border-gray-600 text-gray-800 dark:text-gray-100 shadow-sm rounded-tl-none"
                     }`}
                   >
@@ -244,18 +284,30 @@ export default function AIChatbotWidget() {
               {/* Typing indicator */}
               {loading && <TypingDots />}
 
-              {/* Quick-reply chips — shown until user first interacts */}
+              {/* Retry button if last request failed */}
+              {lastFailedMsg && !loading && (
+                <div className="flex justify-center pt-1">
+                  <button
+                    onClick={handleRetry}
+                    className="inline-flex items-center gap-1.5 text-xs bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700 rounded-full px-3 py-1 hover:bg-red-200 transition"
+                  >
+                    <HiRefresh className="w-3.5 h-3.5" /> Retry last question
+                  </button>
+                </div>
+              )}
+
+              {/* Quick-reply chips */}
               {!hasInteracted && !loading && (
-                <div className="pt-1">
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2 font-medium">
-                    Suggested questions
+                <div className="pt-2">
+                  <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-2 font-semibold uppercase tracking-wider">
+                    Suggested topics
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {QUICK_REPLIES.map((qr) => (
                       <button
                         key={qr}
                         onClick={() => handleQuickReply(qr)}
-                        className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-full px-3 py-1 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors"
+                        className="text-xs bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-700 rounded-full px-3 py-1 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors text-left font-medium"
                       >
                         {qr}
                       </button>
@@ -267,7 +319,7 @@ export default function AIChatbotWidget() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Box */}
+            {/* Input Form */}
             <form
               onSubmit={handleFormSubmit}
               className="px-3 py-2.5 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-700 flex items-end gap-2 flex-shrink-0"
@@ -280,7 +332,7 @@ export default function AIChatbotWidget() {
                   value={input}
                   onChange={(e) => setInput(e.target.value.slice(0, 500))}
                   onKeyDown={handleKeyDown}
-                  placeholder="Ask me anything…"
+                  placeholder="Ask about MyMate features, pricing, design…"
                   className="w-full pl-4 pr-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-gray-100 dark:placeholder-gray-400 transition"
                   disabled={loading}
                   autoComplete="off"
@@ -305,17 +357,17 @@ export default function AIChatbotWidget() {
           </div>
         )}
 
-        {/* ── Toggle Button ─────────────────────────────────────────────────── */}
+        {/* ── Toggle Floating Action Button ───────────────────────────────── */}
         <button
           onClick={() => setIsOpen((v) => !v)}
-          aria-label="Toggle AI Chatbot"
+          aria-label="Toggle MyMate AI Support"
           id="ai-chatbot-toggle"
-          className="relative w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full text-white shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-blue-500/30"
+          className="relative w-14 h-14 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full text-white shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-blue-500/30"
         >
           {isOpen ? <HiX className="w-6 h-6" /> : <HiChat className="w-6 h-6" />}
           {/* Unread badge */}
           {!isOpen && unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow">
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold shadow animate-bounce">
               {unreadCount > 9 ? "9+" : unreadCount}
             </span>
           )}

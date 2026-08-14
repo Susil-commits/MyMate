@@ -6,8 +6,9 @@ import {
   verifyKyc,
   getDriverMatch,
 } from "../controllers/aiController.js";
-import { protect, authorizeDriver, authorizeAdmin } from "../middleware/auth.js";
+import { protect, optionalAuth, authorizeDriver, authorizeAdmin } from "../middleware/auth.js";
 import { cacheMiddleware } from "../middleware/cache.js";
+import { aiChatLimiter } from "../middleware/rateLimiter.js";
 
 const router = Router();
 
@@ -18,8 +19,8 @@ router.get(
   recommendDrivers
 );
 
-// Multi-turn AI chatbot (Gemini)
-router.post("/chat", protect, chat);
+// Multi-turn AI chatbot (Gemini with platform guardrails + fallback)
+router.post("/chat", aiChatLimiter, optionalAuth, chat);
 
 // Demand heatmap for drivers
 router.get(
