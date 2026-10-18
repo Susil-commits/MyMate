@@ -15,6 +15,9 @@ const connectDB = async () => {
     logger.info(`MongoDB connected: ${conn.connection.host}`);
   } catch (error: any) {
     logger.error(`MongoDB connection error: ${error.message}`);
+    if (error.message && error.message.includes("authentication failed")) {
+      logger.error("[MongoDB Hint] Authentication failed. Please verify your MONGO_URI username and password. If the password has special characters (@, :, /, #, %, &), URL-encode them.");
+    }
     process.exit(1);
   }
 };

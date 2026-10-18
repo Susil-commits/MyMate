@@ -5,7 +5,7 @@ import { Redis } from "ioredis";
 
 let redis: Redis | null = null;
 
-if (process.env.REDIS_URL || process.env.NODE_ENV !== 'test') {
+if (process.env.DISABLE_REDIS !== "true" && (process.env.REDIS_URL || process.env.NODE_ENV !== 'test')) {
   redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379", {
     maxRetriesPerRequest: 1,
     retryStrategy(times) {
