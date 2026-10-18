@@ -1,7 +1,6 @@
-// @ts-nocheck
 import "dotenv/config";
 import "express-async-errors";
-import express from "express";
+import express, { Express, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
@@ -46,7 +45,7 @@ if (process.env.NODE_ENV !== "test") {
   }
 }
 
-const app = express();
+const app: Express = express();
 
 app.set("trust proxy", 1);
 
@@ -63,7 +62,7 @@ app.use(helmet({
 app.use(morganMiddleware);
 
 app.use(cors({
-  origin(origin, cb) {
+  origin(origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) {
     if (!origin || allowedOrigins.length === 0) return cb(null, true);
     if (allowedOrigins.includes(origin.replace(/\/+$/, ""))) return cb(null, true);
     cb(new Error(`Origin ${origin} not allowed by CORS`));
@@ -85,7 +84,7 @@ setupSwagger(app);
 import mongoose from "mongoose";
 import redisClient from "./config/redis.js";
 
-app.get("/health", async (req, res) => {
+app.get("/health", async (req: Request, res: Response) => {
   try {
     // Ping MongoDB
     const mongoStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
@@ -116,7 +115,7 @@ app.get("/health", async (req, res) => {
   }
 });
 
-app.get("/", (req, res) => {
+app.get("/", (req: Request, res: Response) => {
   res.json({
     name: "MyMate API",
     status: "running",
@@ -157,7 +156,7 @@ if (process.env.NODE_ENV !== "test") {
     await setupGraphQL(app);
 
     // Add 404 and error handlers AFTER async routes are mounted
-    app.use((req, res) => {
+    app.use((req: Request, res: Response) => {
       res.status(404).json({ message: `Route not found: ${req.method} ${req.originalUrl}` });
     });
     app.use(errorHandler);
@@ -166,7 +165,7 @@ if (process.env.NODE_ENV !== "test") {
       console.log(`Server running on port ${PORT}`);
     });
 
-    const shutdown = async (signal) => {
+    const shutdown = async (signal: string) => {
       console.log(`${signal} received, shutting down gracefully`);
       await stopKafka();
       let forceExitTimer: NodeJS.Timeout;
