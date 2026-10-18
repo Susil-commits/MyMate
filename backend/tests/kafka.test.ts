@@ -39,8 +39,8 @@ jest.unstable_mockModule("kafkajs", () => ({
 }));
 
 // Dynamic imports AFTER mocks are set up
-const { KAFKA_TOPICS } = await import("../kafka/topics.js");
-const { publishKafkaEvent, initKafkaProducer, isKafkaProducerConnected } = await import("../kafka/producer.js");
+const { KAFKA_TOPICS, getDlqTopic } = await import("../kafka/topics.js");
+const { publishKafkaEvent, publishKafkaDlq, initKafkaProducer, isKafkaProducerConnected } = await import("../kafka/producer.js");
 const { isKafkaConnected } = await import("../kafka/index.js");
 
 // Initialize producer (will use mocked Kafka)
@@ -52,6 +52,18 @@ describe("Kafka Topic Definitions", () => {
     expect(KAFKA_TOPICS.BOOKING_STATUS_CHANGED).toBe("mymate.booking.status_changed");
     expect(KAFKA_TOPICS.PAYMENT_COMPLETED).toBe("mymate.payment.completed");
     expect(KAFKA_TOPICS.DRIVER_KYC_STATUS).toBe("mymate.driver.kyc_status");
+  });
+
+  it("should have DLQ topics for error routing", () => {
+    expect(KAFKA_TOPICS.BOOKING_CREATED_DLQ).toBe("mymate.booking.created.dlq");
+    expect(KAFKA_TOPICS.BOOKING_STATUS_CHANGED_DLQ).toBe("mymate.booking.status_changed.dlq");
+    expect(KAFKA_TOPICS.PAYMENT_COMPLETED_DLQ).toBe("mymate.payment.completed.dlq");
+    expect(KAFKA_TOPICS.DRIVER_KYC_STATUS_DLQ).toBe("mymate.driver.kyc_status.dlq");
+  });
+
+  it("getDlqTopic helper should append .dlq suffix", () => {
+    expect(getDlqTopic(KAFKA_TOPICS.BOOKING_CREATED)).toBe("mymate.booking.created.dlq");
+    expect(getDlqTopic("custom.topic")).toBe("custom.topic.dlq");
   });
 
   it("all topic values should be namespaced with 'mymate.'", () => {
@@ -115,6 +127,73 @@ describe("Kafka Producer", () => {
       { test: true }
     );
     expect(result).toBe(false);
+  });
+});
+
+describe("Kafka Dead-Letter Queue (DLQ)", () => {
+  beforeEach(() => {
+    mockSend.mockClear();
+  });
+
+  it("should route failed message to *.dlq topic with full error metadata", async () => {
+    const error = new Error("Failed to process driver notification");
+    const originalPayload = { bookingId: "book-123", amount: 450 };
+
+    const result = await publishKafkaDlq(
+      KAFKA_TOPICS.BOOKING_CREATED,
+      "book-123",
+      JSON.stringify(originalPayload),
+      error,
+      0,
+      "42"
+    );
+
+    expect(result).toBe(true);
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        topic: "mymate.booking.created.dlq",
+      })
+    );
+
+    const call = mockSend.mock.calls.at(-1)![0] as any;
+    expect(call.messages[0].key).toBe("book-123");
+
+    const dlqMessage = JSON.parse(call.messages[0].value);
+    expect(dlqMessage.originalTopic).toBe(KAFKA_TOPICS.BOOKING_CREATED);
+    expect(dlqMessage.partition).toBe(0);
+    expect(dlqMessage.offset).toBe("42");
+    expect(dlqMessage.payload).toEqual(originalPayload);
+    expect(dlqMessage.error.message).toBe("Failed to process driver notification");
+    expect(dlqMessage.failedAt).toBeDefined();
+  });
+
+  it("should handle non-JSON string payloads gracefully in DLQ", async () => {
+    const error = new Error("Malformed JSON payload");
+    const rawPayload = "not-a-json-string";
+
+    await publishKafkaDlq(
+      KAFKA_TOPICS.PAYMENT_COMPLETED,
+      "pay-999",
+      rawPayload,
+      error
+    );
+
+    const call = mockSend.mock.calls.at(-1)![0] as any;
+    const dlqMessage = JSON.parse(call.messages[0].value);
+    expect(dlqMessage.payload).toBe("not-a-json-string");
+    expect(dlqMessage.error.message).toBe("Malformed JSON payload");
+  });
+
+  it("should fallback to 'dlq-fallback' key when key is null or undefined", async () => {
+    await publishKafkaDlq(
+      KAFKA_TOPICS.DRIVER_KYC_STATUS,
+      null,
+      { test: 1 },
+      new Error("Unknown error")
+    );
+
+    const call = mockSend.mock.calls.at(-1)![0] as any;
+    expect(call.messages[0].key).toBe("dlq-fallback");
   });
 });
 

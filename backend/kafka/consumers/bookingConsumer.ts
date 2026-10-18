@@ -1,6 +1,7 @@
 import { Consumer } from "kafkajs";
 import { kafka, KAFKA_GROUP_ID } from "../../config/kafka.js";
 import { KAFKA_TOPICS } from "../topics.js";
+import { publishKafkaDlq } from "../producer.js";
 import logger from "../../config/logger.js";
 import { createNotification } from "../../models/Notification.js";
 import { sendBookingConfirmation, sendBookingStatusUpdate } from "../../config/email.js";
@@ -76,6 +77,16 @@ export const startBookingConsumer = async (): Promise<Consumer | null> => {
           }
         } catch (err: any) {
           logger.error(`[BookingConsumer] Error processing message on ${topic}: ${err.message}`);
+          await publishKafkaDlq(
+            topic,
+            message.key?.toString(),
+            message.value?.toString(),
+            err,
+            partition,
+            message.offset
+          ).catch((dlqErr) => {
+            logger.error(`[BookingConsumer] Failed routing message to DLQ: ${dlqErr.message}`);
+          });
         }
       },
     });

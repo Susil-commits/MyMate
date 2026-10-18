@@ -28,7 +28,7 @@ export const initKafkaProducer = async (): Promise<boolean> => {
 };
 
 export const publishKafkaEvent = async (
-  topic: KafkaTopic,
+  topic: KafkaTopic | string,
   key: string,
   payload: any
 ): Promise<boolean> => {
@@ -56,6 +56,60 @@ export const publishKafkaEvent = async (
     logger.error(`[Kafka Producer] Error publishing to ${topic}: ${err.message}`);
     return false;
   }
+};
+
+export interface KafkaDlqMessage {
+  originalTopic: string;
+  partition?: number;
+  offset?: string;
+  key: string | null;
+  payload: any;
+  error: {
+    message: string;
+    stack?: string;
+  };
+  failedAt: string;
+}
+
+/**
+ * Publishes failed message payloads to a Dead-Letter Queue (*.dlq) topic.
+ * Prevents message loss when consumer processing encounters an unhandled exception.
+ */
+export const publishKafkaDlq = async (
+  originalTopic: string,
+  key: string | null | undefined,
+  rawMessage: any,
+  err: any,
+  partition?: number,
+  offset?: string
+): Promise<boolean> => {
+  let parsedPayload: any = rawMessage;
+  if (typeof rawMessage === "string") {
+    try {
+      parsedPayload = JSON.parse(rawMessage);
+    } catch {
+      parsedPayload = rawMessage;
+    }
+  }
+
+  const dlqPayload: KafkaDlqMessage = {
+    originalTopic,
+    partition,
+    offset,
+    key: key || null,
+    payload: parsedPayload,
+    error: {
+      message: err?.message || String(err),
+      stack: err?.stack,
+    },
+    failedAt: new Date().toISOString(),
+  };
+
+  const dlqTopic = `${originalTopic}.dlq`;
+  logger.warn(
+    `[Kafka DLQ] Routing failed message from ${originalTopic} to ${dlqTopic} (offset: ${offset ?? "n/a"}, partition: ${partition ?? "n/a"})`
+  );
+  return publishKafkaEvent(dlqTopic, key || "dlq-fallback", dlqPayload);
 };
 
 export const disconnectKafkaProducer = async (): Promise<void> => {

@@ -83,5 +83,5 @@ export const isKafkaConnected = (): boolean => {
   return isKafkaProducerConnected();
 };
 
-export { publishKafkaEvent } from "./producer.js";
-export { KAFKA_TOPICS } from "./topics.js";
+export { publishKafkaEvent, publishKafkaDlq } from "./producer.js";
+export { KAFKA_TOPICS, getDlqTopic } from "./topics.js";

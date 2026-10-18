@@ -1,6 +1,7 @@
 import { Consumer } from "kafkajs";
 import { kafka, KAFKA_GROUP_ID } from "../../config/kafka.js";
 import { KAFKA_TOPICS } from "../topics.js";
+import { publishKafkaDlq } from "../producer.js";
 import logger from "../../config/logger.js";
 import { createNotification } from "../../models/Notification.js";
 
@@ -38,6 +39,16 @@ export const startPaymentConsumer = async (): Promise<Consumer | null> => {
           }
         } catch (err: any) {
           logger.error(`[PaymentConsumer] Error processing message: ${err.message}`);
+          await publishKafkaDlq(
+            topic,
+            message.key?.toString(),
+            message.value?.toString(),
+            err,
+            partition,
+            message.offset
+          ).catch((dlqErr) => {
+            logger.error(`[PaymentConsumer] Failed routing message to DLQ: ${dlqErr.message}`);
+          });
         }
       },
     });

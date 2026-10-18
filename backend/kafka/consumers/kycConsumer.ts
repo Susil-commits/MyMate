@@ -1,6 +1,7 @@
 import { Consumer } from "kafkajs";
 import { kafka, KAFKA_GROUP_ID } from "../../config/kafka.js";
 import { KAFKA_TOPICS } from "../topics.js";
+import { publishKafkaDlq } from "../producer.js";
 import logger from "../../config/logger.js";
 import { createNotification } from "../../models/Notification.js";
 import { sendKycStatusEmail } from "../../config/email.js";
@@ -47,6 +48,16 @@ export const startKycConsumer = async (): Promise<Consumer | null> => {
           }
         } catch (err: any) {
           logger.error(`[KycConsumer] Error processing KYC message: ${err.message}`);
+          await publishKafkaDlq(
+            topic,
+            message.key?.toString(),
+            message.value?.toString(),
+            err,
+            partition,
+            message.offset
+          ).catch((dlqErr) => {
+            logger.error(`[KycConsumer] Failed routing message to DLQ: ${dlqErr.message}`);
+          });
         }
       },
     });
