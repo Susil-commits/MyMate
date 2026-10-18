@@ -109,7 +109,13 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest("hex");
 
-  if (expected !== razorpay_signature) {
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = Buffer.from(razorpay_signature);
+  const isSignatureValid =
+    expectedBuf.length === signatureBuf.length &&
+    crypto.timingSafeEqual(expectedBuf, signatureBuf);
+
+  if (!isSignatureValid) {
     await Payment.updateOne(
       { _id: payment._id, status: "pending" },
       { $set: { status: "failed" } }
