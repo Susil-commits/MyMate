@@ -1,4 +1,3 @@
-// @ts-nocheck
 import sanitizeHtml from "sanitize-html";
 import { Request, Response, NextFunction } from "express";
 

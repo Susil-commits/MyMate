@@ -1,4 +1,3 @@
-// @ts-nocheck
 import Driver from "../models/Driver.js";
 import { DriverCandidate, ScoreWeights, rankDrivers } from "../utils/driverScoring.js";
 

@@ -93,7 +93,9 @@ app.get("/health", async (req: Request, res: Response) => {
     }
 
     // Ping Redis
-    await redisClient.ping();
+    if (redisClient) {
+      await redisClient.ping();
+    }
 
     res.json({
       status: "ok",

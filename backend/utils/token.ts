@@ -1,4 +1,3 @@
-// @ts-nocheck
 import jwt from "jsonwebtoken";
 
 export function generateToken(account: any, role: string) {

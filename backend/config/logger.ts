@@ -1,9 +1,8 @@
-// @ts-nocheck
 import winston from "winston";
 
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-const logFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
+const logFormat = printf(({ level, message, timestamp, stack, ...meta }: any) => {
   const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
   return `${timestamp} [${level.toUpperCase()}]: ${stack || message}${metaStr}`;
 });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import morgan from "morgan";
 import logger from "./logger.js";
 import { Request, Response } from "express";

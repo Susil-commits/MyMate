@@ -22,12 +22,12 @@ const DAY = HOUR * 24;
 // Maximum recurring bookings limit
 const MAX_RECURRING_BOOKINGS = 365;
 
-function computeAmount(hireType, start, end, driver) {
+function computeAmount(hireType: string, start: Date, end: Date | null, driver: any) {
   if (hireType === "temporary") {
-    const hours = end ? Math.max(1, Math.ceil((end - start) / HOUR)) : 1;
+    const hours = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / HOUR)) : 1;
     return hours * (driver.hourlyRate || 0);
   }
-  const days = end ? Math.max(1, Math.ceil((end - start) / DAY)) : 30;
+  const days = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / DAY)) : 30;
   return days * (driver.dailyRate || 0);
 }
 
@@ -45,7 +45,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
 
   // Prevent duplicate active bookings between the same user and driver
   const existing = await Booking.findOne({
-    user: req.user._id,
+    user: (req.user as any)?._id,
     driver: driverId,
     status: { $in: ["pending", "accepted", "ongoing"] },
   });
@@ -94,7 +94,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
   }
 
   const baseBookingData = {
-    user: req.user._id,
+    user: (req.user as any)?._id,
     driver: driverId,
     hireType,
     pickupLocation,
@@ -122,7 +122,7 @@ export const createBooking = async (req: AuthRequest, res: Response) => {
     const duration = end ? end.getTime() - start.getTime() : 0;
 
     // Validate recurring pattern interval
-    if (!["daily", "weekly"].includes(recurringPattern)) {
+    if (!recurringPattern || !["daily", "weekly"].includes(recurringPattern)) {
       return res.status(400).json({ message: "Invalid recurring pattern. Must be 'daily' or 'weekly'." });
     }
 
@@ -294,11 +294,11 @@ export const updateBookingStatus = async (req: AuthRequest, res: Response) => {
   const booking = await Booking.findById(req.params.id);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
 
-  const role = req.userRole;
+  const role = req.userRole || "user";
   const isOwner =
     role === "admin" ||
-    (role === "user" && String(booking.user) === String(req.user._id)) ||
-    (role === "driver" && String(booking.driver) === String(req.user._id));
+    (role === "user" && String(booking.user) === String((req.user as any)?._id)) ||
+    (role === "driver" && String(booking.driver) === String((req.user as any)?._id));
   if (!isOwner) return res.status(403).json({ message: "Not authorized" });
 
   const allowed = TRANSITIONS[role]?.[booking.status] || [];
@@ -360,19 +360,21 @@ export const updateBookingStatus = async (req: AuthRequest, res: Response) => {
     .populate("driver", "name phone locality avatar averageRating")
     .populate("user", "name phone avatar");
     
-  eventBus.emit("BOOKING_STATUS_CHANGED", {
-    booking: populated,
-    user: (populated as any).user,
-    driver: (populated as any).driver,
-    status
-  });
+  if (populated) {
+    eventBus.emit("BOOKING_STATUS_CHANGED", {
+      booking: populated,
+      user: (populated as any).user,
+      driver: (populated as any).driver,
+      status
+    });
 
-  publishKafkaEvent(KAFKA_TOPICS.BOOKING_STATUS_CHANGED, String(populated._id), {
-    booking: populated,
-    user: (populated as any).user,
-    driver: (populated as any).driver,
-    status
-  }).catch(() => {});
+    publishKafkaEvent(KAFKA_TOPICS.BOOKING_STATUS_CHANGED, String(populated._id), {
+      booking: populated,
+      user: (populated as any).user,
+      driver: (populated as any).driver,
+      status
+    }).catch(() => {});
+  }
 
 
   res.json({ booking: populated });

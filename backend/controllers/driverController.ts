@@ -1,3 +1,5 @@
+import { Response } from "express";
+import { AuthRequest } from "../middleware/auth.js";
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
 import WalletTransaction from "../models/WalletTransaction.js";
@@ -6,7 +8,7 @@ import { buildPagination } from "../utils/pagination.js";
 import { storeFile, deleteFromCloudinary } from "../middleware/upload.js";
 import { clearCachePrefix } from "../middleware/cache.js";
 
-const SORT_MAP = {
+const SORT_MAP: Record<string, any> = {
   rating: { averageRating: -1, totalReviews: -1 },
   experience: { experienceYears: -1 },
   price_low: { hourlyRate: 1 },
@@ -14,7 +16,7 @@ const SORT_MAP = {
   newest: { createdAt: -1 },
 };
 
-export const getDrivers = async (req, res) => {
+export const getDrivers = async (req: AuthRequest, res: Response) => {
   const {
     locality, minExperience, minRating, vehicleType, hireType,
     languages, minRate, maxRate, sort, page, limit, search,
@@ -49,7 +51,7 @@ export const getDrivers = async (req, res) => {
     }
   }
 
-  let sortOption = SORT_MAP[sort] || SORT_MAP.rating;
+  let sortOption = SORT_MAP[sort as string] || SORT_MAP.rating;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 12, 50);
   const skip = (pageNum - 1) * limitNum;
@@ -58,10 +60,8 @@ export const getDrivers = async (req, res) => {
   
   if (search) {
     // Project and sort by text score
-    query = query.select({ score: { $meta: "textScore" } });
-    if (!sort) {
-      sortOption = { score: { $meta: "textScore" } } as any;
-    }
+    query = Driver.find(filter, { score: { $meta: "textScore" } })
+      .sort({ score: { $meta: "textScore" } } as any);
   }
 
   const [total, drivers] = await Promise.all([
@@ -75,7 +75,7 @@ export const getDrivers = async (req, res) => {
   });
 };
 
-export const getPublicStats = async (req, res) => {
+export const getPublicStats = async (req: AuthRequest, res: Response) => {
   const [driverCount, tripCount, cityAgg, agg] = await Promise.all([
     Driver.countDocuments({ kycStatus: "approved", isActive: true }),
     Booking.countDocuments({ status: "completed" }),
@@ -95,14 +95,16 @@ export const getPublicStats = async (req, res) => {
   });
 };
 
-export const getDriverById = async (req, res) => {
+export const getDriverById = async (req: AuthRequest, res: Response) => {
   const driver = await Driver.findById(req.params.id).lean();
   if (!driver) return res.status(404).json({ message: "Driver not found" });
   res.json({ driver: sanitizeDriver(driver) });
 };
 
-export const updateDriverProfile = async (req, res) => {
-  const driver = await Driver.findById(req.user._id);
+export const updateDriverProfile = async (req: AuthRequest, res: Response) => {
+  const driver = await Driver.findById((req.user as any)?._id);
+  if (!driver) return res.status(404).json({ message: "Driver not found" });
+
   const {
     name, phone, nationality, locality, experienceYears,
     hourlyRate, dailyRate, bio, availability, vehicleTypes, languages,
@@ -129,7 +131,7 @@ export const updateDriverProfile = async (req, res) => {
       .filter(Boolean);
   }
 
-  const files = req.files || {};
+  const files = (req.files as any) || {};
   if (files.licenseImage && files.licenseImage[0]) {
     const oldPublicId = driver.licenseImage?.publicId;
     const { url, publicId } = await storeFile(files.licenseImage[0], "mymate/licenses", req);
@@ -183,11 +185,11 @@ export const updateDriverProfile = async (req, res) => {
   res.json({ message: "Profile updated", driver: sanitized });
 };
 
-export const getWalletTransactions = async (req, res) => {
-  const driver = await Driver.findById(req.user._id).select("walletBalance");
+export const getWalletTransactions = async (req: AuthRequest, res: Response) => {
+  const driver = await Driver.findById((req.user as any)?._id).select("walletBalance");
   if (!driver) return res.status(404).json({ message: "Driver not found" });
 
-  const transactions = await WalletTransaction.find({ driver: req.user._id })
+  const transactions = await WalletTransaction.find({ driver: (req.user as any)?._id })
     .sort({ createdAt: -1 })
     .limit(50)
     .populate({

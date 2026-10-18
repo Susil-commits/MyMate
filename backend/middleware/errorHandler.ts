@@ -1,4 +1,3 @@
-// @ts-nocheck
 import logger from "../config/logger.js";
 import { Request, Response, NextFunction } from "express";
 import { AppError } from "../utils/AppError.js";

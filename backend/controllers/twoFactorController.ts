@@ -5,6 +5,7 @@ import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import { AppError } from "../utils/AppError.js";
 import { generateToken } from "../utils/token.js";
+import { AuthRequest } from "../middleware/auth.js";
 
 // Utility to get the correct model
 const getModelByRole = (role: string) => {
@@ -13,11 +14,11 @@ const getModelByRole = (role: string) => {
   throw new AppError("Invalid role", 400);
 };
 
-export const generate2FA = async (req: Request, res: Response) => {
-  const { id, role } = req.user;
+export const generate2FA = async (req: AuthRequest, res: Response) => {
+  const { id, role } = (req.user as any) || {};
   const Model = (role === "driver" ? Driver : User) as any;
   
-  const user = await Model.findById(id).select("+twoFactorSecret");
+  const user = await Model.findById(id || (req.user as any)?._id).select("+twoFactorSecret");
   if (!user) throw new AppError("User not found", 404);
   
   const secret = authenticator.generateSecret();
@@ -34,14 +35,14 @@ export const generate2FA = async (req: Request, res: Response) => {
   });
 };
 
-export const enable2FA = async (req: Request, res: Response) => {
-  const { id, role } = req.user;
+export const enable2FA = async (req: AuthRequest, res: Response) => {
+  const { id, role } = (req.user as any) || {};
   const { token } = req.body;
   
   if (!token) throw new AppError("Token is required", 400);
   
   const Model = (role === "driver" ? Driver : User) as any;
-  const user = await Model.findById(id).select("+twoFactorSecret");
+  const user = await Model.findById(id || (req.user as any)?._id).select("+twoFactorSecret");
   if (!user) throw new AppError("User not found", 404);
   
   if (!user.twoFactorSecret) {

@@ -1,3 +1,5 @@
+import { Response } from "express";
+import { AuthRequest } from "../middleware/auth.js";
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
@@ -10,7 +12,7 @@ import { eventBus } from "../events/bookingEvents.js";
 import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
 
 
-export const getDashboardStats = async (req, res) => {
+export const getDashboardStats = async (req: AuthRequest, res: Response) => {
   const [
     totalDrivers, activeDrivers, totalUsers, totalBookings, pendingKyc,
     completedBookings, cancelledBookings, revenueAgg,
@@ -39,7 +41,7 @@ export const getDashboardStats = async (req, res) => {
   }, "Dashboard stats retrieved");
 };
 
-export const getAllDrivers = async (req, res) => {
+export const getAllDrivers = async (req: AuthRequest, res: Response) => {
   const { kycStatus, page, limit } = req.query;
   const filter: any = {};
   if (kycStatus) filter.kycStatus = kycStatus;
@@ -53,20 +55,20 @@ export const getAllDrivers = async (req, res) => {
   return ApiResponse.success(res, { drivers, pagination: buildPagination(total, pageNum, limitNum) }, "Drivers retrieved");
 };
 
-export const getPendingDrivers = async (req, res) => {
+export const getPendingDrivers = async (req: AuthRequest, res: Response) => {
   const drivers = await Driver.find({ kycStatus: "pending", profileCompleted: true }).sort({
     updatedAt: -1,
   });
   return ApiResponse.success(res, { drivers }, "Pending drivers retrieved");
 };
 
-export const getDriverDetail = async (req, res) => {
+export const getDriverDetail = async (req: AuthRequest, res: Response) => {
   const driver = await Driver.findById(req.params.id);
   if (!driver) return ApiResponse.error(res, "Driver not found", 404);
   return ApiResponse.success(res, { driver }, "Driver detail retrieved");
 };
 
-export const verifyDriver = async (req, res) => {
+export const verifyDriver = async (req: AuthRequest, res: Response) => {
   const { status } = req.body;
   if (!["approved", "rejected"].includes(status)) {
     return ApiResponse.error(res, "Status must be approved or rejected", 400);
@@ -87,22 +89,22 @@ export const verifyDriver = async (req, res) => {
     status,
   }).catch(() => {});
 
-  logAudit(req.user, "Admin", "VERIFY_DRIVER", { driverId: driver._id, status }, req.ip);
+  logAudit(req.user, "Admin", "VERIFY_DRIVER", { driverId: driver._id, status }, req.ip || "unknown");
 
 
   return ApiResponse.success(res, { driver }, "Driver verification status updated");
 };
 
-export const toggleDriverActive = async (req, res) => {
+export const toggleDriverActive = async (req: AuthRequest, res: Response) => {
   const driver = await Driver.findById(req.params.id);
   if (!driver) return ApiResponse.error(res, "Driver not found", 404);
   driver.isActive = !driver.isActive;
   await driver.save();
-  logAudit(req.user, "Admin", "TOGGLE_DRIVER_ACTIVE", { driverId: driver._id, isActive: driver.isActive }, req.ip);
+  logAudit(req.user, "Admin", "TOGGLE_DRIVER_ACTIVE", { driverId: driver._id, isActive: driver.isActive }, req.ip || "unknown");
   return ApiResponse.success(res, { driver }, "Driver status toggled");
 };
 
-export const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req: AuthRequest, res: Response) => {
   const { page, limit } = req.query;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 20, 100);
@@ -114,16 +116,16 @@ export const getAllUsers = async (req, res) => {
   return ApiResponse.success(res, { users, pagination: buildPagination(total, pageNum, limitNum) }, "Users retrieved");
 };
 
-export const toggleUserActive = async (req, res) => {
+export const toggleUserActive = async (req: AuthRequest, res: Response) => {
   const user = await User.findById(req.params.id);
   if (!user) return ApiResponse.error(res, "User not found", 404);
   user.isActive = !user.isActive;
   await user.save();
-  logAudit(req.user, "Admin", "TOGGLE_USER_ACTIVE", { userId: user._id, isActive: user.isActive }, req.ip);
+  logAudit(req.user, "Admin", "TOGGLE_USER_ACTIVE", { userId: user._id, isActive: user.isActive }, req.ip || "unknown");
   return ApiResponse.success(res, { user }, "User status toggled");
 };
 
-export const getAllBookings = async (req, res) => {
+export const getAllBookings = async (req: AuthRequest, res: Response) => {
   const { status, page, limit } = req.query;
   const filter: any = {};
   if (status) filter.status = status;
@@ -142,7 +144,7 @@ export const getAllBookings = async (req, res) => {
   return ApiResponse.success(res, { bookings, pagination: buildPagination(total, pageNum, limitNum) }, "Bookings retrieved");
 };
 
-export const exportBookingsCSV = async (req, res) => {
+export const exportBookingsCSV = async (req: AuthRequest, res: Response) => {
   // Stream bookings row-by-row via cursor to maintain low memory footprint
   res.setHeader("Content-Type", "text/csv");
   res.setHeader("Content-Disposition", "attachment; filename=\"bookings.csv\"");
@@ -171,7 +173,7 @@ export const exportBookingsCSV = async (req, res) => {
   res.end();
 };
 
-export const getAdminHeatmap = async (req, res) => {
+export const getAdminHeatmap = async (req: AuthRequest, res: Response) => {
   // Try to get actual coordinates from recent bookings and active drivers
   const activeDrivers = await Driver.find({ isActive: true, location: { $exists: true } }).select("location").read('secondaryPreferred');
   const recentBookings = await Booking.find({ pickupCoordinates: { $exists: true } }).sort({ createdAt: -1 }).limit(100).select("pickupCoordinates").read('secondaryPreferred');
@@ -185,8 +187,8 @@ export const getAdminHeatmap = async (req, res) => {
   });
 
   recentBookings.forEach(b => {
-    if (b.pickupCoordinates?.lat && b.pickupCoordinates?.lng) {
-      heatPoints.push([b.pickupCoordinates.lat, b.pickupCoordinates.lng, 1.0]); // High intensity for bookings
+    if ((b as any).pickupCoordinates?.lat && (b as any).pickupCoordinates?.lng) {
+      heatPoints.push([(b as any).pickupCoordinates.lat, (b as any).pickupCoordinates.lng, 1.0]); // High intensity for bookings
     }
   });
 

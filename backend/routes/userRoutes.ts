@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Router } from "express";
 import { getUserProfile, updateUserProfile, changePassword } from "../controllers/userController.js";
 import { protect, authorizeUser, authorizeUserOrDriver } from "../middleware/auth.js";

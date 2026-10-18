@@ -1,4 +1,3 @@
-// @ts-nocheck
 const PUBLIC_DRIVER_FIELDS = [
   "_id",
   "name",

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import multer from "multer";
 import fs from "fs";
 import path from "path";
@@ -7,6 +6,7 @@ import { Readable } from "stream";
 import { Request } from "express";
 import { AppError } from "../utils/AppError.js";
 import sharp from "sharp";
+import logger from "../config/logger.js";
 
 const storage = multer.memoryStorage();
 
@@ -69,7 +69,7 @@ export async function deleteFromCloudinary(publicId: string) {
   try {
     await cloudinary.uploader.destroy(publicId);
   } catch (err) {
-    console.error("Cloudinary delete error:", err);
+    logger.error("Cloudinary delete error:", err);
   }
 }
 
@@ -81,7 +81,7 @@ export async function storeFile(file: Express.Multer.File, folder = "mymate", re
       const result = await uploadToCloudinary(file, folder);
       return { url: result.secure_url || result.url, publicId: result.public_id };
     } catch (err: any) {
-      console.error("Cloudinary upload failed, falling back to local storage:", err.message);
+      logger.error("Cloudinary upload failed, falling back to local storage:", { error: err.message });
     }
   }
 

@@ -1,11 +1,10 @@
-// @ts-nocheck
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import redisClient from "../config/redis.js";
 
 const getStore = () => {
   return redisClient
-    ? new RedisStore({ sendCommand: (...args: string[]) => redisClient.call(...args) })
+    ? new RedisStore({ sendCommand: (...args: string[]) => (redisClient as any).call(...args) })
     : undefined;
 };
 
@@ -49,6 +48,15 @@ export const aiChatLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 40,
   message: { message: "You've sent too many chat messages. Please wait a few minutes before asking more questions." },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: getStore(),
+});
+
+export const twoFactorLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: { message: "Too many 2FA verification attempts, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
   store: getStore(),

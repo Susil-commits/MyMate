@@ -1,4 +1,3 @@
-// @ts-nocheck
 export function buildPagination(total: number, page: number, limit: number) {
   return {
     page,

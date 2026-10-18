@@ -8,6 +8,7 @@ import { Express } from 'express';
 import { protect, authorizeAdmin } from '../middleware/auth.js';
 
 export const setupQueueBoard = (app: Express) => {
+  if (!emailQueue) return;
   const serverAdapter = new ExpressAdapter();
   serverAdapter.setBasePath('/admin/queues');
 

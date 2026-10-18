@@ -1,4 +1,3 @@
-// @ts-nocheck
 import logger from "./logger.js";
 import nodemailer from "nodemailer";
 

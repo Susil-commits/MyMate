@@ -64,7 +64,7 @@ export const createOrder = async (req: AuthRequest, res: Response) => {
       currency: "INR",
       receipt: `booking_${booking._id}`,
     });
-  } catch (err) {
+  } catch (err: any) {
     return res.status(502).json({ message: "Could not create payment order", error: err.message });
   }
 

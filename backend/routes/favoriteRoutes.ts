@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Router } from "express";
 import { getFavorites, addFavorite, removeFavorite, checkFavorite } from "../controllers/favoriteController.js";
 import { protect, authorizeUser } from "../middleware/auth.js";

@@ -1,3 +1,5 @@
+import { Response } from "express";
+import { AuthRequest } from "../middleware/auth.js";
 import Conversation from "../models/Conversation.js";
 import Message from "../models/Message.js";
 import Driver from "../models/Driver.js";
@@ -5,19 +7,19 @@ import User from "../models/User.js";
 import { createNotification } from "../models/Notification.js";
 import { getIo } from "../utils/socket.js";
 
-const myModel = (role) => (role === "driver" ? "Driver" : "User");
+const myModel = (role?: string) => (role === "driver" ? "Driver" : "User");
 
-function isMember(conv, role, userId) {
+function isMember(conv: any, role?: string, userId?: any) {
   if (!conv) return false;
   if (role === "user") return String(conv.user) === String(userId);
   if (role === "driver") return String(conv.driver) === String(userId);
   return false;
 }
 
-export const getOrCreateConversation = async (req, res) => {
+export const getOrCreateConversation = async (req: AuthRequest, res: Response) => {
   const { recipientId } = req.body;
   if (!recipientId) return res.status(400).json({ message: "Recipient is required" });
-  if (String(recipientId) === String(req.user._id)) {
+  if (String(recipientId) === String((req.user as any)?._id)) {
     return res.status(400).json({ message: "Cannot start a conversation with yourself" });
   }
 
@@ -31,8 +33,8 @@ export const getOrCreateConversation = async (req, res) => {
     return res.status(400).json({ message: "This account is no longer active" });
   }
 
-  const user = req.userRole === "user" ? req.user._id : recipientId;
-  const driver = req.userRole === "driver" ? req.user._id : recipientId;
+  const user = req.userRole === "user" ? (req.user as any)?._id : recipientId;
+  const driver = req.userRole === "driver" ? (req.user as any)?._id : recipientId;
 
   let conv = await Conversation.findOne({ user, driver })
     .populate("user", "name avatar locality")
@@ -40,22 +42,24 @@ export const getOrCreateConversation = async (req, res) => {
   if (!conv) {
     try {
       conv = await Conversation.create({ user, driver });
-    } catch (err) {
+    } catch (err: any) {
       if (err.code === 11000) {
         conv = await Conversation.findOne({ user, driver });
       } else {
         throw err;
       }
     }
-    conv = await Conversation.findById(conv._id)
-      .populate("user", "name avatar locality")
-      .populate("driver", "name avatar locality");
+    if (conv) {
+      conv = await Conversation.findById(conv._id)
+        .populate("user", "name avatar locality")
+        .populate("driver", "name avatar locality");
+    }
   }
   res.json({ conversation: conv });
 };
 
-export const getConversations = async (req, res) => {
-  const filter = req.userRole === "user" ? { user: req.user._id } : { driver: req.user._id };
+export const getConversations = async (req: AuthRequest, res: Response) => {
+  const filter = req.userRole === "user" ? { user: (req.user as any)?._id } : { driver: (req.user as any)?._id };
   const conversations = await Conversation.find(filter)
     .populate("user", "name avatar locality")
     .populate("driver", "name avatar locality")
@@ -69,7 +73,7 @@ export const getConversations = async (req, res) => {
         { $group: { _id: "$conversation", count: { $sum: 1 } } },
       ])
     : [];
-  const unreadMap = {};
+  const unreadMap: Record<string, number> = {};
   unreadAgg.forEach((r) => {
     unreadMap[String(r._id)] = r.count;
   });
@@ -81,10 +85,10 @@ export const getConversations = async (req, res) => {
   res.json({ conversations: result });
 };
 
-export const getMessages = async (req, res) => {
+export const getMessages = async (req: AuthRequest, res: Response) => {
   const conv = await Conversation.findById(req.params.conversationId);
   if (!conv) return res.status(404).json({ message: "Conversation not found" });
-  if (!isMember(conv, req.userRole, req.user._id)) {
+  if (!isMember(conv, req.userRole, (req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
 
@@ -100,21 +104,21 @@ export const getMessages = async (req, res) => {
   res.json({ messages });
 };
 
-export const sendMessage = async (req, res) => {
+export const sendMessage = async (req: AuthRequest, res: Response) => {
   const { conversationId, text } = req.body;
   if (!text || !String(text).trim()) {
     return res.status(400).json({ message: "Message cannot be empty" });
   }
   const conv = await Conversation.findById(conversationId);
   if (!conv) return res.status(404).json({ message: "Conversation not found" });
-  if (!isMember(conv, req.userRole, req.user._id)) {
+  if (!isMember(conv, req.userRole, (req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
 
   const me = myModel(req.userRole);
   const message = await Message.create({
     conversation: conv._id,
-    sender: req.user._id,
+    sender: (req.user as any)?._id,
     senderModel: me,
     text: String(text).trim(),
   });
@@ -128,7 +132,7 @@ export const sendMessage = async (req, res) => {
   const recipientId = req.userRole === "user" ? conv.driver : conv.user;
   const recipientModel = req.userRole === "user" ? "Driver" : "User";
   createNotification({
-    userId: recipientId,
+    userId: recipientId as any,
     userModel: recipientModel,
     title: "New Message",
     message: message.text.slice(0, 80),
@@ -151,10 +155,10 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-export const markConversationRead = async (req, res) => {
+export const markConversationRead = async (req: AuthRequest, res: Response) => {
   const conv = await Conversation.findById(req.params.conversationId);
   if (!conv) return res.status(404).json({ message: "Conversation not found" });
-  if (!isMember(conv, req.userRole, req.user._id)) {
+  if (!isMember(conv, req.userRole, (req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
   const me = myModel(req.userRole);

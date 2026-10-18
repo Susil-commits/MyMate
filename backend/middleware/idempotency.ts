@@ -14,11 +14,12 @@ export const idempotency = async (req: Request, res: Response, next: NextFunctio
   }
 
   const idempotencyKey = req.header("Idempotency-Key");
-  if (!idempotencyKey) {
+  if (!idempotencyKey || !redisClient) {
     return next();
   }
 
-  const cacheKey = `idempotency:${req.user?._id || "anon"}:${idempotencyKey}`;
+  const userId = (req as any).user?._id || "anon";
+  const cacheKey = `idempotency:${userId}:${idempotencyKey}`;
 
   try {
     const cachedResponse = await redisClient.get(cacheKey);
@@ -46,7 +47,7 @@ export const idempotency = async (req: Request, res: Response, next: NextFunctio
         };
         
         // Store in Redis for 24 hours
-        redisClient.setex(cacheKey, 60 * 60 * 24, JSON.stringify(responseData)).catch((err) => {
+        redisClient?.setex(cacheKey, 60 * 60 * 24, JSON.stringify(responseData)).catch((err: any) => {
           logger.error(`[Idempotency] Failed to cache response: ${err.message}`);
         });
       }

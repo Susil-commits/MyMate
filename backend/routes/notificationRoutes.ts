@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Router } from "express";
 import { getNotifications, markAsRead, markOneAsRead } from "../controllers/notificationController.js";
 import { protect, authorizeUserOrDriver } from "../middleware/auth.js";

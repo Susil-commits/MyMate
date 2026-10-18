@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { Request, Response } from "express";
 import { GoogleGenAI } from "@google/genai";
 import Driver from "../models/Driver.js";
 import Booking from "../models/Booking.js";
@@ -7,10 +7,23 @@ import { runKycOcr } from "../services/kycOcrService.js";
 import { findBestDrivers } from "../services/driverMatchingService.js";
 import logger from "../config/logger.js";
 
-// Initialize Google GenAI client
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY || "dummy_key_if_not_set",
-});
+// Google GenAI client with fail-fast initialization
+let _ai: GoogleGenAI | null = null;
+function getAI(): GoogleGenAI {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured in environment variables");
+  }
+  if (!_ai) {
+    _ai = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
+  }
+  return _ai;
+}
+
+if (!process.env.GEMINI_API_KEY && process.env.NODE_ENV !== "test") {
+  logger.warn("GEMINI_API_KEY is not configured. AI chat and driver recommendations will use local fallback engine.");
+}
 
 const PRIMARY_MODEL = "gemini-flash-lite-latest";
 const FALLBACK_MODELS = ["gemini-3.5-flash-lite", "gemini-flash-latest"];
@@ -62,6 +75,7 @@ MYMATE PLATFORM KNOWLEDGE BASE:
 const fetchGeminiMultiTurn = async (contents: any[], customInstruction?: string) => {
   const instruction = customInstruction || SYSTEM_INSTRUCTION;
   const models = [PRIMARY_MODEL, ...FALLBACK_MODELS];
+  const ai = getAI();
 
   let lastError: any = null;
   for (const model of models) {
@@ -269,7 +283,7 @@ export function getLocalPlatformResponse(query: string): string {
  * AI-powered driver recommendation using Gemini + heuristic fallback.
  * Ranks up to 3 best-matching drivers given hire type, vehicle type, and location.
  */
-export const recommendDrivers = async (req, res) => {
+export const recommendDrivers = async (req: Request, res: Response) => {
   const { hireType, vehicleType, lat, lng } = req.query;
 
   const filter: any = { kycStatus: "approved", isActive: true };
@@ -353,7 +367,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
       });
 
       return res.json({ recommended: scoredDrivers.slice(0, 3), rankedBy: "gemini" });
-    } catch (err) {
+    } catch (err: any) {
       logger.warn("[AI Recommend] Gemini ranking failed, falling back to heuristic.", { message: err?.message });
     }
   }
@@ -389,7 +403,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
  *
  * Body: { message: string, history?: Array<{ role: "user"|"model"|"bot", text: string }> }
  */
-export const chat = async (req, res) => {
+export const chat = async (req: Request, res: Response) => {
   try {
     const { message, history = [] } = req.body;
     if (typeof message !== "string" || !message.trim()) {
@@ -402,7 +416,7 @@ export const chat = async (req, res) => {
     if (!process.env.GEMINI_API_KEY) {
       const fallbackResponse = getLocalPlatformResponse(cleanMessage);
       const updatedHistory = [
-        ...history.map((h) => ({
+        ...history.map((h: any) => ({
           role: h.role === "bot" ? "model" : h.role,
           text: h.text,
         })),
@@ -421,7 +435,7 @@ export const chat = async (req, res) => {
     try {
       const geminiRes = await geminiBreaker.fire(contents, SYSTEM_INSTRUCTION);
       responseText = extractGeminiText(geminiRes);
-    } catch (apiErr) {
+    } catch (apiErr: any) {
       logger.warn("[AI Chat] Gemini API failed, activating local knowledge engine.", { message: apiErr?.message });
       // Seamless degradation to local platform knowledge engine
       responseText = getLocalPlatformResponse(cleanMessage);
@@ -440,7 +454,7 @@ export const chat = async (req, res) => {
     ];
 
     return res.json({ response: responseText, history: updatedHistory, source: responseSource });
-  } catch (err) {
+  } catch (err: any) {
     logger.error("[AI Chat] Unexpected controller error.", { message: err?.message });
     // Graceful zero-downtime fallback
     const fallbackText = getLocalPlatformResponse(req.body?.message || "");
@@ -458,7 +472,7 @@ export const chat = async (req, res) => {
  * Requires driver role. Falls back to synthetic points if no bookings
  * have coordinates stored yet (graceful degradation).
  */
-export const getHeatmap = async (req, res) => {
+export const getHeatmap = async (req: Request, res: Response) => {
   const recentBookings = await Booking.find(
     {
       status: { $in: ["completed", "ongoing", "accepted"] },
@@ -503,7 +517,7 @@ export const getHeatmap = async (req, res) => {
  * POST /api/ai/verify-kyc
  * Admin-only. Runs Tesseract.js OCR on a driver's licence image URL.
  */
-export const verifyKyc = async (req, res) => {
+export const verifyKyc = async (req: Request, res: Response) => {
   const { imageUrl, driverId } = req.body;
 
   if (!imageUrl) {
@@ -539,7 +553,7 @@ export const verifyKyc = async (req, res) => {
  * GET /api/ai/match
  * Exposes the pure-core driver matching service via an HTTP endpoint.
  */
-export const getDriverMatch = async (req, res) => {
+export const getDriverMatch = async (req: Request, res: Response) => {
   const userLat = parseFloat(req.query.lat as string);
   const userLng = parseFloat(req.query.lng as string);
   const limit = Math.min(parseInt(req.query.limit as string) || 3, 10);
