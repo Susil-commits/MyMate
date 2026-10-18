@@ -1,16 +1,31 @@
 import crypto from "crypto";
+import { Request, Response } from "express";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import { generateToken } from "../utils/token.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../config/email.js";
 import { storeFile } from "../middleware/upload.js";
 import { sanitizeDriver } from "../utils/sanitize.js";
+import { AuthRequest } from "../middleware/auth.js";
+import {
+  userRegisterSchema,
+  userLoginSchema,
+  driverRegisterSchema,
+  driverLoginSchema,
+  adminLoginSchema,
+  completeUserProfileSchema,
+  completeDriverProfileSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+  verifyEmailSchema,
+  resendVerificationSchema,
+} from "../utils/validators.js";
 
 const VERIFY_EXPIRE = 24 * 60 * 60 * 1000;
 const VALID_ROLES = ["user", "driver"] as const;
 type ValidRole = typeof VALID_ROLES[number];
 
-function setTokenCookie(res, token) {
+function setTokenCookie(res: Response, token: string) {
   res.cookie("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -25,14 +40,14 @@ function makeVerificationToken() {
   return { token, hashed };
 }
 
-function hashToken(token) {
+function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-async function attachVerification(account, role) {
+async function attachVerification(account: any, role: string) {
   const { token, hashed } = makeVerificationToken();
   account.emailVerificationToken = hashed;
-  account.emailVerificationExpire = Date.now() + VERIFY_EXPIRE;
+  account.emailVerificationExpire = new Date(Date.now() + VERIFY_EXPIRE);
   await account.save();
   sendVerificationEmail(account.email, token).catch(() => {});
 }
@@ -46,16 +61,16 @@ function getModelForRole(role: string): typeof User | typeof Driver | null {
   return null;
 }
 
-export const userRegister = async (req, res) => {
-  const { email, password, gender, phone } = req.body;
+export const userRegister = async (req: Request, res: Response) => {
+  const { email, password, gender, phone } = userRegisterSchema.parse(req.body);
   const user = new User({ email, password, gender, phone });
   await user.save();
   await attachVerification(user, "user");
   res.status(201).json({ message: "Account created. Please verify your email." });
 };
 
-export const userLogin = async (req, res) => {
-  const { email, password } = req.body;
+export const userLogin = async (req: Request, res: Response) => {
+  const { email, password } = userLoginSchema.parse(req.body);
   const user = await User.findOne({ email: String(email).toLowerCase() });
   if (!user || !(await user.comparePassword(password))) {
     return res.status(401).json({ message: "Invalid email or password" });
@@ -73,9 +88,10 @@ export const userLogin = async (req, res) => {
   res.json({ role: "user", user, needsProfileCompletion: !user.profileCompleted });
 };
 
-export const completeUserProfile = async (req, res) => {
-  const { name, locality } = req.body;
-  const user = await User.findById(req.user._id);
+export const completeUserProfile = async (req: AuthRequest, res: Response) => {
+  const { name, locality } = completeUserProfileSchema.parse(req.body);
+  const user = await User.findById((req.user as any)?._id);
+  if (!user) return res.status(404).json({ message: "User not found" });
   user.name = name;
   user.locality = locality;
   user.profileCompleted = true;
@@ -83,16 +99,16 @@ export const completeUserProfile = async (req, res) => {
   res.json({ user });
 };
 
-export const driverRegister = async (req, res) => {
-  const { email, password, gender, phone } = req.body;
+export const driverRegister = async (req: Request, res: Response) => {
+  const { email, password, gender, phone } = driverRegisterSchema.parse(req.body);
   const driver = new Driver({ email, password, gender, phone });
   await driver.save();
   await attachVerification(driver, "driver");
   res.status(201).json({ message: "Driver account created. Please verify your email." });
 };
 
-export const driverLogin = async (req, res) => {
-  const { email, password } = req.body;
+export const driverLogin = async (req: Request, res: Response) => {
+  const { email, password } = driverLoginSchema.parse(req.body);
   const driver = await Driver.findOne({ email: String(email).toLowerCase() });
   if (!driver || !(await driver.comparePassword(password))) {
     return res.status(401).json({ message: "Invalid email or password" });
@@ -107,12 +123,14 @@ export const driverLogin = async (req, res) => {
   res.json({ role: "driver", driver, needsProfileCompletion: !driver.profileCompleted });
 };
 
-export const completeDriverProfile = async (req, res) => {
-  const driver = await Driver.findById(req.user._id);
+export const completeDriverProfile = async (req: AuthRequest, res: Response) => {
+  const driver = await Driver.findById((req.user as any)?._id);
+  if (!driver) return res.status(404).json({ message: "Driver not found" });
+
   const {
     name, nationality, locality, licenseNumber, experienceYears,
     hourlyRate, dailyRate, languages, bio, vehicleTypes,
-  } = req.body;
+  } = completeDriverProfileSchema.parse(req.body);
 
   if (name !== undefined) driver.name = name;
   if (nationality !== undefined) driver.nationality = nationality;
@@ -143,8 +161,8 @@ export const completeDriverProfile = async (req, res) => {
   res.json({ driver: sanitizeDriver(driver, { withContact: true }) });
 };
 
-export const adminLogin = async (req, res) => {
-  const { code } = req.body;
+export const adminLogin = async (req: Request, res: Response) => {
+  const { code } = adminLoginSchema.parse(req.body);
   if (!process.env.ADMIN_CODE || code !== process.env.ADMIN_CODE) {
     return res.status(401).json({ message: "Invalid admin code" });
   }
@@ -153,7 +171,7 @@ export const adminLogin = async (req, res) => {
   res.json({ role: "admin" });
 };
 
-export const logout = (req, res) => {
+export const logout = (req: Request, res: Response) => {
   res.cookie("token", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -163,15 +181,15 @@ export const logout = (req, res) => {
   res.json({ message: "Logged out successfully" });
 };
 
-export const getMe = async (req, res) => {
+export const getMe = async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.json({ user: null, role: null });
   }
   res.json({ user: req.user, role: req.userRole });
 };
 
-export const forgotPassword = async (req, res) => {
-  const { email, role } = req.body;
+export const forgotPassword = async (req: Request, res: Response) => {
+  const { email, role } = forgotPasswordSchema.parse(req.body);
 
   const Model = getModelForRole(role);
   if (!Model) {
@@ -187,8 +205,8 @@ export const forgotPassword = async (req, res) => {
   res.json({ message: "If an account exists, a reset link has been sent" });
 };
 
-export const resetPassword = async (req, res) => {
-  const { token, password, role } = req.body;
+export const resetPassword = async (req: Request, res: Response) => {
+  const { token, password, role } = resetPasswordSchema.parse(req.body);
 
   const Model = getModelForRole(role);
   if (!Model) {
@@ -212,8 +230,8 @@ export const resetPassword = async (req, res) => {
   res.json({ role });
 };
 
-export const verifyEmail = async (req, res) => {
-  const { token, role } = req.body;
+export const verifyEmail = async (req: Request, res: Response) => {
+  const { token, role } = verifyEmailSchema.parse(req.body);
 
   const Model = getModelForRole(role);
   if (!Model) {
@@ -234,8 +252,8 @@ export const verifyEmail = async (req, res) => {
   res.json({ message: "Email verified successfully" });
 };
 
-export const resendVerification = async (req, res) => {
-  const { email, role } = req.body;
+export const resendVerification = async (req: Request, res: Response) => {
+  const { email, role } = resendVerificationSchema.parse(req.body);
 
   const Model = getModelForRole(role);
   if (!Model) {

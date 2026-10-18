@@ -1,3 +1,4 @@
+import { Response } from "express";
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
@@ -10,6 +11,8 @@ import { getIo } from "../utils/socket.js";
 import { eventBus } from "../events/bookingEvents.js";
 import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
 import { calculateDynamicSurge } from "../utils/pricingEngine.js";
+import { AuthRequest } from "../middleware/auth.js";
+import { bookingSchema, updateBookingStatusSchema } from "../utils/validators.js";
 
 import * as ics from "ics";
 import PDFDocument from "pdfkit";
@@ -30,11 +33,11 @@ function computeAmount(hireType, start, end, driver) {
 
 
 
-export const createBooking = async (req, res) => {
+export const createBooking = async (req: AuthRequest, res: Response) => {
   const { 
     driverId, hireType, startDate, endDate, pickupLocation, dropLocation, 
     purpose, promoCode, stops, isRecurring, recurringPattern, recurringEndDate 
-  } = req.body;
+  } = bookingSchema.parse(req.body);
   const driver = await Driver.findById(driverId);
   if (!driver || driver.kycStatus !== "approved" || !driver.isActive) {
     return res.status(404).json({ message: "This driver is not available for booking" });
@@ -187,9 +190,9 @@ export const createBooking = async (req, res) => {
   res.status(201).json({ booking: primaryBooking, totalCreated: createdBookings.length });
 };
 
-export const getUserBookings = async (req, res) => {
+export const getUserBookings = async (req: AuthRequest, res: Response) => {
   const { status, page, limit } = req.query;
-  const filter: any = { user: req.user._id };
+  const filter: any = { user: (req.user as any)?._id };
   if (status) filter.status = status;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 10, 50);
@@ -205,9 +208,9 @@ export const getUserBookings = async (req, res) => {
   res.json({ bookings, pagination: buildPagination(total, pageNum, limitNum) });
 };
 
-export const getDriverBookings = async (req, res) => {
+export const getDriverBookings = async (req: AuthRequest, res: Response) => {
   const { status, page, limit } = req.query;
-  const filter: any = { driver: req.user._id };
+  const filter: any = { driver: (req.user as any)?._id };
   if (status) filter.status = status;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 10, 50);
@@ -223,9 +226,9 @@ export const getDriverBookings = async (req, res) => {
   res.json({ bookings, pagination: buildPagination(total, pageNum, limitNum) });
 };
 
-export const getDriverStats = async (req, res) => {
+export const getDriverStats = async (req: AuthRequest, res: Response) => {
   const stats = await Booking.aggregate([
-    { $match: { driver: req.user._id } },
+    { $match: { driver: (req.user as any)?._id } },
     {
       $group: {
         _id: null,
@@ -253,7 +256,7 @@ export const getDriverStats = async (req, res) => {
   });
 };
 
-export const getBookingById = async (req, res) => {
+export const getBookingById = async (req: AuthRequest, res: Response) => {
   const booking = await Booking.findById(req.params.id)
     .populate("driver", "name phone locality avatar")
     .populate("user", "name phone avatar");
@@ -261,14 +264,14 @@ export const getBookingById = async (req, res) => {
 
   const isOwner =
     req.userRole === "admin" ||
-    (req.userRole === "user" && String(booking.user?._id) === String(req.user._id)) ||
-    (req.userRole === "driver" && String(booking.driver?._id) === String(req.user._id));
+    (req.userRole === "user" && String((booking.user as any)?._id) === String((req.user as any)?._id)) ||
+    (req.userRole === "driver" && String((booking.driver as any)?._id) === String((req.user as any)?._id));
   if (!isOwner) return res.status(403).json({ message: "Not authorized to view this booking" });
 
   res.json({ booking });
 };
 
-const TRANSITIONS = {
+const TRANSITIONS: Record<string, Record<string, string[]>> = {
   user: {
     pending: ["cancelled"],
     accepted: ["cancelled"],
@@ -286,8 +289,8 @@ const TRANSITIONS = {
   },
 };
 
-export const updateBookingStatus = async (req, res) => {
-  const { status } = req.body;
+export const updateBookingStatus = async (req: AuthRequest, res: Response) => {
+  const { status } = updateBookingStatusSchema.parse(req.body);
   const booking = await Booking.findById(req.params.id);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
 
@@ -375,7 +378,7 @@ export const updateBookingStatus = async (req, res) => {
   res.json({ booking: populated });
 };
 
-export const downloadCalendar = async (req, res) => {
+export const downloadCalendar = async (req: AuthRequest, res: Response) => {
   const booking = await Booking.findById(req.params.id)
     .populate("driver", "name email phone")
     .populate("user", "name email phone");
@@ -385,8 +388,8 @@ export const downloadCalendar = async (req, res) => {
   // Verify requester is an authorized participant or admin
   const isOwner =
     req.userRole === "admin" ||
-    (req.userRole === "user" && String((booking.user as any)?._id) === String(req.user._id)) ||
-    (req.userRole === "driver" && String((booking.driver as any)?._id) === String(req.user._id));
+    (req.userRole === "user" && String((booking.user as any)?._id) === String((req.user as any)?._id)) ||
+    (req.userRole === "driver" && String((booking.driver as any)?._id) === String((req.user as any)?._id));
   if (!isOwner) return res.status(403).json({ message: "Not authorized to access this booking" });
 
   const start = new Date(booking.startDate);
@@ -418,7 +421,7 @@ export const downloadCalendar = async (req, res) => {
   });
 };
 
-export const downloadInvoice = async (req, res) => {
+export const downloadInvoice = async (req: AuthRequest, res: Response) => {
   const booking = await Booking.findById(req.params.id)
     .populate("driver", "name phone email")
     .populate("user", "name phone email");

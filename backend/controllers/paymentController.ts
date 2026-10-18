@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import Razorpay from "razorpay";
+import { Response } from "express";
 import Booking from "../models/Booking.js";
 import Payment from "../models/Payment.js";
 import Driver from "../models/Driver.js";
@@ -8,9 +9,16 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import { createNotification } from "../models/Notification.js";
 import { sendBookingStatusUpdate } from "../config/email.js";
 import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
+import { AuthRequest } from "../middleware/auth.js";
+import {
+  createPaymentOrderSchema,
+  verifyPaymentSchema,
+  refundPaymentSchema,
+  payWithWalletSchema,
+} from "../utils/validators.js";
 
 
-let razorpayInstance = null;
+let razorpayInstance: Razorpay | null = null;
 function getRazorpay() {
   if (razorpayInstance) return razorpayInstance;
   if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
@@ -22,17 +30,17 @@ function getRazorpay() {
   return razorpayInstance;
 }
 
-const notConfigured = (res) =>
+const notConfigured = (res: Response) =>
   res.status(400).json({ message: "Online payments are not configured on this server" });
 
-export const createOrder = async (req, res) => {
+export const createOrder = async (req: AuthRequest, res: Response) => {
   const rzp = getRazorpay();
   if (!rzp) return notConfigured(res);
 
-  const { bookingId } = req.body;
+  const { bookingId } = createPaymentOrderSchema.parse(req.body);
   const booking = await Booking.findById(bookingId);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
-  if (String(booking.user) !== String(req.user._id)) {
+  if (String(booking.user) !== String((req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
   if (booking.paymentStatus === "paid") {
@@ -82,14 +90,14 @@ export const createOrder = async (req, res) => {
   });
 };
 
-export const verifyPayment = async (req, res) => {
+export const verifyPayment = async (req: AuthRequest, res: Response) => {
   const rzp = getRazorpay();
   if (!rzp) return notConfigured(res);
 
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = verifyPaymentSchema.parse(req.body);
   const payment = await Payment.findOne({ razorpayOrderId: razorpay_order_id });
   if (!payment) return res.status(404).json({ message: "Order not found" });
-  if (String(payment.user) !== String(req.user._id)) {
+  if (String(payment.user) !== String((req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
   if (payment.status === "completed") {
@@ -97,7 +105,7 @@ export const verifyPayment = async (req, res) => {
   }
 
   const expected = crypto
-    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+    .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET as string)
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest("hex");
 
@@ -173,13 +181,13 @@ export const verifyPayment = async (req, res) => {
   res.json({ message: "Payment verified successfully" });
 };
 
-export const getPaymentStatus = async (req, res) => {
+export const getPaymentStatus = async (req: AuthRequest, res: Response) => {
   const booking = await Booking.findById(req.params.bookingId);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
   const isOwner =
     req.userRole === "admin" ||
-    (req.userRole === "user" && String(booking.user) === String(req.user._id)) ||
-    (req.userRole === "driver" && String(booking.driver) === String(req.user._id));
+    (req.userRole === "user" && String(booking.user) === String((req.user as any)?._id)) ||
+    (req.userRole === "driver" && String(booking.driver) === String((req.user as any)?._id));
   if (!isOwner) return res.status(403).json({ message: "Not authorized" });
 
   const payment = await Payment.findOne({
@@ -189,11 +197,11 @@ export const getPaymentStatus = async (req, res) => {
   res.json({ paymentStatus: booking.paymentStatus, payment });
 };
 
-export const refundPayment = async (req, res) => {
+export const refundPayment = async (req: AuthRequest, res: Response) => {
   const rzp = getRazorpay();
   if (!rzp) return notConfigured(res);
 
-  const { bookingId } = req.body;
+  const { bookingId } = refundPaymentSchema.parse(req.body);
   const booking = await Booking.findById(bookingId);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
   if (booking.paymentStatus !== "paid") {
@@ -209,7 +217,7 @@ export const refundPayment = async (req, res) => {
     await rzp.payments.refund(payment.razorpayPaymentId, {
       amount: Math.round(payment.amount * 100),
     });
-  } catch (err) {
+  } catch (err: any) {
     return res.status(502).json({ message: "Refund failed", error: err.message });
   }
 
@@ -221,11 +229,11 @@ export const refundPayment = async (req, res) => {
   res.json({ message: "Refund processed successfully" });
 };
 
-export const payWithWallet = async (req, res) => {
-  const { bookingId } = req.body;
+export const payWithWallet = async (req: AuthRequest, res: Response) => {
+  const { bookingId } = payWithWalletSchema.parse(req.body);
   const booking = await Booking.findById(bookingId);
   if (!booking) return res.status(404).json({ message: "Booking not found" });
-  if (String(booking.user) !== String(req.user._id)) {
+  if (String(booking.user) !== String((req.user as any)?._id)) {
     return res.status(403).json({ message: "Not authorized" });
   }
   if (booking.paymentStatus === "paid") {
@@ -241,7 +249,7 @@ export const payWithWallet = async (req, res) => {
   // Atomically check and deduct wallet balance
   const updatedUser = await User.findOneAndUpdate(
     {
-      _id: req.user._id,
+      _id: (req.user as any)?._id,
       walletBalance: { $gte: booking.totalAmount },
     },
     { $inc: { walletBalance: -booking.totalAmount } },
