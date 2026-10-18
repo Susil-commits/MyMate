@@ -31,6 +31,7 @@ const {
   getPaymentStatus,
   refundPayment,
   payWithWallet,
+  handleWebhook,
 } = await import("../controllers/paymentController.js");
 
 const Booking = (await import("../models/Booking.js")).default;
@@ -534,6 +535,171 @@ describe("Payment Processing Test Suite (TASK 2.3)", () => {
       expect(res.body.message).toBe("Refund processed successfully");
       expect(paymentDoc.status).toBe("refunded");
       expect(bookingDoc.paymentStatus).toBe("refunded");
+    });
+  });
+
+  describe("6. Razorpay Webhook Endpoint (POST /api/v1/payments/webhook - TASK 2.5)", () => {
+    it("should reject webhook request missing X-Razorpay-Signature header", async () => {
+      const req: any = {
+        headers: {},
+        body: { event: "payment.captured" },
+      };
+      const res = createMockResponse();
+
+      await handleWebhook(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toBe("Missing Razorpay signature header");
+    });
+
+    it("should reject webhook request with invalid signature", async () => {
+      const req: any = {
+        headers: { "x-razorpay-signature": "tampered_signature_hex" },
+        body: { event: "payment.captured" },
+      };
+      const res = createMockResponse();
+
+      await handleWebhook(req, res);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.body.message).toBe("Invalid webhook signature");
+    });
+
+    it("should reconcile payment and mark booking paid even if client never calls verifyPayment", async () => {
+      const orderId = "order_webhook_reconcile_123";
+      const paymentId = "pay_webhook_captured_456";
+
+      const payload = {
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: paymentId,
+              order_id: orderId,
+              amount: 100000,
+              currency: "INR",
+              status: "captured",
+            },
+          },
+        },
+      };
+
+      const rawPayload = JSON.stringify(payload);
+      const validSignature = crypto
+        .createHmac("sha256", razorpaySecret)
+        .update(rawPayload)
+        .digest("hex");
+
+      const paymentDoc = {
+        _id: "pay_doc_webhook_reconcile",
+        user: validUserId,
+        driver: validDriverId,
+        booking: validBookingId,
+        amount: 1000,
+        status: "pending",
+        razorpayOrderId: orderId,
+      };
+
+      jest.spyOn(Payment, "findOne").mockResolvedValue(paymentDoc as any);
+
+      const updatedPaymentDoc = {
+        ...paymentDoc,
+        status: "completed",
+        razorpayPaymentId: paymentId,
+      };
+      jest.spyOn(Payment, "findOneAndUpdate").mockResolvedValue(updatedPaymentDoc as any);
+
+      const bookingDoc: any = {
+        _id: validBookingId,
+        user: validUserId,
+        driver: validDriverId,
+        totalAmount: 1000,
+        paymentStatus: "pending", // Still pending because client NEVER called verifyPayment
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      jest.spyOn(Booking, "findById").mockResolvedValue(bookingDoc);
+
+      const driverUpdateSpy = jest
+        .spyOn(Driver, "findByIdAndUpdate")
+        .mockResolvedValue({} as any);
+      const walletTxnSpy = jest
+        .spyOn(WalletTransaction, "create")
+        .mockResolvedValue({} as any);
+
+      const selectMock = jest.fn().mockResolvedValue({ name: "Bob", email: "bob@driver.com" });
+      jest.spyOn(Driver, "findById").mockReturnValue({ select: selectMock } as any);
+      jest.spyOn(User, "findById").mockReturnValue({ select: selectMock } as any);
+
+      const req: any = {
+        headers: { "x-razorpay-signature": validSignature },
+        body: payload,
+      };
+      const res = createMockResponse();
+
+      await handleWebhook(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.status).toBe("ok");
+      expect(res.body.message).toBe("Payment reconciled successfully");
+
+      // Booking is now marked paid server-side!
+      expect(bookingDoc.paymentStatus).toBe("paid");
+      expect(bookingDoc.save).toHaveBeenCalled();
+
+      // Driver wallet is credited with 90% (₹900)
+      expect(driverUpdateSpy).toHaveBeenCalledWith(validDriverId, {
+        $inc: { walletBalance: 900 },
+      });
+      expect(walletTxnSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          driver: validDriverId,
+          type: "credit",
+          amount: 900,
+          description: expect.stringContaining("via webhook reconciliation"),
+        })
+      );
+    });
+
+    it("should handle already completed payments idempotently without double-crediting", async () => {
+      const orderId = "order_already_completed";
+      const payload = {
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: "pay_xyz",
+              order_id: orderId,
+            },
+          },
+        },
+      };
+
+      const rawPayload = JSON.stringify(payload);
+      const validSignature = crypto
+        .createHmac("sha256", razorpaySecret)
+        .update(rawPayload)
+        .digest("hex");
+
+      const alreadyCompletedPayment = {
+        _id: "pay_doc_completed",
+        status: "completed",
+        razorpayOrderId: orderId,
+      };
+      jest.spyOn(Payment, "findOne").mockResolvedValue(alreadyCompletedPayment as any);
+
+      const driverUpdateSpy = jest.spyOn(Driver, "findByIdAndUpdate");
+
+      const req: any = {
+        headers: { "x-razorpay-signature": validSignature },
+        body: payload,
+      };
+      const res = createMockResponse();
+
+      await handleWebhook(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.message).toBe("Already reconciled");
+      expect(driverUpdateSpy).not.toHaveBeenCalled();
     });
   });
 });

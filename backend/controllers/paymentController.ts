@@ -312,5 +312,112 @@ export const payWithWallet = async (req: AuthRequest, res: Response) => {
   }).catch(() => {});
 
   res.json({ message: "Payment successful using wallet" });
+};
 
+export const handleWebhook = async (req: any, res: Response) => {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+  if (!webhookSecret) {
+    return res.status(500).json({ message: "Webhook secret is not configured" });
+  }
+
+  const signature = (req.headers["x-razorpay-signature"] as string) || "";
+  if (!signature) {
+    return res.status(400).json({ message: "Missing Razorpay signature header" });
+  }
+
+  const payload = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
+  const expectedSignature = crypto
+    .createHmac("sha256", webhookSecret)
+    .update(payload)
+    .digest("hex");
+
+  const expectedBuf = Buffer.from(expectedSignature);
+  const signatureBuf = Buffer.from(signature);
+  const isValid =
+    expectedBuf.length === signatureBuf.length &&
+    crypto.timingSafeEqual(expectedBuf, signatureBuf);
+
+  if (!isValid) {
+    return res.status(400).json({ message: "Invalid webhook signature" });
+  }
+
+  const event = req.body?.event;
+  if (event === "payment.captured") {
+    const paymentEntity = req.body?.payload?.payment?.entity;
+    if (!paymentEntity) {
+      return res.status(400).json({ message: "Invalid payload: missing payment entity" });
+    }
+
+    const orderId = paymentEntity.order_id;
+    const paymentId = paymentEntity.id;
+
+    const payment = await Payment.findOne({ razorpayOrderId: orderId });
+    if (!payment) {
+      return res.status(200).json({ status: "ignored", message: "Payment order not found" });
+    }
+
+    if (payment.status === "completed") {
+      return res.status(200).json({ status: "ok", message: "Already reconciled" });
+    }
+
+    const updated = await Payment.findOneAndUpdate(
+      { _id: payment._id, status: "pending" },
+      {
+        $set: {
+          razorpayPaymentId: paymentId,
+          razorpaySignature: signature,
+          status: "completed",
+          paidAt: new Date(),
+        },
+      },
+      { new: true }
+    );
+
+    if (updated) {
+      const booking = await Booking.findById(payment.booking);
+      if (booking && booking.paymentStatus !== "paid") {
+        booking.paymentStatus = "paid";
+        await booking.save();
+
+        const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
+        await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
+        await WalletTransaction.create({
+          driver: booking.driver,
+          type: "credit",
+          amount: driverAmount,
+          description: `Earnings for booking ${booking._id} (via webhook reconciliation)`,
+          booking: booking._id,
+        });
+
+        createNotification({
+          userId: booking.driver,
+          userModel: "Driver",
+          title: "Payment Received",
+          message: `Payment of ₹${booking.totalAmount} received for a booking. ₹${driverAmount.toFixed(2)} added to your wallet.`,
+          type: "payment",
+          link: `/bookings/${booking._id}`,
+        }).catch(() => {});
+
+        const [driver, user] = await Promise.all([
+          Driver.findById(booking.driver).select("name email"),
+          User.findById(booking.user).select("name email"),
+        ]);
+        if (driver && user) sendBookingStatusUpdate(user, driver, booking, "paid").catch(() => {});
+
+        publishKafkaEvent(KAFKA_TOPICS.PAYMENT_COMPLETED, String(payment._id), {
+          paymentId: payment._id,
+          bookingId: booking._id,
+          driverId: booking.driver,
+          userId: booking.user,
+          totalAmount: booking.totalAmount,
+          driverAmount,
+          paymentMethod: "razorpay_webhook",
+        }).catch(() => {});
+      }
+    }
+
+    return res.status(200).json({ status: "ok", message: "Payment reconciled successfully" });
+  }
+
+  res.status(200).json({ status: "ok", message: "Event ignored" });
 };
