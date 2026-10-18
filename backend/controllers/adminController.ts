@@ -7,7 +7,7 @@ import Payment from "../models/Payment.js";
 import { clampLimit } from "../utils/sanitize.js";
 import { buildPagination } from "../utils/pagination.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
-import { logAudit } from "../controllers/auditController.js";
+import AuditLog from "../models/AuditLog.js";
 import { eventBus } from "../events/bookingEvents.js";
 import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
 
@@ -89,7 +89,13 @@ export const verifyDriver = async (req: AuthRequest, res: Response) => {
     status,
   }).catch(() => {});
 
-  logAudit(req.user, "Admin", "VERIFY_DRIVER", { driverId: driver._id, status }, req.ip || "unknown");
+  await AuditLog.create({
+    user: (req.user as any)?._id,
+    userType: "Admin",
+    action: "VERIFY_DRIVER",
+    details: { driverId: driver._id, status },
+    ipAddress: req.ip || "unknown",
+  }).catch(() => {});
 
 
   return ApiResponse.success(res, { driver }, "Driver verification status updated");
@@ -100,7 +106,13 @@ export const toggleDriverActive = async (req: AuthRequest, res: Response) => {
   if (!driver) return ApiResponse.error(res, "Driver not found", 404);
   driver.isActive = !driver.isActive;
   await driver.save();
-  logAudit(req.user, "Admin", "TOGGLE_DRIVER_ACTIVE", { driverId: driver._id, isActive: driver.isActive }, req.ip || "unknown");
+  await AuditLog.create({
+    user: (req.user as any)?._id,
+    userType: "Admin",
+    action: "TOGGLE_DRIVER_ACTIVE",
+    details: { driverId: driver._id, isActive: driver.isActive },
+    ipAddress: req.ip || "unknown",
+  }).catch(() => {});
   return ApiResponse.success(res, { driver }, "Driver status toggled");
 };
 
@@ -121,7 +133,13 @@ export const toggleUserActive = async (req: AuthRequest, res: Response) => {
   if (!user) return ApiResponse.error(res, "User not found", 404);
   user.isActive = !user.isActive;
   await user.save();
-  logAudit(req.user, "Admin", "TOGGLE_USER_ACTIVE", { userId: user._id, isActive: user.isActive }, req.ip || "unknown");
+  await AuditLog.create({
+    user: (req.user as any)?._id,
+    userType: "Admin",
+    action: "TOGGLE_USER_ACTIVE",
+    details: { userId: user._id, isActive: user.isActive },
+    ipAddress: req.ip || "unknown",
+  }).catch(() => {});
   return ApiResponse.success(res, { user }, "User status toggled");
 };
 
