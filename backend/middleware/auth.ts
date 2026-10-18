@@ -1,17 +1,24 @@
-// @ts-nocheck
 import jwt from "jsonwebtoken";
-import User from "../models/User.js";
-import Driver from "../models/Driver.js";
+import User, { IUser } from "../models/User.js";
+import Driver, { IDriver } from "../models/Driver.js";
 import { Request, Response, NextFunction } from "express";
 
+export interface AdminUser {
+  role: "admin";
+  [key: string]: any;
+}
+
+export type AuthUser = IUser | IDriver | AdminUser;
+
 export interface AuthRequest extends Request {
-  user?: any;
+  user?: AuthUser;
   userRole?: string;
+  cookies: Record<string, any>;
 }
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
   try {
-    let token = req.cookies.token;
+    let token = req.cookies?.token;
     
     if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
@@ -23,9 +30,11 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
 
     if (decoded.role === "user") {
-      req.user = await User.findById(decoded.id).select("-password");
+      const userDoc = await User.findById(decoded.id).select("-password");
+      if (userDoc) req.user = userDoc;
     } else if (decoded.role === "driver") {
-      req.user = await Driver.findById(decoded.id).select("-password");
+      const driverDoc = await Driver.findById(decoded.id).select("-password");
+      if (driverDoc) req.user = driverDoc;
     } else if (decoded.role === "admin") {
       req.user = { role: "admin" };
     }
@@ -37,14 +46,21 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
     req.userRole = decoded.role;
 
     if (req.userRole !== "admin") {
-      if (decoded.tv !== undefined && decoded.tv !== req.user.tokenVersion) {
+      const userOrDriver = req.user as IUser | IDriver;
+      if (decoded.tv !== undefined && decoded.tv !== userOrDriver.tokenVersion) {
         return res.status(401).json({ message: "Session expired. Please log in again." });
       }
-      if (req.userRole === "driver" && req.user.kycStatus === "approved" && !req.user.isActive) {
-        return res.status(401).json({ message: "Your account has been deactivated" });
+      if (req.userRole === "driver") {
+        const driver = req.user as IDriver;
+        if (driver.kycStatus === "approved" && !driver.isActive) {
+          return res.status(401).json({ message: "Your account has been deactivated" });
+        }
       }
-      if (req.userRole === "user" && req.user.isActive === false) {
-        return res.status(401).json({ message: "Your account has been deactivated" });
+      if (req.userRole === "user") {
+        const user = req.user as IUser;
+        if (user.isActive === false) {
+          return res.status(401).json({ message: "Your account has been deactivated" });
+        }
       }
     }
 
@@ -84,7 +100,7 @@ export const authorizeUserOrDriver = (req: AuthRequest, res: Response, next: Nex
 
 export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
   try {
-    let token = req.cookies.token;
+    let token = req.cookies?.token;
     
     if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
@@ -96,9 +112,11 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
 
     if (decoded.role === "user") {
-      req.user = await User.findById(decoded.id).select("-password");
+      const userDoc = await User.findById(decoded.id).select("-password");
+      if (userDoc) req.user = userDoc;
     } else if (decoded.role === "driver") {
-      req.user = await Driver.findById(decoded.id).select("-password");
+      const driverDoc = await Driver.findById(decoded.id).select("-password");
+      if (driverDoc) req.user = driverDoc;
     } else if (decoded.role === "admin") {
       req.user = { role: "admin" };
     }
@@ -111,4 +129,4 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
   } catch (error) {
     next();
   }
-};
+};
