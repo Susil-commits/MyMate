@@ -49,10 +49,16 @@ const app: Express = express();
 
 app.set("trust proxy", 1);
 
-const allowedOrigins = (process.env.CLIENT_URL || "http://localhost:5173")
+const rawClientUrl = process.env.CLIENT_URL?.trim();
+const allowedOrigins = (rawClientUrl || "http://localhost:5173")
   .split(",")
   .map((o) => o.trim().replace(/\/+$/, ""))
   .filter(Boolean);
+
+// Fail closed: never allow CORS to fail open with credentials: true if allowedOrigins is empty
+if (allowedOrigins.length === 0) {
+  throw new Error("CORS configuration error: allowedOrigins must not be empty. Check CLIENT_URL environment variable.");
+}
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -63,7 +69,7 @@ app.use(morganMiddleware);
 
 app.use(cors({
   origin(origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) {
-    if (!origin || allowedOrigins.length === 0) return cb(null, true);
+    if (!origin) return cb(null, true);
     if (allowedOrigins.includes(origin.replace(/\/+$/, ""))) return cb(null, true);
     cb(new Error(`Origin ${origin} not allowed by CORS`));
   },

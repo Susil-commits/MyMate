@@ -16,58 +16,70 @@ export interface AuthRequest extends Request {
   cookies: Record<string, any>;
 }
 
-export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
+export const verifyAndResolveUser = async (
+  token?: string
+): Promise<{ user: AuthUser | null; userRole: "user" | "driver" | "admin" | null; error?: string }> => {
+  if (!token) {
+    return { user: null, userRole: null, error: "Not authorized, no token" };
+  }
   try {
-    let token = req.cookies?.token;
-    
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
-    }
-
-    if (!token) {
-      return res.status(401).json({ message: "Not authorized, no token" });
-    }
     const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+    let user: AuthUser | null = null;
 
     if (decoded.role === "user") {
       const userDoc = await User.findById(decoded.id).select("-password");
-      if (userDoc) req.user = userDoc;
+      if (userDoc) user = userDoc;
     } else if (decoded.role === "driver") {
       const driverDoc = await Driver.findById(decoded.id).select("-password");
-      if (driverDoc) req.user = driverDoc;
+      if (driverDoc) user = driverDoc;
     } else if (decoded.role === "admin") {
-      req.user = { role: "admin", _id: decoded.id };
+      user = { role: "admin", _id: decoded.id };
     }
 
-    if (!req.user) {
-      return res.status(401).json({ message: "User not found" });
+    if (!user) {
+      return { user: null, userRole: null, error: "User not found" };
     }
 
-    req.userRole = decoded.role;
-
-    if (req.userRole !== "admin") {
-      const userOrDriver = req.user as IUser | IDriver;
+    if (decoded.role !== "admin") {
+      const userOrDriver = user as IUser | IDriver;
       if (decoded.tv !== undefined && decoded.tv !== userOrDriver.tokenVersion) {
-        return res.status(401).json({ message: "Session expired. Please log in again." });
+        return { user: null, userRole: null, error: "Session expired. Please log in again." };
       }
-      if (req.userRole === "driver") {
-        const driver = req.user as IDriver;
+      if (decoded.role === "driver") {
+        const driver = user as IDriver;
         if (driver.kycStatus === "approved" && !driver.isActive) {
-          return res.status(401).json({ message: "Your account has been deactivated" });
+          return { user: null, userRole: null, error: "Your account has been deactivated" };
         }
       }
-      if (req.userRole === "user") {
-        const user = req.user as IUser;
-        if (user.isActive === false) {
-          return res.status(401).json({ message: "Your account has been deactivated" });
+      if (decoded.role === "user") {
+        const u = user as IUser;
+        if (u.isActive === false) {
+          return { user: null, userRole: null, error: "Your account has been deactivated" };
         }
       }
     }
 
-    next();
-  } catch (error) {
-    return res.status(401).json({ message: "Not authorized, token invalid" });
+    return { user, userRole: decoded.role };
+  } catch {
+    return { user: null, userRole: null, error: "Not authorized, token invalid" };
   }
+};
+
+export const protect = async (req: AuthRequest, res: Response, next: NextFunction): Promise<any> => {
+  let token = req.cookies?.token;
+  
+  if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+    token = req.headers.authorization.split(" ")[1];
+  }
+
+  const { user, userRole, error } = await verifyAndResolveUser(token);
+  if (error || !user) {
+    return res.status(401).json({ message: error || "Not authorized" });
+  }
+
+  req.user = user;
+  req.userRole = userRole || undefined;
+  next();
 };
 
 export const authorizeUser = (req: AuthRequest, res: Response, next: NextFunction): any => {
