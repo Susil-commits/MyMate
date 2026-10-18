@@ -56,7 +56,6 @@ flowchart TB
 
     subgraph Gateway["API Gateway & Server Layer"]
         ExpressApp["Node.js / Express Server (TypeScript)"]
-        GraphQL["Apollo GraphQL Server (/graphql)"]
         SocketIO["Socket.io WebSocket Server"]
         AuthMiddleware["JWT & 2FA Auth Guard"]
     end
@@ -79,14 +78,13 @@ flowchart TB
         Tesseract["Tesseract.js<br/>KYC OCR Engine"]
     end
 
-    CustomerApp -->|"REST & GraphQL"| ExpressApp
-    DriverApp -->|"REST & GraphQL"| ExpressApp
-    AdminApp -->|"REST & GraphQL"| ExpressApp
+    CustomerApp -->|"REST API"| ExpressApp
+    DriverApp -->|"REST API"| ExpressApp
+    AdminApp -->|"REST API"| ExpressApp
     CustomerApp -->|"WebSockets / WSS"| SocketIO
     DriverApp -->|"WebSockets / WSS"| SocketIO
     ExpressApp --> AuthMiddleware
     AuthMiddleware --> MongoDB
-    AuthMiddleware --> GraphQL
     ExpressApp --> RedisDB
     RedisDB -.-> SocketIO
     RedisDB --> BullMQ
@@ -211,7 +209,7 @@ MyMate delivers three interconnected, purpose-built interfaces tailored to each 
 
 | Engineering Dimension | Industry Standard Approach | MyMate Strategic Architecture |
 |---|---|---|
-| **API Architecture** | Monolithic REST only | **Dual API Surface**: Comprehensive RESTful `/api/v1` routes paired with an Apollo **GraphQL** endpoint (`/graphql`) protected by JWT authentication context and role-based query isolation. |
+| **API Architecture** | Monolithic or unstructured routes | **Enterprise RESTful API**: Fully structured, validated, and secured `/api/v1` surface with OpenAPI/Swagger specifications, JWT authentication, and strict role-based access control. |
 | **Event Processing** | Synchronous HTTP calls or basic queues | **Enterprise Apache Kafka Backbone**: Dedicated consumer groups (`booking`, `payment`, `kyc`) ensuring horizontal scale, at-least-once processing, and resilient offset tracking. |
 | **Fault Tolerance** | Unhandled third-party downtime | **Circuit Breaker Pattern (Opossum)**: AI and payment calls wrapped in circuit breakers with automatic fallback modes to prevent cascading microservice collapse. |
 | **Driver Matching** | Opaque distance-only query | **Pure Mathematical Core + GenAI**: Deterministic multi-variable algorithm mirrored in Haskell (`fp-poc/`) with Gemini 2.5 Flash semantic contextual re-ranking. |
@@ -224,13 +222,13 @@ MyMate delivers three interconnected, purpose-built interfaces tailored to each 
 
 ```
   ┌───────────────────────────┐      ┌───────────────────────────┐      ┌───────────────────────────┐
-  │         < 50 ms           │      │          100%             │      │       110 / 110           │
+  │         < 50 ms           │      │          100%             │      │        89 / 89            │
   │ Real-Time Socket Latency  │      │ Automated Test Coverage   │      │   Unit & E2E Tests Pass   │
-  │ (Redis Adapter Broadcast) │      │ Across Auth, Book, & Pay  │      │ (7 Independent Suites)    │
+  │ (Redis Adapter Broadcast) │      │ Across Auth, Book, & Pay  │      │ (6 Independent Suites)    │
   └───────────────────────────┘      └───────────────────────────┘      └───────────────────────────┘
 ```
 
-- **Clean Security Posture**: Secured `/graphql` resolvers preventing unauthorized data exposure; strict fail-closed CORS configuration preventing origin spoofing.
+- **Clean Security Posture**: Minimal attack surface with zero unauthenticated endpoints; strict fail-closed CORS configuration preventing origin spoofing.
 - **Database Scalability**: MongoDB Atlas with `2dsphere` geospatial indices, Compound indexes for driver availability queries, and secondary-preferred read replica routing.
 - **Cache Acceleration**: Multi-tier Redis caching for driver search catalogs (120s TTL) and platform statistics (300s TTL).
 
@@ -248,7 +246,7 @@ MyMate Core Engine
 │
 ├── Backend Infrastructure
 │   ├── Runtime: Node.js (ES Modules) • TypeScript 5 • Express 4
-│   ├── API Paradigms: RESTful API (/api/v1) • Apollo Server GraphQL (/graphql)
+│   ├── API Paradigms: RESTful API (/api/v1) • Swagger OpenAPI (/api-docs)
 │   ├── Authentication: JWT Tokens • OTPLib (2FA TOTP) • Bcryptjs
 │   └── Validation: Zod Schemas • Express-Validator • DOMPurify / XSS Clean
 │
@@ -276,7 +274,6 @@ MyMate/
 │   ├── config/              # Redis, Kafka, Database, Email, and Swagger configs
 │   ├── controllers/         # Domain business logic (Auth, Booking, Driver, AI, Admin)
 │   ├── events/              # EventBus listeners and MongoDB Change Streams
-│   ├── graphql/             # Authenticated Apollo GraphQL typeDefs and resolvers
 │   ├── kafka/               # Kafka producers, consumer workers & topic registry
 │   │   ├── consumers/       # Booking, Payment, and KYC event consumers
 │   │   ├── producer.ts      # Resilient event publisher with auto-reconnection
@@ -285,7 +282,7 @@ MyMate/
 │   ├── models/              # Mongoose schemas (User, Driver, Booking, Admin, AuditLog)
 │   ├── routes/              # Express API route declarations (/api/v1)
 │   ├── services/            # Pure scoring engine & KYC OCR services
-│   ├── tests/               # 7 Jest test suites (Auth, Booking, Payment, Admin, GraphQL)
+│   ├── tests/               # 6 Jest test suites (Auth, Booking, Payment, Admin, Kafka, AI)
 │   ├── utils/               # Socket.io, PricingEngine, CircuitBreaker, Token helpers
 │   └── server.ts            # Enterprise application bootstrap & graceful shutdown
 │
@@ -344,7 +341,6 @@ When running locally, the following portals and tools are immediately accessible
 | **Customer & Driver PWA** | `http://localhost:5173` | Modern React 19 frontend application |
 | **Backend REST API** | `http://localhost:5000/api/v1` | Core RESTful API service |
 | **Interactive Swagger API** | `http://localhost:5000/api-docs` | Interactive OpenAPI documentation & playground |
-| **Authenticated GraphQL** | `http://localhost:5000/graphql` | Apollo GraphQL endpoint with query explorer |
 | **Prometheus Telemetry** | `http://localhost:5000/metrics` | Real-time platform throughput and latency metrics |
 | **System Health Check** | `http://localhost:5000/health` | Service uptime and database connectivity probe |
 
@@ -352,10 +348,10 @@ When running locally, the following portals and tools are immediately accessible
 
 ## 🧪 Comprehensive Verification Suite
 
-Execute the automated test suites to validate authentication, booking states, payment webhooks, and GraphQL security:
+Execute the automated test suites to validate authentication, booking states, Kafka event streaming, and payment webhooks:
 
 ```bash
-# Run backend test suite (110 tests across 7 suites)
+# Run backend test suite (89 tests across 6 suites)
 cd backend
 npm test
 

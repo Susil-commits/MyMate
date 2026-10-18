@@ -63,7 +63,7 @@ MYMATE PLATFORM KNOWLEDGE BASE:
    - Geospatial demand heatmap displaying real booking pickup clusters for drivers.
 7. System Architecture & Tech Stack (Platform Design):
    - Frontend: React 19, Vite, Tailwind CSS, Lucide & React Icons, React Router v7, Context API, PWA support.
-   - Backend: Node.js, Express, TypeScript, RESTful API (v1), GraphQL (Apollo Server), MongoDB (Mongoose), Redis caching & rate limiting, BullMQ background queues, Kafka event streaming, Opossum Circuit Breakers, Winston structured logging.
+   - Backend: Node.js, Express, TypeScript, RESTful API (v1), MongoDB (Mongoose), Redis caching & rate limiting, BullMQ background queues, Kafka event streaming, Opossum Circuit Breakers, Winston structured logging.
    - AI & OCR: Google Gemini Flash for AI support and intelligent driver matchmaking, Tesseract.js for KYC license verification.
 8. Style & Tone:
    - Concise (under 150 words unless in-depth architecture explanation is requested).
@@ -261,7 +261,7 @@ export function getLocalPlatformResponse(query: string): string {
   }
 
   if (q.includes("tech stack") || q.includes("architecture") || q.includes("design") || q.includes("built") || q.includes("backend") || q.includes("frontend")) {
-    return "🏗️ **MyMate Platform Design & Tech Stack:**\n\n- **Frontend:** React 19, Vite, Tailwind CSS, Context API, PWA support.\n- **Backend:** Node.js, Express, TypeScript, RESTful API & GraphQL (Apollo Server).\n- **Databases:** MongoDB (Mongoose) + Redis (caching & rate limiting).\n- **Async & Realtime:** WebSockets (Socket.io), Kafka event streaming, BullMQ queues.\n- **AI/ML:** Google Gemini (support & driver matching), Tesseract.js (KYC OCR).";
+    return "🏗️ **MyMate Platform Design & Tech Stack:**\n\n- **Frontend:** React 19, Vite, Tailwind CSS, Context API, PWA support.\n- **Backend:** Node.js, Express, TypeScript, RESTful API (v1).\n- **Databases:** MongoDB (Mongoose) + Redis (caching & rate limiting).\n- **Async & Realtime:** WebSockets (Socket.io), Kafka event streaming, BullMQ queues.\n- **AI/ML:** Google Gemini (support & driver matching), Tesseract.js (KYC OCR).";
   }
 
   if (q.includes("vehicle") || q.includes("car type") || q.includes("transmission") || q.includes("automatic") || q.includes("manual")) {

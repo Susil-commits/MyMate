@@ -22,7 +22,6 @@ import { setupSwagger } from "./config/swagger.js";
 import { setupMetrics } from "./utils/metrics.js";
 import { initializeChangeStreams } from "./events/changeStreams.js";
 import { setupQueueBoard } from "./utils/queueBoard.js";
-import { setupGraphQL } from "./graphql/schema.js";
 import { startKafka, stopKafka, isKafkaConnected } from "./kafka/index.js";
 
 
@@ -160,8 +159,6 @@ if (process.env.NODE_ENV !== "test") {
 
     // Initialize Kafka Messaging System
     startKafka().catch(err => console.error("Failed to start Kafka:", err));
-
-    await setupGraphQL(app);
 
     // Add 404 and error handlers AFTER async routes are mounted
     app.use((req: Request, res: Response) => {
