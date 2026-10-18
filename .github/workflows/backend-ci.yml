@@ -1,0 +1,27 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+      - name: Build backend
+        run: npm run build --prefix backend
+      - name: Run backend tests
+        run: npm test --prefix backend
+        env:
+          NODE_ENV: test
+          JWT_SECRET: test_jwt_secret_value_for_ci_12345
+          MONGO_URI: mongodb://localhost:27017/mymate_test
