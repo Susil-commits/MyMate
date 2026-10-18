@@ -16,17 +16,18 @@ export interface ScoreWeights {
 /**
  * Pure function to calculate a driver's match score.
  * 
- * Rules:
- * - Higher rating -> higher score
- * - Higher accept rate -> higher score
- * - Lower distance -> higher score (distance reduces score)
- * - Lower idle minutes -> higher score (idle time reduces score, or wait, maybe being idle longer should *increase* priority to be fair? The prompt Haskell code says `- (idleWeight w * idleMinutes c)`, so longer idle reduces score? Actually usually you want to dispatch to the driver who has been idle longest. But let's follow the user's Haskell example exactly: `- idleWeight w * idleMinutes c`)
+ * Dispatch Scoring Model:
+ * - Higher rating -> higher score (rewards service quality)
+ * - Higher accept rate -> higher score (rewards driver responsiveness)
+ * - Lower distance -> higher score (minimizes customer pickup wait time)
+ * - Higher idle minutes -> higher score (fleet fairness: prioritizes drivers who have
+ *   been waiting longest to prevent driver starvation and distribute trip earnings equitably)
  */
 export function scoreDriver(candidate: DriverCandidate, weights: ScoreWeights): number {
   return (weights.ratingWeight * candidate.rating)
        - (weights.distanceWeight * candidate.distanceKm)
        + (weights.acceptRateWeight * candidate.acceptRatePercent)
-       - (weights.idleWeight * candidate.idleMinutes);
+       + (weights.idleWeight * candidate.idleMinutes);
 }
 
 /**

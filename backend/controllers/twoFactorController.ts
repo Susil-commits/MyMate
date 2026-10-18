@@ -4,7 +4,7 @@ import QRCode from "qrcode";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 import { AppError } from "../utils/AppError.js";
-import { generateToken } from "../utils/token.js";
+import { generateToken, AUTH_COOKIE_MAX_AGE_MS } from "../utils/token.js";
 import { AuthRequest } from "../middleware/auth.js";
 
 // Utility to get the correct model
@@ -84,7 +84,7 @@ export const verify2FALogin = async (req: Request, res: Response) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000,
+    maxAge: AUTH_COOKIE_MAX_AGE_MS, // 7 days, matches JWT expiration
   });
   
   res.status(200).json({

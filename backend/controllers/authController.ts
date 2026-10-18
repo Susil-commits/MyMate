@@ -26,12 +26,14 @@ const VERIFY_EXPIRE = 24 * 60 * 60 * 1000;
 const VALID_ROLES = ["user", "driver"] as const;
 type ValidRole = typeof VALID_ROLES[number];
 
+import { AUTH_COOKIE_MAX_AGE_MS } from "../utils/token.js";
+
 function setTokenCookie(res: Response, token: string) {
   res.cookie("token", token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
-    maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    maxAge: AUTH_COOKIE_MAX_AGE_MS, // 7 days, exactly matching JWT 7d expiration
   });
 }
 

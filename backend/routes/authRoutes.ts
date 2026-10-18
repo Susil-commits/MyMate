@@ -46,6 +46,19 @@ router.post("/forgot-password", passwordResetLimiter, forgotPasswordValidator, f
 router.post("/reset-password", passwordResetLimiter, resetPasswordValidator, resetPassword);
 router.post("/verify-email", verifyEmail);
 router.post("/resend-verification", forgotPasswordValidator, resendVerification);
+import { generateCsrfToken } from "../middleware/csrf.js";
+
+router.get("/csrf-token", (req, res) => {
+  const token = req.cookies?.["XSRF-TOKEN"] || generateCsrfToken();
+  res.cookie("XSRF-TOKEN", token, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  res.json({ csrfToken: token });
+});
+
 router.post("/logout", logout);
 router.post("/logout-all", protect, logoutAll);
 

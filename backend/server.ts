@@ -23,6 +23,7 @@ import { setupMetrics } from "./utils/metrics.js";
 import { initializeChangeStreams } from "./events/changeStreams.js";
 import { setupQueueBoard } from "./utils/queueBoard.js";
 import { startKafka, stopKafka, isKafkaConnected } from "./kafka/index.js";
+import { csrfProtection } from "./middleware/csrf.js";
 
 
 const _filename = fileURLToPath(import.meta.url);
@@ -82,6 +83,7 @@ app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(mongoSanitize());
 app.use(xss);
 app.use(hpp());
+app.use(csrfProtection);
 
 setupMetrics(app);
 setupSwagger(app);

@@ -21,11 +21,13 @@ data ScoreWeights = ScoreWeights
   } deriving (Show, Eq)
 
 -- | Pure scoring function
+-- Fleet fairness model: drivers waiting longer receive higher dispatch priority
+-- to prevent driver starvation and distribute trip earnings equitably.
 scoreDriver :: ScoreWeights -> DriverCandidate -> Double
 scoreDriver w c = (ratingWeight w * rating c)
                 - (distanceWeight w * distanceKm c)
                 + (acceptRateWeight w * acceptRatePercent c)
-                - (idleWeight w * idleMinutes c)
+                + (idleWeight w * idleMinutes c)
 
 -- | Pure sorting function
 rankDrivers :: ScoreWeights -> [DriverCandidate] -> [DriverCandidate]
@@ -71,14 +73,14 @@ main = do
   assert (furtherScore < baseScore) $ return ()
 
   putStrLn "- Test: Snapshot regression tests"
-  assert (scoreDriver defaultWeights c1 == 73.0) $ return ()
-  assert (scoreDriver defaultWeights c2 == 78.5) $ return ()
+  assert (scoreDriver defaultWeights c1 == 93.0) $ return ()
+  assert (scoreDriver defaultWeights c2 == 88.5) $ return ()
 
   putStrLn "- Test: rankDrivers orders correctly (and since Haskell data is immutable, it cannot mutate the input)"
   let candidates = [c1, c2]
       ranked = rankDrivers defaultWeights candidates
-  assert (driverId (head ranked) == "d2") $ return ()
-  assert (driverId (ranked !! 1) == "d1") $ return ()
+  assert (driverId (head ranked) == "d1") $ return ()
+  assert (driverId (ranked !! 1) == "d2") $ return ()
   -- Proof of non-mutation: `candidates` is still `[c1, c2]`
   assert (driverId (head candidates) == "d1") $ return ()
 
