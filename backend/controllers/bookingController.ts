@@ -429,6 +429,13 @@ export const downloadInvoice = async (req: AuthRequest, res: Response) => {
     .populate("user", "name phone email");
 
   if (!booking) return res.status(404).json({ message: "Booking not found" });
+
+  const isOwner =
+    req.userRole === "admin" ||
+    (req.userRole === "user" && String((booking.user as any)?._id) === String((req.user as any)?._id)) ||
+    (req.userRole === "driver" && String((booking.driver as any)?._id) === String((req.user as any)?._id));
+  if (!isOwner) return res.status(403).json({ message: "Not authorized to download this invoice" });
+
   if (booking.status !== "completed" || booking.paymentStatus !== "paid") {
     return res.status(400).json({ message: "Invoice is only available for paid and completed bookings." });
   }
