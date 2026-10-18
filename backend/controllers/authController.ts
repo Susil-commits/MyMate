@@ -181,6 +181,25 @@ export const logout = (req: Request, res: Response) => {
   res.json({ message: "Logged out successfully" });
 };
 
+export const logoutAll = async (req: AuthRequest, res: Response) => {
+  if (req.user) {
+    const role = req.userRole;
+    const Model = getModelForRole(role || "user");
+    if (Model) {
+      await (Model as any).findByIdAndUpdate((req.user as any)._id || (req.user as any).id, {
+        $inc: { tokenVersion: 1 },
+      });
+    }
+  }
+  res.cookie("token", "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+    expires: new Date(0),
+  });
+  res.json({ message: "Logged out from all sessions successfully" });
+};
+
 export const getMe = async (req: AuthRequest, res: Response) => {
   if (!req.user) {
     return res.json({ user: null, role: null });

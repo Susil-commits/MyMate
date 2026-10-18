@@ -13,6 +13,7 @@ import {
   verifyEmail,
   resendVerification,
   logout,
+  logoutAll,
 } from "../controllers/authController.js";
 import { passwordResetLimiter } from "../middleware/rateLimiter.js";
 import { protect, authorizeUser, authorizeDriver, optionalAuth } from "../middleware/auth.js";
@@ -46,5 +47,6 @@ router.post("/reset-password", passwordResetLimiter, resetPasswordValidator, res
 router.post("/verify-email", verifyEmail);
 router.post("/resend-verification", forgotPasswordValidator, resendVerification);
 router.post("/logout", logout);
+router.post("/logout-all", protect, logoutAll);
 
 export default router;
