@@ -48,6 +48,7 @@ const { protect } = await import("../middleware/auth.js");
 const { generateToken } = await import("../utils/token.js");
 const User = (await import("../models/User.js")).default;
 const Driver = (await import("../models/Driver.js")).default;
+const Admin = (await import("../models/Admin.js")).default;
 
 function createMockResponse() {
   const res: any = {
@@ -409,6 +410,58 @@ describe("Authentication & Authorization Test Suite (TASK 2.1)", () => {
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe("Invalid admin code");
       expect(res.cookies["token"]).toBeUndefined();
+    });
+
+    it("should authenticate admin using email and password against Admin model", async () => {
+      const mockAdmin: any = {
+        _id: "admin_id_001",
+        email: "boss@mymate.com",
+        role: "admin",
+        comparePassword: jest.fn().mockResolvedValue(true as never),
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+
+      jest.spyOn(Admin, "findOne").mockResolvedValue(mockAdmin);
+
+      const req: any = {
+        body: {
+          email: "boss@mymate.com",
+          password: "AdminSecretPassword123!",
+        },
+      };
+      const res = createMockResponse();
+
+      await adminLogin(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.role).toBe("admin");
+      expect(mockAdmin.comparePassword).toHaveBeenCalledWith("AdminSecretPassword123!");
+      expect(mockAdmin.save).toHaveBeenCalled();
+      expect(res.cookies["token"]).toBeDefined();
+    });
+
+    it("should reject admin login if password does not match Admin record", async () => {
+      const mockAdmin: any = {
+        _id: "admin_id_001",
+        email: "boss@mymate.com",
+        role: "admin",
+        comparePassword: jest.fn().mockResolvedValue(false as never),
+      };
+
+      jest.spyOn(Admin, "findOne").mockResolvedValue(mockAdmin);
+
+      const req: any = {
+        body: {
+          email: "boss@mymate.com",
+          password: "WrongPassword!",
+        },
+      };
+      const res = createMockResponse();
+
+      await adminLogin(req, res);
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe("Invalid email or password");
     });
   });
 

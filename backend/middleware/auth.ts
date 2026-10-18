@@ -36,7 +36,7 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
       const driverDoc = await Driver.findById(decoded.id).select("-password");
       if (driverDoc) req.user = driverDoc;
     } else if (decoded.role === "admin") {
-      req.user = { role: "admin" };
+      req.user = { role: "admin", _id: decoded.id };
     }
 
     if (!req.user) {

@@ -48,7 +48,11 @@ export type DriverLoginInput = z.infer<typeof driverLoginSchema>;
 export const driverLoginValidator = [validateRequest(driverLoginSchema)];
 
 export const adminLoginSchema = z.object({
-  code: z.string().trim().min(1, "Admin code is required"),
+  email: z.string().email("Valid email is required").transform(e => e.toLowerCase()).optional(),
+  password: z.string().min(1, "Password is required").optional(),
+  code: z.string().trim().optional(),
+}).refine(data => (data.email && data.password) || data.code, {
+  message: "Either email and password or admin code is required",
 });
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
 export const adminLoginValidator = [validateRequest(adminLoginSchema)];

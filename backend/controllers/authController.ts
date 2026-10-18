@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { Request, Response } from "express";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
+import Admin from "../models/Admin.js";
 import { generateToken } from "../utils/token.js";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../config/email.js";
 import { storeFile } from "../middleware/upload.js";
@@ -55,9 +56,10 @@ async function attachVerification(account: any, role: string) {
 /**
  * Helper to resolve the appropriate Mongoose model for a given user role.
  */
-function getModelForRole(role: string): typeof User | typeof Driver | null {
+function getModelForRole(role: string): typeof User | typeof Driver | typeof Admin | null {
   if (role === "user") return User as any;
   if (role === "driver") return Driver as any;
+  if (role === "admin") return Admin as any;
   return null;
 }
 
@@ -162,13 +164,32 @@ export const completeDriverProfile = async (req: AuthRequest, res: Response) => 
 };
 
 export const adminLogin = async (req: Request, res: Response) => {
-  const { code } = adminLoginSchema.parse(req.body);
-  if (!process.env.ADMIN_CODE || code !== process.env.ADMIN_CODE) {
-    return res.status(401).json({ message: "Invalid admin code" });
+  const { email, password, code } = adminLoginSchema.parse(req.body);
+
+  let admin: any = null;
+
+  if (email && password) {
+    admin = await Admin.findOne({ email: String(email).toLowerCase() });
+    if (!admin || !(await admin.comparePassword(password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+  } else if (code) {
+    if (!process.env.ADMIN_CODE || code !== process.env.ADMIN_CODE) {
+      return res.status(401).json({ message: "Invalid admin code" });
+    }
+    admin = { _id: "admin_master_001", role: "admin", email: "admin@mymate.com" };
+  } else {
+    return res.status(400).json({ message: "Invalid admin credentials" });
   }
-  const token = generateToken(null, "admin");
+
+  if (admin && typeof admin.save === "function") {
+    admin.lastLoginAt = new Date();
+    await admin.save();
+  }
+
+  const token = generateToken(admin, "admin");
   setTokenCookie(res, token);
-  res.json({ role: "admin" });
+  res.json({ role: "admin", admin });
 };
 
 export const logout = (req: Request, res: Response) => {
