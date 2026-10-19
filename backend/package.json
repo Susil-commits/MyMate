@@ -33,6 +33,7 @@
     "bullmq": "^6.0.9",
     "cloudinary": "^2.10.0",
     "compression": "^1.8.1",
+    "cookie": "^0.7.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -73,6 +74,7 @@
   },
   "devDependencies": {
     "@faker-js/faker": "^10.5.0",
+    "@types/cookie": "^0.6.0",
     "@types/jest": "^30.0.0",
     "@types/supertest": "^7.2.1",
     "artillery": "^2.0.33",

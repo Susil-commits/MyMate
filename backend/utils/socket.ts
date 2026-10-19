@@ -1,13 +1,14 @@
 import { Server, Socket } from "socket.io";
 import { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
+import cookie from "cookie";
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
 import { createNotification } from "../models/Notification.js";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Redis } from "ioredis";
 
-interface AuthenticatedSocket extends Socket {
+export interface AuthenticatedSocket extends Socket {
   user?: any;
 }
 
@@ -27,6 +28,32 @@ function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: num
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
+
+export const socketAuthMiddleware = (socket: AuthenticatedSocket, next: (err?: Error) => void) => {
+  const rawCookies = socket.handshake.headers?.cookie;
+  let token = socket.handshake.auth?.token;
+
+  if (!token && rawCookies) {
+    try {
+      const parsed = cookie.parse(rawCookies);
+      token = parsed.token;
+    } catch {
+      // Fall through to error check
+    }
+  }
+
+  if (!token) {
+    return next(new Error("Authentication error: No token provided"));
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    return next(new Error("Authentication error: Invalid token"));
+  }
+};
 
 export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => {
   io = new Server(httpServer, {
@@ -49,20 +76,7 @@ export const initSocket = (httpServer: HttpServer, allowedOrigins: string[]) => 
   }
 
   // Socket authentication middleware
-  io.use((socket: AuthenticatedSocket, next) => {
-    const token = socket.handshake.auth.token;
-    if (!token) {
-      return next(new Error("Authentication error: No token provided"));
-    }
-
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
-      socket.user = decoded;
-      next();
-    } catch (err) {
-      return next(new Error("Authentication error: Invalid token"));
-    }
-  });
+  io.use(socketAuthMiddleware);
 
   io.on("connection", (socket: AuthenticatedSocket) => {
     console.log(`Socket connected: ${socket.id}, User ID: ${socket.user?.id}`);
