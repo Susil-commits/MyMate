@@ -5,13 +5,17 @@ import { Request, Response, NextFunction } from "express";
 
 export interface AdminUser {
   role: "admin";
-  [key: string]: any;
 }
 
-export type AuthUser = IUser | IDriver | AdminUser;
+export type AuthenticatedPrincipal =
+  | (IUser & { role: "user" })
+  | (IDriver & { role: "driver" })
+  | AdminUser;
+
+export type AuthUser = AuthenticatedPrincipal;
 
 export interface AuthRequest extends Request {
-  user?: AuthUser;
+  user?: AuthenticatedPrincipal;
   userRole?: string;
   cookies: Record<string, any>;
 }
@@ -33,7 +37,7 @@ export const verifyAndResolveUser = async (
       const driverDoc = await Driver.findById(decoded.id).select("-password");
       if (driverDoc) user = driverDoc;
     } else if (decoded.role === "admin") {
-      user = { role: "admin", _id: decoded.id };
+      user = { role: "admin" };
     }
 
     if (!user) {

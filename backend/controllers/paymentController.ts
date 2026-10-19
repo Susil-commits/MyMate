@@ -109,13 +109,11 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
     .update(`${razorpay_order_id}|${razorpay_payment_id}`)
     .digest("hex");
 
-  const expectedBuf = Buffer.from(expected);
-  const signatureBuf = Buffer.from(razorpay_signature);
-  const isSignatureValid =
-    expectedBuf.length === signatureBuf.length &&
-    crypto.timingSafeEqual(expectedBuf, signatureBuf);
+  const signaturesMatch =
+    expected.length === razorpay_signature?.length &&
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(razorpay_signature));
 
-  if (!isSignatureValid) {
+  if (!signaturesMatch) {
     await Payment.updateOne(
       { _id: payment._id, status: "pending" },
       { $set: { status: "failed" } }
@@ -143,8 +141,29 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
     return res.json({ message: "Payment already verified" });
   }
 
+  await reconcilePayment(updated, "razorpay");
+
+  res.json({ message: "Payment verified successfully" });
+};
+
+/**
+ * Shared, idempotent payment reconciliation helper.
+ * Reconciles booking status, driver wallet credit (90/10 split),
+ * notifications, email updates, and Kafka events.
+ */
+export const reconcilePayment = async (
+  paymentOrId: any,
+  paymentMethod: "razorpay" | "razorpay_webhook" = "razorpay"
+) => {
+  const payment =
+    paymentOrId && typeof paymentOrId === "object" && paymentOrId.booking
+      ? paymentOrId
+      : await Payment.findById(paymentOrId);
+
+  if (!payment) return null;
+
   const booking = await Booking.findById(payment.booking);
-  if (booking) {
+  if (booking && booking.paymentStatus !== "paid") {
     // Atomically credit driver wallet (90% to driver, 10% platform fee)
     booking.paymentStatus = "paid";
     await booking.save();
@@ -152,20 +171,28 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
     // Credit Driver Wallet (90% to driver, 10% platform fee)
     const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
     await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
+    const description =
+      paymentMethod === "razorpay_webhook"
+        ? `Earnings for booking ${booking._id} (via webhook reconciliation)`
+        : `Earnings for booking ${booking._id} (after 10% platform fee)`;
+
     await WalletTransaction.create({
       driver: booking.driver,
       type: "credit",
       amount: driverAmount,
-      description: `Earnings for booking ${booking._id} (after 10% platform fee)`,
+      description,
       booking: booking._id,
     });
 
     createNotification({
-      userId: booking.driver, userModel: "Driver",
+      userId: booking.driver,
+      userModel: "Driver",
       title: "Payment Received",
       message: `Payment of ₹${booking.totalAmount} received for a booking. ₹${driverAmount.toFixed(2)} added to your wallet.`,
-      type: "payment", link: `/bookings/${booking._id}`,
+      type: "payment",
+      link: `/bookings/${booking._id}`,
     }).catch(() => {});
+
     const [driver, user] = await Promise.all([
       Driver.findById(booking.driver).select("name email"),
       User.findById(booking.user).select("name email"),
@@ -179,12 +206,11 @@ export const verifyPayment = async (req: AuthRequest, res: Response) => {
       userId: booking.user,
       totalAmount: booking.totalAmount,
       driverAmount,
-      paymentMethod: "razorpay",
+      paymentMethod,
     }).catch(() => {});
   }
 
-
-  res.json({ message: "Payment verified successfully" });
+  return payment;
 };
 
 export const getPaymentStatus = async (req: AuthRequest, res: Response) => {
@@ -314,36 +340,46 @@ export const payWithWallet = async (req: AuthRequest, res: Response) => {
   res.json({ message: "Payment successful using wallet" });
 };
 
-export const handleWebhook = async (req: any, res: Response) => {
+export const verifyWebhook = async (req: any, res: Response) => {
+  const signature = req.headers["x-razorpay-signature"] as string | undefined;
   const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+
   if (!webhookSecret) {
-    return res.status(500).json({ message: "Webhook secret is not configured" });
+    return res.status(500).json({ message: "RAZORPAY_WEBHOOK_SECRET is not configured" });
   }
 
-  const signature = (req.headers["x-razorpay-signature"] as string) || "";
   if (!signature) {
     return res.status(400).json({ message: "Missing Razorpay signature header" });
   }
 
-  const payload = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
-  const expectedSignature = crypto
+  // req.body is raw Buffer when handled by express.raw({ type: "application/json" })
+  const rawBody = Buffer.isBuffer(req.body)
+    ? req.body
+    : Buffer.from(typeof req.body === "string" ? req.body : JSON.stringify(req.body || {}));
+
+  const expected = crypto
     .createHmac("sha256", webhookSecret)
-    .update(payload)
+    .update(rawBody) // raw Buffer, not parsed JSON
     .digest("hex");
 
-  const expectedBuf = Buffer.from(expectedSignature);
-  const signatureBuf = Buffer.from(signature);
-  const isValid =
-    expectedBuf.length === signatureBuf.length &&
-    crypto.timingSafeEqual(expectedBuf, signatureBuf);
+  const valid =
+    Boolean(signature) &&
+    expected.length === signature.length &&
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 
-  if (!isValid) {
+  if (!valid) {
     return res.status(400).json({ message: "Invalid webhook signature" });
   }
 
-  const event = req.body?.event;
-  if (event === "payment.captured") {
-    const paymentEntity = req.body?.payload?.payment?.entity;
+  let event: any;
+  try {
+    event = JSON.parse(rawBody.toString("utf8"));
+  } catch {
+    return res.status(400).json({ message: "Invalid JSON payload" });
+  }
+
+  if (event.event === "payment.captured") {
+    const paymentEntity = event.payload?.payment?.entity;
     if (!paymentEntity) {
       return res.status(400).json({ message: "Invalid payload: missing payment entity" });
     }
@@ -353,13 +389,14 @@ export const handleWebhook = async (req: any, res: Response) => {
 
     const payment = await Payment.findOne({ razorpayOrderId: orderId });
     if (!payment) {
-      return res.status(200).json({ status: "ignored", message: "Payment order not found" });
+      return res.status(200).json({ received: true, status: "ignored", message: "Payment order not found" });
     }
 
     if (payment.status === "completed") {
-      return res.status(200).json({ status: "ok", message: "Already reconciled" });
+      return res.status(200).json({ received: true, status: "ok", message: "Already reconciled" });
     }
 
+    // reuse the same atomic transition you already wrote in verifyPayment:
     const updated = await Payment.findOneAndUpdate(
       { _id: payment._id, status: "pending" },
       {
@@ -374,50 +411,13 @@ export const handleWebhook = async (req: any, res: Response) => {
     );
 
     if (updated) {
-      const booking = await Booking.findById(payment.booking);
-      if (booking && booking.paymentStatus !== "paid") {
-        booking.paymentStatus = "paid";
-        await booking.save();
-
-        const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
-        await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
-        await WalletTransaction.create({
-          driver: booking.driver,
-          type: "credit",
-          amount: driverAmount,
-          description: `Earnings for booking ${booking._id} (via webhook reconciliation)`,
-          booking: booking._id,
-        });
-
-        createNotification({
-          userId: booking.driver,
-          userModel: "Driver",
-          title: "Payment Received",
-          message: `Payment of ₹${booking.totalAmount} received for a booking. ₹${driverAmount.toFixed(2)} added to your wallet.`,
-          type: "payment",
-          link: `/bookings/${booking._id}`,
-        }).catch(() => {});
-
-        const [driver, user] = await Promise.all([
-          Driver.findById(booking.driver).select("name email"),
-          User.findById(booking.user).select("name email"),
-        ]);
-        if (driver && user) sendBookingStatusUpdate(user, driver, booking, "paid").catch(() => {});
-
-        publishKafkaEvent(KAFKA_TOPICS.PAYMENT_COMPLETED, String(payment._id), {
-          paymentId: payment._id,
-          bookingId: booking._id,
-          driverId: booking.driver,
-          userId: booking.user,
-          totalAmount: booking.totalAmount,
-          driverAmount,
-          paymentMethod: "razorpay_webhook",
-        }).catch(() => {});
-      }
+      await reconcilePayment(updated, "razorpay_webhook");
     }
 
-    return res.status(200).json({ status: "ok", message: "Payment reconciled successfully" });
+    return res.status(200).json({ received: true, status: "ok", message: "Payment reconciled successfully" });
   }
 
-  res.status(200).json({ status: "ok", message: "Event ignored" });
+  res.status(200).json({ received: true, status: "ok", message: "Event ignored" });
 };
+
+export const handleWebhook = verifyWebhook;

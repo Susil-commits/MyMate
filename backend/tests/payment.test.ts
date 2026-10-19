@@ -32,6 +32,7 @@ const {
   refundPayment,
   payWithWallet,
   handleWebhook,
+  verifyWebhook,
 } = await import("../controllers/paymentController.js");
 
 const Booking = (await import("../models/Booking.js")).default;
@@ -700,6 +701,73 @@ describe("Payment Processing Test Suite (TASK 2.3)", () => {
       expect(res.statusCode).toBe(200);
       expect(res.body.message).toBe("Already reconciled");
       expect(driverUpdateSpy).not.toHaveBeenCalled();
+    });
+
+    it("should verify webhook using raw Buffer body and RAZORPAY_WEBHOOK_SECRET", async () => {
+      const customWebhookSecret = "whsec_custom_secret_789";
+      process.env.RAZORPAY_WEBHOOK_SECRET = customWebhookSecret;
+
+      const orderId = "order_raw_buf_999";
+      const paymentId = "pay_raw_buf_888";
+      const payloadObj = {
+        event: "payment.captured",
+        payload: {
+          payment: {
+            entity: {
+              id: paymentId,
+              order_id: orderId,
+            },
+          },
+        },
+      };
+
+      const rawBuffer = Buffer.from(JSON.stringify(payloadObj));
+      const validSig = crypto
+        .createHmac("sha256", customWebhookSecret)
+        .update(rawBuffer)
+        .digest("hex");
+
+      const paymentDoc = {
+        _id: "pay_doc_raw_buf",
+        status: "pending",
+        razorpayOrderId: orderId,
+        booking: validBookingId,
+      };
+      jest.spyOn(Payment, "findOne").mockResolvedValue(paymentDoc as any);
+      jest.spyOn(Payment, "findOneAndUpdate").mockResolvedValue({
+        ...paymentDoc,
+        status: "completed",
+      } as any);
+
+      const bookingDoc: any = {
+        _id: validBookingId,
+        user: validUserId,
+        driver: validDriverId,
+        totalAmount: 500,
+        paymentStatus: "pending",
+        save: jest.fn().mockResolvedValue(undefined),
+      };
+      jest.spyOn(Booking, "findById").mockResolvedValue(bookingDoc);
+      jest.spyOn(Driver, "findByIdAndUpdate").mockResolvedValue({} as any);
+      jest.spyOn(WalletTransaction, "create").mockResolvedValue({} as any);
+      const selectMock = jest.fn().mockResolvedValue({ name: "Bob", email: "bob@driver.com" });
+      jest.spyOn(Driver, "findById").mockReturnValue({ select: selectMock } as any);
+      jest.spyOn(User, "findById").mockReturnValue({ select: selectMock } as any);
+
+      const req: any = {
+        headers: { "x-razorpay-signature": validSig },
+        body: rawBuffer, // Raw Buffer from express.raw()
+      };
+      const res = createMockResponse();
+
+      await verifyWebhook(req, res);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.received).toBe(true);
+      expect(res.body.status).toBe("ok");
+      expect(bookingDoc.paymentStatus).toBe("paid");
+
+      delete process.env.RAZORPAY_WEBHOOK_SECRET;
     });
   });
 });

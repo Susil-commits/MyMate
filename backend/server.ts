@@ -24,6 +24,7 @@ import { initializeChangeStreams } from "./events/changeStreams.js";
 import { setupQueueBoard } from "./utils/queueBoard.js";
 import { startKafka, stopKafka, isKafkaConnected } from "./kafka/index.js";
 import { csrfProtection } from "./middleware/csrf.js";
+import { verifyWebhook } from "./controllers/paymentController.js";
 
 
 const _filename = fileURLToPath(import.meta.url);
@@ -78,6 +79,15 @@ app.use(cors({
 
 app.use(compression());
 app.use(cookieParser());
+
+// Razorpay webhook route requires raw Buffer body for HMAC signature verification.
+// Mounted before express.json() and before CSRF protection.
+app.post(
+  ["/api/v1/payments/webhook", "/api/payments/webhook"],
+  express.raw({ type: "application/json" }),
+  verifyWebhook
+);
+
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(mongoSanitize());
