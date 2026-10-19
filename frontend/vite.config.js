@@ -18,7 +18,7 @@ export default defineConfig({
       ext: '.gz'
     }),
     VitePWA({
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'MyMate - Hire Drivers',
