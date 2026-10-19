@@ -31,7 +31,7 @@ export default function MessagesPage() {
   const typingTimeoutRef = useRef(null); // Reference for our own typing timeout
   const messagesEndRef = useRef(null);
 
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket() || {};
 
   useEffect(() => {
     let active = true;
@@ -189,8 +189,14 @@ export default function MessagesPage() {
         <aside
           className={`${showChatMobile ? "hidden md:flex" : "flex"} flex-col border-r border-gray-100`}
         >
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h2 className="font-bold text-gray-900">Conversations</h2>
+            {!isConnected && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200/60 px-2.5 py-0.5 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Reconnecting...
+              </span>
+            )}
           </div>
           <div className="flex-1 overflow-y-auto">
             {loadingList ? (
@@ -268,25 +274,33 @@ export default function MessagesPage() {
             </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 p-4 border-b border-gray-100">
-                <button
-                  onClick={() => navigate("/messages")}
-                  className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                  aria-label="Back to conversations"
-                >
-                  <HiArrowLeft className="w-5 h-5 text-gray-600" />
-                </button>
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                  {otherParty(activeConv || {})?.name?.charAt(0) || "?"}
+              <header className="flex items-center justify-between p-4 border-b border-gray-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <button
+                    onClick={() => navigate("/messages")}
+                    className="md:hidden p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                    aria-label="Back to conversations"
+                  >
+                    <HiArrowLeft className="w-5 h-5 text-gray-600" />
+                  </button>
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
+                    {otherParty(activeConv || {})?.name?.charAt(0) || "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-bold text-gray-900 truncate">
+                      {otherParty(activeConv || {})?.name || "Conversation"}
+                    </p>
+                    {activeConv?.driver?.locality && role === "user" && (
+                      <p className="text-xs text-gray-500 truncate">{activeConv.driver.locality}</p>
+                    )}
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="font-bold text-gray-900 truncate">
-                    {otherParty(activeConv || {})?.name || "Conversation"}
-                  </p>
-                  {activeConv?.driver?.locality && role === "user" && (
-                    <p className="text-xs text-gray-500 truncate">{activeConv.driver.locality}</p>
-                  )}
-                </div>
+                {!isConnected && (
+                  <div className="flex items-center gap-1.5 text-xs text-amber-600 bg-amber-50 border border-amber-200/60 px-2.5 py-1 rounded-full flex-shrink-0">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span>Reconnecting...</span>
+                  </div>
+                )}
               </header>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/50">

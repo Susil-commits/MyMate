@@ -193,7 +193,7 @@ export default function BookingDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const socket = useSocket();
+  const { socket, isConnected } = useSocket() || {};
 
   useEffect(() => {
     if (!id || !socket) return;
@@ -385,6 +385,12 @@ export default function BookingDetailPage() {
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-extrabold text-gray-900">Booking Details</h1>
         <div className="flex items-center gap-2 flex-wrap">
+          {!isConnected && booking.status === "ongoing" && (
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-xs font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Reconnecting...
+            </span>
+          )}
           <button onClick={handleDownloadCalendar} className="px-3 py-1.5 border border-blue-200 text-blue-600 rounded-lg text-sm font-semibold hover:bg-blue-50 transition-colors">
             + Calendar
           </button>

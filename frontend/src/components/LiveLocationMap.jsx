@@ -31,7 +31,7 @@ function MapAutoPan({ position }) {
 }
 
 export default function LiveLocationMap({ bookingId, initialLat, initialLng }) {
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket() || {};
   const [driverLocation, setDriverLocation] = useState(
     initialLat && initialLng ? [initialLat, initialLng] : [20.5937, 78.9629]
   );
@@ -39,7 +39,16 @@ export default function LiveLocationMap({ bookingId, initialLat, initialLng }) {
     initialLat && initialLng ? [initialLat, initialLng] : [20.5937, 78.9629]
   );
   const [lastUpdate, setLastUpdate] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const markerRef = useRef(null);
+
+  // Periodically check update freshness
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isLive = Boolean(isConnected && lastUpdate && now - lastUpdate.getTime() < 30000);
 
   useEffect(() => {
     if (!socket || !bookingId) return;
@@ -117,9 +126,15 @@ export default function LiveLocationMap({ bookingId, initialLat, initialLng }) {
       </MapContainer>
       
       {/* Overlay to show real-time status */}
-      <div className="absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md flex items-center gap-2 border border-green-100">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-        <span className="text-xs font-bold text-green-700 tracking-wide uppercase">Live</span>
+      <div
+        className={`absolute top-4 right-4 z-[400] bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-md flex items-center gap-2 border transition-colors ${
+          isLive ? "border-green-100" : "border-gray-200"
+        }`}
+      >
+        <div className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}></div>
+        <span className={`text-xs font-bold tracking-wide uppercase ${isLive ? "text-green-700" : "text-gray-500"}`}>
+          {isLive ? "Live" : "Connecting…"}
+        </span>
       </div>
     </div>
   );

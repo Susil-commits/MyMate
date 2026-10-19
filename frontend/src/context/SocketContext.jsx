@@ -2,11 +2,12 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
-const SocketContext = createContext(null);
+const SocketContext = createContext({ socket: null, isConnected: false });
 
 export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
   const [socket, setSocket] = useState(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -16,23 +17,41 @@ export const SocketProvider = ({ children }) => {
         withCredentials: true,
       });
 
+      const onConnect = () => setIsConnected(true);
+      const onDisconnect = () => setIsConnected(false);
+      const onConnectError = () => setIsConnected(false);
+
+      socketInstance.on("connect", onConnect);
+      socketInstance.on("disconnect", onDisconnect);
+      socketInstance.on("connect_error", onConnectError);
+
+      if (socketInstance.connected) {
+        setIsConnected(true);
+      }
+
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSocket(socketInstance);
 
       return () => {
+        socketInstance.off("connect", onConnect);
+        socketInstance.off("disconnect", onDisconnect);
+        socketInstance.off("connect_error", onConnectError);
         socketInstance.disconnect();
+        setIsConnected(false);
+        setSocket(null);
       };
     } else {
       if (socket) {
         socket.disconnect();
         setSocket(null);
+        setIsConnected(false);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (
-    <SocketContext.Provider value={socket}>
+    <SocketContext.Provider value={{ socket, isConnected }}>
       {children}
     </SocketContext.Provider>
   );
