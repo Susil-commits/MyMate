@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { HiChat, HiPaperAirplane, HiArrowLeft } from "react-icons/hi";
 import { useAuth } from "../context/AuthContext";
@@ -6,7 +6,7 @@ import { useSocket } from "../context/SocketContext";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
-function timeAgo(date) {
+function timeAgo(date: string | Date) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
   if (seconds < 60) return "just now";
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -14,22 +14,45 @@ function timeAgo(date) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+interface MessageItem {
+  _id: string;
+  conversation: string;
+  senderModel: "User" | "Driver";
+  text: string;
+  createdAt: string;
+}
+
+interface ConversationItem {
+  _id: string;
+  user?: {
+    name?: string;
+  };
+  driver?: {
+    name?: string;
+    locality?: string;
+  };
+  lastMessage?: string;
+  lastMessageAt?: string;
+  lastSenderModel?: string;
+  unreadCount?: number;
+}
+
 export default function MessagesPage() {
-  const { conversationId } = useParams();
+  const { conversationId } = useParams<{ conversationId?: string }>();
   const navigate = useNavigate();
   const { role } = useAuth();
 
   const myModel = role === "user" ? "User" : "Driver";
 
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [loadingList, setLoadingList] = useState(true);
-  const [messages, setMessages] = useState([]);
-  const [loadedId, setLoadedId] = useState(null);
+  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false); // Add isTyping state
-  const typingTimeoutRef = useRef(null); // Reference for our own typing timeout
-  const messagesEndRef = useRef(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<any>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { socket, isConnected } = useSocket() || {};
 
@@ -38,7 +61,7 @@ export default function MessagesPage() {
     const fetchConversations = async () => {
       try {
         const { data } = await api.get("/messages/conversations");
-        if (active) setConversations(data.conversations);
+        if (active) setConversations(data.conversations || []);
       } catch {
         // ignore polling errors
       } finally {
@@ -58,14 +81,14 @@ export default function MessagesPage() {
       try {
         const { data } = await api.get(`/messages/${conversationId}`);
         if (!active) return;
-        setMessages(data.messages);
+        setMessages(data.messages || []);
         setLoadedId(conversationId);
-        setIsTyping(false); // Reset typing when switching conversations
+        setIsTyping(false);
         setConversations((prev) =>
           prev.map((c) => (c._id === conversationId ? { ...c, unreadCount: 0 } : c))
         );
       } catch {
-        // silently fail polling errors (Render cold starts)
+        // silently fail polling errors
       }
     };
     fetchMessages();
@@ -84,10 +107,10 @@ export default function MessagesPage() {
 
   useEffect(() => {
     if (!socket) return;
-    const handleReceiveMessage = (msg) => {
+    const handleReceiveMessage = (msg: MessageItem) => {
       if (msg.conversation === conversationId) {
         setMessages((prev) => [...prev, msg]);
-        setIsTyping(false); // Stop typing when message is received
+        setIsTyping(false);
       }
       setConversations((prev) => {
         const idx = prev.findIndex((c) => c._id === msg.conversation);
@@ -100,17 +123,17 @@ export default function MessagesPage() {
             lastSenderModel: msg.senderModel,
             unreadCount: msg.conversation === conversationId ? 0 : (updated[idx].unreadCount || 0) + 1
           };
-          return updated.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+          return updated.sort((a, b) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime());
         }
         return prev;
       });
     };
 
-    const handleTypingStart = (data) => {
+    const handleTypingStart = (data: { conversationId: string }) => {
       if (data.conversationId === conversationId) setIsTyping(true);
     };
 
-    const handleTypingStop = (data) => {
+    const handleTypingStop = (data: { conversationId: string }) => {
       if (data.conversationId === conversationId) setIsTyping(false);
     };
 
@@ -126,9 +149,9 @@ export default function MessagesPage() {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]); // scroll down when typing indicator appears
+  }, [messages, isTyping]);
 
-  const handleSend = async (e) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || sending) return;
     setSending(true);
@@ -150,17 +173,17 @@ export default function MessagesPage() {
       );
       setText("");
       if (socket) socket.emit("typing_stop", conversationId);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to send");
     } finally {
       setSending(false);
     }
   };
 
-  const handleTyping = (e) => {
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
     setText(e.target.value);
     
-    if (socket) {
+    if (socket && conversationId) {
       socket.emit("typing_start", conversationId);
       
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
@@ -171,7 +194,7 @@ export default function MessagesPage() {
     }
   };
 
-  const otherParty = (conv) => (role === "driver" ? conv.user : conv.driver);
+  const otherParty = (conv?: ConversationItem) => (role === "driver" ? conv?.user : conv?.driver);
   const activeConv = conversations.find((c) => c._id === conversationId);
   const showChatMobile = !!conversationId;
   const chatLoading = !!conversationId && loadedId !== conversationId;
@@ -222,7 +245,7 @@ export default function MessagesPage() {
                 )}
               </div>
             ) : (
-              conversations?.map?.((conv) => {
+              conversations.map((conv) => {
                 const party = otherParty(conv);
                 const isActive = conv._id === conversationId;
                 return (
@@ -250,11 +273,11 @@ export default function MessagesPage() {
                           {conv.lastSenderModel === myModel && "You: "}
                           {conv.lastMessage || "No messages yet"}
                         </p>
-                        {conv.unreadCount > 0 && (
+                        {conv.unreadCount && conv.unreadCount > 0 ? (
                           <span className="bg-blue-600 text-white text-xs font-bold rounded-full px-1.5 min-w-[20px] text-center">
                             {conv.unreadCount}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   </button>
@@ -284,11 +307,11 @@ export default function MessagesPage() {
                     <HiArrowLeft className="w-5 h-5 text-gray-600" />
                   </button>
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold">
-                    {otherParty(activeConv || {})?.name?.charAt(0) || "?"}
+                    {otherParty(activeConv)?.name?.charAt(0) || "?"}
                   </div>
                   <div className="min-w-0">
                     <p className="font-bold text-gray-900 truncate">
-                      {otherParty(activeConv || {})?.name || "Conversation"}
+                      {otherParty(activeConv)?.name || "Conversation"}
                     </p>
                     {activeConv?.driver?.locality && role === "user" && (
                       <p className="text-xs text-gray-500 truncate">{activeConv.driver.locality}</p>
@@ -313,7 +336,7 @@ export default function MessagesPage() {
                     <p className="text-sm text-gray-400">No messages yet. Say hello!</p>
                   </div>
                 ) : (
-                  messages?.map?.((m) => {
+                  messages.map((m) => {
                     const mine = m.senderModel === myModel;
                     return (
                       <div key={m._id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>

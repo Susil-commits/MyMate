@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { HiCreditCard, HiPlus, HiClock, HiArrowDown, HiArrowUp } from "react-icons/hi";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -7,10 +7,18 @@ import BackButton from "../components/BackButton";
 import { loadRazorpay } from "../utils/loadRazorpay";
 import { formatINR } from "../utils/constants";
 
+interface WalletTransaction {
+  _id: string;
+  type: "credit" | "debit";
+  description: string;
+  amount: number;
+  createdAt: string;
+}
+
 export default function WalletPage() {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
-  const [transactions, setTransactions] = useState([]);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [addAmount, setAddAmount] = useState("");
   const [adding, setAdding] = useState(false);
@@ -18,8 +26,8 @@ export default function WalletPage() {
   const fetchWallet = async () => {
     try {
       const { data } = await api.get("/wallet");
-      setBalance(data.balance);
-      setTransactions(data.transactions);
+      setBalance(data.balance || 0);
+      setTransactions(data.transactions || []);
     } catch {
       toast.error("Failed to fetch wallet");
     } finally {
@@ -28,11 +36,10 @@ export default function WalletPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line
     fetchWallet();
   }, []);
 
-  const handleAddMoney = async (e) => {
+  const handleAddMoney = async (e: React.FormEvent) => {
     e.preventDefault();
     const amount = Number(addAmount);
     if (!amount || amount < 10) {
@@ -54,7 +61,7 @@ export default function WalletPage() {
         name: "MyMate Wallet",
         description: "Wallet Recharge",
         order_id: data.orderId,
-        handler: async (response) => {
+        handler: async (response: any) => {
           try {
             await api.post("/wallet/verify", {
               razorpay_order_id: response.razorpay_order_id,
@@ -65,7 +72,7 @@ export default function WalletPage() {
             toast.success("Wallet recharged successfully!");
             setAddAmount("");
             fetchWallet();
-          } catch (err) {
+          } catch (err: any) {
             toast.error(err.response?.data?.message || "Payment verification failed");
           }
         },
@@ -79,12 +86,12 @@ export default function WalletPage() {
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (resp) => {
+      rzp.on("payment.failed", (resp: any) => {
         toast.error(resp.error?.description || "Payment failed");
         setAdding(false);
       });
       rzp.open();
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Could not initiate payment");
       setAdding(false);
     }

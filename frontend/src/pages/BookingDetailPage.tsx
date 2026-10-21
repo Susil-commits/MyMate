@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } from "react-icons/hi";
 import BackButton from "../components/BackButton";
@@ -13,12 +13,19 @@ import { useAuth } from "../context/AuthContext";
 import { useSocket } from "../context/SocketContext";
 import toast from "react-hot-toast";
 
-function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
+interface PaymentFormProps {
+  bookingId: string;
+  amount: number;
+  onSuccess: () => void;
+  onCancel: () => void;
+}
+
+function PaymentForm({ bookingId, amount, onSuccess, onCancel }: PaymentFormProps) {
   const [processing, setProcessing] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
 
   useEffect(() => {
-    api.get("/wallet").then(res => setWalletBalance(res.data.balance)).catch(() => {});
+    api.get("/wallet").then((res) => setWalletBalance(res.data.balance)).catch(() => {});
   }, []);
 
   const handleWalletPay = async () => {
@@ -27,7 +34,7 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
       await api.post("/payments/wallet-pay", { bookingId });
       toast.success("Paid successfully using Wallet!");
       onSuccess();
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Wallet payment failed");
       setProcessing(false);
     }
@@ -53,7 +60,7 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
         name: "MyMate",
         description: "Driver booking payment",
         order_id: data.orderId,
-        handler: async (response) => {
+        handler: async (response: any) => {
           try {
             await api.post("/payments/verify", {
               razorpay_order_id: response.razorpay_order_id,
@@ -62,7 +69,7 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
             });
             toast.success("Payment successful!");
             onSuccess();
-          } catch (err) {
+          } catch (err: any) {
             toast.error(err.response?.data?.message || "Payment verification failed");
           }
         },
@@ -76,12 +83,12 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
       };
 
       const rzp = new window.Razorpay(options);
-      rzp.on("payment.failed", (resp) => {
+      rzp.on("payment.failed", (resp: any) => {
         toast.error(resp.error?.description || "Payment failed");
         setProcessing(false);
       });
       rzp.open();
-    } catch (err) {
+    } catch (err: any) {
       if (err?.message === "Failed to load Razorpay checkout script" || err?.message === "Razorpay unavailable") {
         toast.error("Payment gateway failed to load. Check your connection and try again.");
       } else {
@@ -143,7 +150,7 @@ function PaymentForm({ bookingId, amount, onSuccess, onCancel }) {
 
 const STATUS_FLOW = ["pending", "accepted", "ongoing", "completed"];
 
-function StatusTimeline({ status }) {
+function StatusTimeline({ status }: { status: string }) {
   const currentIndex = STATUS_FLOW.indexOf(status);
   const isCancelled = status === "cancelled" || status === "rejected";
 
@@ -180,13 +187,18 @@ function StatusTimeline({ status }) {
   );
 }
 
+interface BookingReview {
+  rating: number;
+  comment?: string;
+}
+
 export default function BookingDetailPage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { role } = useAuth();
-  const [booking, setBooking] = useState(null);
+  const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [existingReview, setExistingReview] = useState(null);
+  const [existingReview, setExistingReview] = useState<BookingReview | null>(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
   const [showReview, setShowReview] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -200,7 +212,7 @@ export default function BookingDetailPage() {
     
     socket.emit("join_booking", id);
     
-    const handleUpdate = (updatedBooking) => {
+    const handleUpdate = (updatedBooking: any) => {
       if (updatedBooking._id === id) {
         setBooking(updatedBooking);
       }
@@ -215,7 +227,7 @@ export default function BookingDetailPage() {
   }, [id, socket]);
 
   useEffect(() => {
-    let watchId;
+    let watchId: number;
     if (role === "driver" && booking?.status === "ongoing" && socket) {
       if ("geolocation" in navigator) {
         watchId = navigator.geolocation.watchPosition(
@@ -263,13 +275,15 @@ export default function BookingDetailPage() {
         if (active) setLoading(false);
       }
     };
-    fetchBooking();
+    if (id) {
+      fetchBooking();
+    }
     return () => {
       active = false;
     };
   }, [id, role]);
 
-  const handleStatusUpdate = async (status) => {
+  const handleStatusUpdate = async (status: string) => {
     if (status === "cancelled") {
       setConfirmCancel(true);
       return;
@@ -278,7 +292,7 @@ export default function BookingDetailPage() {
       const { data } = await api.put(`/bookings/${id}/status`, { status });
       setBooking(data.booking);
       toast.success(`Booking ${status}`);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to update");
     }
   };
@@ -290,7 +304,7 @@ export default function BookingDetailPage() {
       setBooking(data.booking);
       toast.success("Booking cancelled");
       setConfirmCancel(false);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to cancel");
     } finally {
       setCancelling(false);
@@ -299,10 +313,10 @@ export default function BookingDetailPage() {
 
   const handlePaymentSuccess = () => {
     setShowPayment(false);
-    setBooking((prev) => ({ ...prev, paymentStatus: "paid" }));
+    setBooking((prev: any) => ({ ...prev, paymentStatus: "paid" }));
   };
 
-  const handleReview = async (e) => {
+  const handleReview = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmittingReview(true);
     try {
@@ -314,7 +328,7 @@ export default function BookingDetailPage() {
       toast.success("Review submitted!");
       setExistingReview(data.review);
       setShowReview(false);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Review failed");
     } finally {
       setSubmittingReview(false);
@@ -349,14 +363,14 @@ export default function BookingDetailPage() {
 
   const handleDownloadCalendar = async () => {
     try {
-      const response = await api.get(`/bookings/${id}/calendar`, { responseType: 'blob' });
+      const response = await api.get(`/bookings/${id}/calendar`, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `booking-${id}.ics`);
+      link.setAttribute("download", `booking-${id}.ics`);
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
+      link.parentNode?.removeChild(link);
     } catch (err) {
       console.error(err);
       toast.error("Failed to download calendar event");
@@ -365,14 +379,14 @@ export default function BookingDetailPage() {
 
   const handleDownloadInvoice = async () => {
     try {
-      const response = await api.get(`/bookings/${id}/invoice`, { responseType: 'blob' });
+      const response = await api.get(`/bookings/${id}/invoice`, { responseType: "blob" });
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `invoice-${id}.pdf`);
+      link.setAttribute("download", `invoice-${id}.pdf`);
       document.body.appendChild(link);
       link.click();
-      link.parentNode.removeChild(link);
+      link.parentNode?.removeChild(link);
     } catch (err) {
       console.error(err);
       toast.error("Failed to download invoice");
@@ -399,10 +413,10 @@ export default function BookingDetailPage() {
               PDF Invoice
             </button>
           )}
-          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${bookingStatusColors[booking.status]}`}>
+          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${bookingStatusColors[booking.status as keyof typeof bookingStatusColors] || "bg-gray-100 text-gray-700"}`}>
             {booking.status}
           </span>
-          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${paymentStatusColors[booking.paymentStatus]}`}>
+          <span className={`px-4 py-1.5 rounded-full text-sm font-semibold capitalize ${paymentStatusColors[booking.paymentStatus as keyof typeof paymentStatusColors] || "bg-gray-100 text-gray-700"}`}>
             {booking.paymentStatus}
           </span>
         </div>
@@ -422,7 +436,7 @@ export default function BookingDetailPage() {
           {booking.dropLocation && <Detail icon={<HiLocationMarker />} label="Drop" value={booking.dropLocation} />}
           <Detail icon={<HiCash />} label="Total Amount" value={formatINR(booking.totalAmount)} />
           {booking.cancellationReason && (
-             <Detail icon={<HiCash />} label="Cancel Reason" value={booking.cancellationReason} />
+            <Detail icon={<HiCash />} label="Cancel Reason" value={booking.cancellationReason} />
           )}
         </div>
 
@@ -435,7 +449,7 @@ export default function BookingDetailPage() {
 
         {booking.status === "ongoing" ? (
           <div className="mt-6 h-[400px]">
-            <LiveLocationMap bookingId={id} />
+            <LiveLocationMap bookingId={id!} />
           </div>
         ) : (
           <MapDisplay pickupLocation={booking.pickupLocation} dropLocation={booking.dropLocation} stops={booking.stops} />
@@ -496,7 +510,7 @@ export default function BookingDetailPage() {
 
         {showPayment && (
           <PaymentForm
-            bookingId={id}
+            bookingId={id!}
             amount={booking.totalAmount}
             onSuccess={handlePaymentSuccess}
             onCancel={() => setShowPayment(false)}
@@ -559,7 +573,13 @@ export default function BookingDetailPage() {
   );
 }
 
-function Detail({ icon, label, value }) {
+interface DetailProps {
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}
+
+function Detail({ icon, label, value }: DetailProps) {
   return (
     <div className="flex items-start gap-3">
       <span className="w-8 h-8 rounded-lg bg-gray-50 text-gray-400 flex items-center justify-center flex-shrink-0">{icon}</span>

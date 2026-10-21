@@ -9,24 +9,39 @@ import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import toast from "react-hot-toast";
 
+interface BookingItem {
+  _id: string;
+  driver?: {
+    _id: string;
+    name: string;
+  };
+  hireType: "temporary" | "permanent";
+  startDate: string;
+  endDate?: string;
+  pickupLocation: string;
+  dropLocation?: string;
+  totalAmount: number;
+  status: "pending" | "accepted" | "ongoing" | "completed" | "cancelled" | "rejected";
+}
+
 export default function BookingsPage() {
-  const [bookings, setBookings] = useState([]);
+  const [bookings, setBookings] = useState<BookingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ pages: 1, total: 0 });
-  const [confirmCancel, setConfirmCancel] = useState(null);
+  const [confirmCancel, setConfirmCancel] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     const fetchBookings = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ page, limit: 10 });
+        const params = new URLSearchParams({ page: String(page), limit: "10" });
         if (statusFilter) params.set("status", statusFilter);
         const { data } = await api.get(`/bookings/user?${params.toString()}`);
-        setBookings(data.bookings);
-        setPagination(data.pagination);
+        setBookings(data.bookings || []);
+        setPagination(data.pagination || { pages: 1, total: 0 });
       } catch (err) {
         console.error("Failed to load bookings:", err);
       } finally {
@@ -46,14 +61,14 @@ export default function BookingsPage() {
       );
       toast.success("Booking cancelled");
       setConfirmCancel(null);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to cancel");
     } finally {
       setCancelling(false);
     }
   };
 
-  const handleStatusFilterChange = (value) => {
+  const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setPage(1);
   };
@@ -62,7 +77,7 @@ export default function BookingsPage() {
     <div className="animate-fade-in">
       <BackButton to="/drivers" label="Back to Drivers" />
       <div className="flex items-center justify-between mb-6">
- <h1 className="text-3xl font-extrabold text-gray-900 ">
+        <h1 className="text-3xl font-extrabold text-gray-900">
           My <span className="gradient-text">Bookings</span>
         </h1>
         <select
@@ -83,32 +98,32 @@ export default function BookingsPage() {
         <SkeletonList count={3} />
       ) : !bookings?.length ? (
         <div className="text-center py-16 animate-fade-up">
- <HiClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
- <p className="text-gray-500 text-lg">No bookings found.</p>
- <Link to="/drivers" className="mt-2 inline-block text-blue-600 hover:text-blue-700 font-semibold text-sm">
+          <HiClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No bookings found.</p>
+          <Link to="/drivers" className="mt-2 inline-block text-blue-600 hover:text-blue-700 font-semibold text-sm">
             Find a driver
           </Link>
         </div>
       ) : (
         <div className="space-y-4 stagger-1">
-          {bookings?.map?.((booking) => (
- <div key={booking._id} className="bg-white rounded-2xl border border-gray-100 p-6 card-hover animate-scale-in">
+          {bookings?.map((booking) => (
+            <div key={booking._id} className="bg-white rounded-2xl border border-gray-100 p-6 card-hover animate-scale-in">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
-                    {booking.driver?.name?.charAt(0)}
+                    {booking.driver?.name?.charAt(0) || "D"}
                   </div>
                   <div>
- <Link to={`/drivers/${booking.driver?._id}`} className="text-lg font-bold text-gray-900 hover:text-gray-700 transition-colors">
+                    <Link to={`/drivers/${booking.driver?._id}`} className="text-lg font-bold text-gray-900 hover:text-gray-700 transition-colors">
                       {booking.driver?.name}
                     </Link>
- <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="text-sm text-gray-500 mt-0.5">
                       {booking.hireType === "temporary" ? "Temporary" : "Permanent"} &middot;{" "}
                       {new Date(booking.startDate).toLocaleDateString()}
                       {booking.endDate && ` → ${new Date(booking.endDate).toLocaleDateString()}`}
                     </p>
- <p className="text-sm text-gray-500 ">{booking.pickupLocation} {booking.dropLocation && `→ ${booking.dropLocation}`}</p>
-  <p className="text-sm font-bold text-green-600 mt-1">₹{booking.totalAmount}</p>
+                    <p className="text-sm text-gray-500">{booking.pickupLocation} {booking.dropLocation && `→ ${booking.dropLocation}`}</p>
+                    <p className="text-sm font-bold text-green-600 mt-1">₹{booking.totalAmount}</p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -118,14 +133,14 @@ export default function BookingsPage() {
                   {(booking.status === "pending" || booking.status === "accepted") && (
                     <button
                       onClick={() => setConfirmCancel(booking._id)}
- className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
+                      className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors"
                     >
                       Cancel
                     </button>
                   )}
                   <Link
                     to={`/bookings/${booking._id}`}
- className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+                    className="text-sm text-blue-600 hover:text-blue-700 font-semibold transition-colors"
                   >
                     View Details →
                   </Link>

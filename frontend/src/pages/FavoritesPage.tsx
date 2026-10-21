@@ -6,14 +6,23 @@ import BackButton from "../components/BackButton";
 import { SkeletonList } from "../components/SkeletonLoader";
 import api from "../api/axios";
 
+interface FavoriteDriver {
+  _id: string;
+  name: string;
+  locality?: string;
+  bio?: string;
+  experienceYears?: number;
+  availability: "available" | "busy" | "offline";
+}
+
 export default function FavoritesPage() {
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState<FavoriteDriver[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     api
       .get("/favorites")
-      .then(({ data }) => setFavorites(data.favorites))
+      .then(({ data }) => setFavorites(data.favorites || []))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -42,7 +51,7 @@ export default function FavoritesPage() {
         </div>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 stagger-1">
-          {favorites?.map?.((driver) => (
+          {favorites.map((driver) => (
             <Link
               key={driver._id}
               to={`/drivers/${driver._id}`}
