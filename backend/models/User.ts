@@ -22,6 +22,7 @@ export interface IUser extends Document {
   isTwoFactorEnabled: boolean;
   twoFactorSecret?: string;
   walletBalance: number;
+  deletedAt?: Date | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
   getResetPasswordToken(): string;
   toJSON(): any;
@@ -48,6 +49,7 @@ const userSchema = new mongoose.Schema<IUser>(
     isTwoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String, default: "" },
     walletBalance: { type: Number, default: 0 },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

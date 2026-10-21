@@ -46,7 +46,11 @@ if (process.env.NODE_ENV !== "test") {
   }
 }
 
+import { correlationIdMiddleware } from "./middleware/correlationId.js";
+
 const app: Express = express();
+
+app.use(correlationIdMiddleware);
 
 app.set("trust proxy", 1);
 
@@ -101,37 +105,75 @@ setupSwagger(app);
 import mongoose from "mongoose";
 import redisClient from "./config/redis.js";
 
-app.get("/health", async (req: Request, res: Response) => {
+// Pure liveness check (process alive and responsive)
+app.get("/health", (req: Request, res: Response) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Readiness check (checks MongoDB, Redis, and Kafka producer connectivity independently)
+app.get("/health/ready", async (req: Request, res: Response) => {
+  const dependencies: Record<string, { status: "ok" | "error"; message?: string; latencyMs?: number }> = {};
+  let isReady = true;
+
+  // 1. Check MongoDB
+  const mongoStart = Date.now();
   try {
-    // Ping MongoDB
-    const mongoStatus = mongoose.connection.readyState === 1 ? "connected" : "disconnected";
-    if (mongoStatus !== "connected") {
-      throw new Error("MongoDB disconnected");
+    if (mongoose.connection.readyState === 1) {
+      dependencies.mongodb = { status: "ok", latencyMs: Date.now() - mongoStart };
+    } else {
+      isReady = false;
+      dependencies.mongodb = { status: "error", message: `readyState: ${mongoose.connection.readyState}` };
     }
-
-    // Ping Redis
-    if (redisClient) {
-      await redisClient.ping();
-    }
-
-    res.json({
-      status: "ok",
-      uptime: process.uptime(),
-      timestamp: new Date().toISOString(),
-      dependencies: {
-        mongodb: "ok",
-        redis: "ok",
-        kafka: isKafkaConnected() ? "ok" : "disconnected_or_disabled"
-      }
-    });
-
   } catch (err: any) {
-    res.status(503).json({
-      status: "error",
-      message: "Service Unavailable",
-      error: err.message
-    });
+    isReady = false;
+    dependencies.mongodb = { status: "error", message: err.message };
   }
+
+  // 2. Check Redis
+  const redisStart = Date.now();
+  try {
+    if (process.env.DISABLE_REDIS === "true") {
+      dependencies.redis = { status: "ok", message: "disabled" };
+    } else if (redisClient) {
+      await Promise.race([
+        redisClient.ping(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Redis ping timeout")), 2000)),
+      ]);
+      dependencies.redis = { status: "ok", latencyMs: Date.now() - redisStart };
+    } else {
+      dependencies.redis = { status: "ok", message: "not_configured" };
+    }
+  } catch (err: any) {
+    isReady = false;
+    dependencies.redis = { status: "error", message: err.message };
+  }
+
+  // 3. Check Kafka Producer
+  try {
+    if (process.env.KAFKA_ENABLED === "false") {
+      dependencies.kafka = { status: "ok", message: "disabled" };
+    } else if (isKafkaConnected()) {
+      dependencies.kafka = { status: "ok" };
+    } else {
+      isReady = false;
+      dependencies.kafka = { status: "error", message: "producer_disconnected" };
+    }
+  } catch (err: any) {
+    isReady = false;
+    dependencies.kafka = { status: "error", message: err.message };
+  }
+
+  const statusCode = isReady ? 200 : 503;
+  return res.status(statusCode).json({
+    status: isReady ? "ready" : "unready",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    dependencies,
+  });
 });
 
 app.get("/", (req: Request, res: Response) => {

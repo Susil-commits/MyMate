@@ -7,7 +7,7 @@ export default {
     "^sanitize-html$": "<rootDir>/tests/mocks/sanitize-html.cjs"
   },
   transform: {
-    "^.+\\.ts$": ["ts-jest", { useESM: true }],
+    "^.+\\.ts$": ["ts-jest", { useESM: true, isolatedModules: true }],
   },
   extensionsToTreatAsEsm: [".ts"],
   transformIgnorePatterns: [

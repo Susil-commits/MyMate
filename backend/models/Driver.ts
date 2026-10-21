@@ -39,6 +39,7 @@ export interface IDriver extends Document {
   resetPasswordExpire?: Date;
   isTwoFactorEnabled: boolean;
   twoFactorSecret?: string;
+  deletedAt?: Date | null;
   comparePassword(candidatePassword: string): Promise<boolean>;
   getResetPasswordToken(): string;
   toJSON(): any;
@@ -96,6 +97,7 @@ const driverSchema = new mongoose.Schema<IDriver>(
     resetPasswordExpire: Date,
     isTwoFactorEnabled: { type: Boolean, default: false },
     twoFactorSecret: { type: String, default: "" },
+    deletedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

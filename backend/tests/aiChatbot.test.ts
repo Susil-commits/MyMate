@@ -151,7 +151,7 @@ describe("AI Chatbot System Guardrails & Error Handling", () => {
 
   describe("3. Express Chat Controller Handler", () => {
     it("should return 400 when message is missing or whitespace only", async () => {
-      const reqEmpty = { body: { message: "   " } };
+      const reqEmpty: any = { body: { message: "   " } };
       let statusResult = 200;
       let jsonResult: any = null;
 
@@ -172,7 +172,7 @@ describe("AI Chatbot System Guardrails & Error Handling", () => {
     });
 
     it("should handle valid platform queries and return formatted response + history", async () => {
-      const req = {
+      const req: any = {
         body: {
           message: "What are the surge pricing hours?",
           history: [],
@@ -206,7 +206,7 @@ describe("AI Chatbot System Guardrails & Error Handling", () => {
     });
 
     it("should refuse outside questions when processed through the controller", async () => {
-      const req = {
+      const req: any = {
         body: {
           message: "Who won the cricket world cup?",
           history: [],

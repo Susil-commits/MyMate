@@ -3,8 +3,9 @@ import { DriverCandidate, ScoreWeights, rankDrivers } from "../utils/driverScori
 
 /**
  * Haversine formula for calculating great-circle distance in km.
+ * Retained as fallback when 2dsphere index is unavailable (e.g. mock test DBs).
  */
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+export function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -18,32 +19,74 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 
 /**
  * Service to retrieve and rank available drivers using the scoring engine.
+ * Leverages Driver collection's 2dsphere index via $geoNear aggregation
+ * for O(log N) geospatial distance computation in MongoDB, with graceful
+ * fallback to in-memory Haversine if geospatial index is unavailable.
  */
 export async function findBestDrivers(
   userLat: number,
   userLng: number,
   limit: number = 3
 ): Promise<DriverCandidate[]> {
-  // Query available drivers from MongoDB
-  const driversFromDb = await Driver.find({ kycStatus: "approved", isActive: true })
-    .select("_id location averageRating experienceYears")
-    .lean();
+  let candidates: DriverCandidate[] = [];
 
-  // Map database documents to driver candidate interface
-  const candidates: DriverCandidate[] = driversFromDb.map((d) => {
-    const driverLng = d.location?.coordinates?.[0] ?? userLng;
-    const driverLat = d.location?.coordinates?.[1] ?? userLat;
+  try {
+    const geoDrivers = await Driver.aggregate([
+      {
+        $geoNear: {
+          near: {
+            type: "Point",
+            coordinates: [userLng, userLat],
+          },
+          distanceField: "distanceMeters",
+          spherical: true,
+          query: { kycStatus: "approved", isActive: true, deletedAt: null },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          location: 1,
+          averageRating: 1,
+          experienceYears: 1,
+          distanceMeters: 1,
+        },
+      },
+      {
+        $limit: 50,
+      },
+    ]);
 
-    const distKm = haversineKm(userLat, userLng, driverLat, driverLng);
+    candidates = geoDrivers.map((d: any) => {
+      const distKm = typeof d.distanceMeters === "number" ? d.distanceMeters / 1000 : 10;
+      return {
+        driverId: String(d._id),
+        distanceKm: Math.round(distKm * 100) / 100,
+        rating: d.averageRating || 4.0,
+        acceptRatePercent: d.acceptRatePercent ?? 80,
+        idleMinutes: d.idleMinutes ?? 10,
+      };
+    });
+  } catch {
+    // Fallback if 2dsphere index is missing (e.g., in-memory mock MongoDB in tests)
+    const driversFromDb = await Driver.find({ kycStatus: "approved", isActive: true, deletedAt: null })
+      .select("_id location averageRating experienceYears")
+      .lean();
 
-    return {
-      driverId: String(d._id),
-      distanceKm: isNaN(distKm) ? 10 : distKm,
-      rating: d.averageRating || 4.0,
-      acceptRatePercent: (d as any).acceptRatePercent ?? 80,
-      idleMinutes: (d as any).idleMinutes ?? 10,
-    };
-  });
+    candidates = driversFromDb.map((d) => {
+      const driverLng = d.location?.coordinates?.[0] ?? userLng;
+      const driverLat = d.location?.coordinates?.[1] ?? userLat;
+      const distKm = haversineKm(userLat, userLng, driverLat, driverLng);
+
+      return {
+        driverId: String(d._id),
+        distanceKm: isNaN(distKm) ? 10 : Math.round(distKm * 100) / 100,
+        rating: d.averageRating || 4.0,
+        acceptRatePercent: (d as any).acceptRatePercent ?? 80,
+        idleMinutes: (d as any).idleMinutes ?? 10,
+      };
+    });
+  }
 
   // Read scoring weights from configuration
   const currentWeights: ScoreWeights = {

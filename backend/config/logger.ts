@@ -1,15 +1,27 @@
 import winston from "winston";
 
+import { getCorrelationId } from "../utils/correlationContext.js";
+
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
-const logFormat = printf(({ level, message, timestamp, stack, ...meta }: any) => {
+const correlationFormat = winston.format((info) => {
+  const correlationId = getCorrelationId();
+  if (correlationId && !info.correlationId) {
+    info.correlationId = correlationId;
+  }
+  return info;
+});
+
+const logFormat = printf(({ level, message, timestamp, stack, correlationId, ...meta }: any) => {
+  const corr = correlationId ? ` [corr:${correlationId}]` : "";
   const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : "";
-  return `${timestamp} [${level.toUpperCase()}]: ${stack || message}${metaStr}`;
+  return `${timestamp} [${level.toUpperCase()}]${corr}: ${stack || message}${metaStr}`;
 });
 
 const logger = winston.createLogger({
   level: process.env.NODE_ENV === "production" ? "info" : "debug",
   format: combine(
+    correlationFormat(),
     timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     errors({ stack: true }),
     process.env.NODE_ENV === "production" ? winston.format.json() : combine(colorize(), logFormat)

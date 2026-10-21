@@ -198,7 +198,7 @@ describe("Booking Management Test Suite (TASK 2.2)", () => {
       let atomicCounter = 0;
       const usageLimit = 2;
 
-      jest.spyOn(PromoCode, "findOneAndUpdate").mockImplementation(async (query: any) => {
+      jest.spyOn(PromoCode, "findOneAndUpdate").mockImplementation((async (query: any) => {
         if (atomicCounter < usageLimit) {
           atomicCounter++;
           return {
@@ -210,7 +210,7 @@ describe("Booking Management Test Suite (TASK 2.2)", () => {
           } as any;
         }
         return null;
-      });
+      }) as any);
 
       const startDate = new Date(Date.now() + 86400000).toISOString();
       const endDate = new Date(Date.now() + 90000000).toISOString();

@@ -1,19 +1,31 @@
-import { createContext, useContext, useEffect, useState } from "react";
-import { io } from "socket.io-client";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
-const SocketContext = createContext({ socket: null, isConnected: false });
+export interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+}
 
-export const SocketProvider = ({ children }) => {
+export interface SocketProviderProps {
+  children: React.ReactNode;
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+});
+
+export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
   const { user } = useAuth();
-  const [socket, setSocket] = useState(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
 
   useEffect(() => {
     if (user) {
-      const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      const apiUrl = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
       const socketUrl = apiUrl.replace(/\/api\/?$/, ""); // Remove /api from the end for socket origin
-      const socketInstance = io(socketUrl, {
+      const socketInstance: Socket = io(socketUrl, {
         withCredentials: true,
       });
 
@@ -29,7 +41,6 @@ export const SocketProvider = ({ children }) => {
         setIsConnected(true);
       }
 
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSocket(socketInstance);
 
       return () => {
@@ -47,7 +58,7 @@ export const SocketProvider = ({ children }) => {
         setIsConnected(false);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (
@@ -57,7 +68,6 @@ export const SocketProvider = ({ children }) => {
   );
 };
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const useSocket = () => {
+export const useSocket = (): SocketContextType => {
   return useContext(SocketContext);
 };

@@ -1,3 +1,4 @@
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
@@ -17,12 +18,16 @@ const pageVariants = {
 };
 
 const pageTransition = {
-  type: "tween",
-  ease: "anticipate",
+  type: "tween" as const,
+  ease: "anticipate" as const,
   duration: 0.3,
 };
 
-export default function PageTransition({ children }) {
+export interface PageTransitionProps {
+  children: React.ReactNode;
+}
+
+export default function PageTransition({ children }: PageTransitionProps): React.ReactElement {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">

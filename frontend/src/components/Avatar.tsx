@@ -1,5 +1,19 @@
-export default function Avatar({ src, name = "", size = "md", className = "" }) {
-  const sizes = {
+import React from "react";
+
+export interface AvatarProps {
+  src?: string | { url?: string };
+  name?: string;
+  size?: "sm" | "md" | "lg" | "xl";
+  className?: string;
+}
+
+export default function Avatar({
+  src,
+  name = "",
+  size = "md",
+  className = "",
+}: AvatarProps): React.ReactElement {
+  const sizes: Record<string, string> = {
     sm: "w-8 h-8 text-xs",
     md: "w-12 h-12 text-base",
     lg: "w-16 h-16 text-xl",

@@ -13,6 +13,7 @@ import { publishKafkaEvent, KAFKA_TOPICS } from "../kafka/index.js";
 import { calculateDynamicSurge } from "../utils/pricingEngine.js";
 import { AuthRequest } from "../middleware/auth.js";
 import { bookingSchema, updateBookingStatusSchema } from "../utils/validators.js";
+import { getDriverWalletSplitPercentage } from "../config/platformSettings.js";
 
 import * as ics from "ics";
 import PDFDocument from "pdfkit";
@@ -334,7 +335,7 @@ export const updateBookingStatus = async (req: AuthRequest, res: Response) => {
           booking.paymentStatus = "refunded";
 
           // Deduct from driver wallet since booking was cancelled after payment
-          const driverAmount = booking.totalAmount * 0.9;
+          const driverAmount = Math.round(booking.totalAmount * getDriverWalletSplitPercentage() * 100) / 100;
           await DriverModel.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: -driverAmount } });
           await WalletTransaction.create({
             driver: booking.driver,

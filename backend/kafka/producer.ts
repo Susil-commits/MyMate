@@ -27,6 +27,8 @@ export const initKafkaProducer = async (): Promise<boolean> => {
   }
 };
 
+import { getCorrelationId } from "../utils/correlationContext.js";
+
 export const publishKafkaEvent = async (
   topic: KafkaTopic | string,
   key: string,
@@ -39,14 +41,26 @@ export const publishKafkaEvent = async (
     if (!reconnected || !producer) return false;
   }
 
+  const correlationId = getCorrelationId();
+  const eventPayload =
+    typeof payload === "object" && payload !== null
+      ? { ...payload, correlationId: payload.correlationId || correlationId }
+      : payload;
+
+  const headers: Record<string, string> = {};
+  if (correlationId) {
+    headers["x-correlation-id"] = correlationId;
+  }
+
   try {
     await producer.send({
       topic,
       messages: [
         {
           key,
-          value: JSON.stringify(payload),
+          value: JSON.stringify(eventPayload),
           timestamp: Date.now().toString(),
+          headers,
         },
       ],
     });

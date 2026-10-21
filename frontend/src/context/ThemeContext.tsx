@@ -1,11 +1,25 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-const ThemeContext = createContext(null);
+export type Theme = "light" | "dark";
 
-export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
+export interface ThemeContextType {
+  theme: Theme;
+  toggleTheme: () => void;
+}
+
+export interface ThemeProviderProps {
+  children: React.ReactNode;
+}
+
+const ThemeContext = createContext<ThemeContextType>({
+  theme: "light",
+  toggleTheme: () => {},
+});
+
+export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
+  const [theme, setTheme] = useState<Theme>(() => {
     const saved = localStorage.getItem("theme");
-    if (saved) return saved;
+    if (saved === "light" || saved === "dark") return saved;
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   });
 
@@ -17,7 +31,7 @@ export function ThemeProvider({ children }) {
   }, [theme]);
 
   useEffect(() => {
-    const handleStorage = (e) => {
+    const handleStorage = (e: StorageEvent) => {
       if (e.key === "theme" && (e.newValue === "light" || e.newValue === "dark")) {
         setTheme(e.newValue);
       }
@@ -35,9 +49,8 @@ export function ThemeProvider({ children }) {
       {children}
     </ThemeContext.Provider>
   );
-}
+};
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const useTheme = () => {
+export const useTheme = (): ThemeContextType => {
   return useContext(ThemeContext);
 };

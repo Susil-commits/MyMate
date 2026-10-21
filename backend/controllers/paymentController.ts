@@ -16,6 +16,7 @@ import {
   refundPaymentSchema,
   payWithWalletSchema,
 } from "../utils/validators.js";
+import { getDriverWalletSplitPercentage } from "../config/platformSettings.js";
 
 
 let razorpayInstance: Razorpay | null = null;
@@ -168,13 +169,15 @@ export const reconcilePayment = async (
     booking.paymentStatus = "paid";
     await booking.save();
 
-    // Credit Driver Wallet (90% to driver, 10% platform fee)
-    const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
+    // Credit Driver Wallet according to platform split percentage
+    const splitFraction = getDriverWalletSplitPercentage();
+    const platformFeePct = Math.round((1 - splitFraction) * 100);
+    const driverAmount = Math.round(booking.totalAmount * splitFraction * 100) / 100;
     await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
     const description =
       paymentMethod === "razorpay_webhook"
         ? `Earnings for booking ${booking._id} (via webhook reconciliation)`
-        : `Earnings for booking ${booking._id} (after 10% platform fee)`;
+        : `Earnings for booking ${booking._id} (after ${platformFeePct}% platform fee)`;
 
     await WalletTransaction.create({
       driver: booking.driver,
@@ -304,8 +307,10 @@ export const payWithWallet = async (req: AuthRequest, res: Response) => {
   booking.paymentStatus = "paid";
   await booking.save();
 
-  // Credit Driver Wallet (90%)
-  const driverAmount = Math.round(booking.totalAmount * 0.9 * 100) / 100;
+  // Credit Driver Wallet based on configurable split
+  const splitFraction = getDriverWalletSplitPercentage();
+  const platformFeePct = Math.round((1 - splitFraction) * 100);
+  const driverAmount = Math.round(booking.totalAmount * splitFraction * 100) / 100;
   await Driver.findByIdAndUpdate(booking.driver, { $inc: { walletBalance: driverAmount } });
   
   await WalletTransaction.create({
@@ -313,7 +318,7 @@ export const payWithWallet = async (req: AuthRequest, res: Response) => {
     ownerModel: "Driver",
     type: "credit",
     amount: driverAmount,
-    description: `Earnings for booking ${booking._id} (after 10% fee)`,
+    description: `Earnings for booking ${booking._id} (after ${platformFeePct}% fee)`,
     booking: booking._id,
   });
 

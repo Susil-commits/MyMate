@@ -1,16 +1,44 @@
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api from "../api/axios";
 
-const AuthContext = createContext(null);
+export interface AuthUser {
+  _id?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  profileCompleted?: boolean;
+  avatar?: { url?: string; publicId?: string };
+  walletBalance?: number;
+  [key: string]: any;
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null);
-  // We don't have token in localStorage anymore, so assume loading is true initially to try fetching user
-  const [loading, setLoading] = useState(true);
-  const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
+export interface AuthContextType {
+  user: AuthUser | null;
+  role: string | null;
+  loading: boolean;
+  needsProfileCompletion: boolean;
+  login: (endpoint: string, credentials: any) => Promise<any>;
+  verify2FA: (endpoint: string, payload: any) => Promise<any>;
+  register: (endpoint: string, formData: any) => Promise<any>;
+  completeProfile: (endpoint: string, formData: any) => Promise<any>;
+  logout: () => Promise<void>;
+  loadUser: () => Promise<void>;
+}
 
-  const loadUser = useCallback(async () => {
+export interface AuthProviderProps {
+  children: React.ReactNode;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [role, setRole] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [needsProfileCompletion, setNeedsProfileCompletion] = useState<boolean>(false);
+
+  const loadUser = useCallback(async (): Promise<void> => {
     try {
       const { data } = await api.get("/auth/me");
       setUser(data.user);
@@ -19,7 +47,7 @@ export function AuthProvider({ children }) {
         data.role !== "admin" && data.user && !data.user.profileCompleted
       );
     } catch {
-      // If 401, we are just not logged in
+      // If 401 or network error, not logged in
       setUser(null);
       setRole(null);
     } finally {
@@ -28,11 +56,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUser();
   }, [loadUser]);
 
-  const login = async (endpoint, credentials) => {
+  const login = async (endpoint: string, credentials: any): Promise<any> => {
     const { data } = await api.post(endpoint, credentials);
     if (data.requires2FA) {
       return data;
@@ -43,7 +70,7 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const verify2FA = async (endpoint, payload) => {
+  const verify2FA = async (endpoint: string, payload: any): Promise<any> => {
     const { data } = await api.post(endpoint, payload);
     setUser(data.user || data.driver || { role: data.role });
     setRole(data.role || data.user?.role || (data.driver ? "driver" : null));
@@ -51,19 +78,19 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  const register = async (endpoint, formData) => {
+  const register = async (endpoint: string, formData: any): Promise<any> => {
     const { data } = await api.post(endpoint, formData);
     return data;
   };
 
-  const completeProfile = async (endpoint, formData) => {
+  const completeProfile = async (endpoint: string, formData: any): Promise<any> => {
     const { data } = await api.put(endpoint, formData);
     setUser(data.user || data.driver);
     setNeedsProfileCompletion(false);
     return data;
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     try {
       await api.post("/auth/logout");
     } catch (err) {
@@ -92,10 +119,9 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const useAuth = () => {
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;

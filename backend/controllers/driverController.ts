@@ -22,7 +22,7 @@ export const getDrivers = async (req: AuthRequest, res: Response) => {
     languages, minRate, maxRate, sort, page, limit, search,
   } = req.query;
 
-  const filter: any = { kycStatus: "approved", isActive: true };
+  const filter: any = { kycStatus: "approved", isActive: true, deletedAt: null };
 
   // Full-text search filter
   if (search) {
@@ -77,11 +77,11 @@ export const getDrivers = async (req: AuthRequest, res: Response) => {
 
 export const getPublicStats = async (req: AuthRequest, res: Response) => {
   const [driverCount, tripCount, cityAgg, agg] = await Promise.all([
-    Driver.countDocuments({ kycStatus: "approved", isActive: true }),
+    Driver.countDocuments({ kycStatus: "approved", isActive: true, deletedAt: null }),
     Booking.countDocuments({ status: "completed" }),
-    Driver.distinct("locality", { kycStatus: "approved", isActive: true, locality: { $ne: "" } }),
+    Driver.distinct("locality", { kycStatus: "approved", isActive: true, locality: { $ne: "" }, deletedAt: null }),
     Driver.aggregate([
-      { $match: { kycStatus: "approved", isActive: true } },
+      { $match: { kycStatus: "approved", isActive: true, deletedAt: null } },
       { $group: { _id: null, avgRating: { $avg: "$averageRating" } } },
     ]),
   ]);
@@ -96,7 +96,7 @@ export const getPublicStats = async (req: AuthRequest, res: Response) => {
 };
 
 export const getDriverById = async (req: AuthRequest, res: Response) => {
-  const driver = await Driver.findById(req.params.id).lean();
+  const driver = await Driver.findOne({ _id: req.params.id, deletedAt: null }).lean();
   if (!driver) return res.status(404).json({ message: "Driver not found" });
   res.json({ driver: sanitizeDriver(driver) });
 };

@@ -49,6 +49,9 @@ export const verifyAndResolveUser = async (
       if (decoded.tv !== undefined && decoded.tv !== userOrDriver.tokenVersion) {
         return { user: null, userRole: null, error: "Session expired. Please log in again." };
       }
+      if ((userOrDriver as any).deletedAt) {
+        return { user: null, userRole: null, error: "Your account has been deleted" };
+      }
       if (decoded.role === "driver") {
         const driver = user as IDriver;
         if (driver.kycStatus === "approved" && !driver.isActive) {

@@ -17,11 +17,11 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
     totalDrivers, activeDrivers, totalUsers, totalBookings, pendingKyc,
     completedBookings, cancelledBookings, revenueAgg,
   ] = await Promise.all([
-    Driver.countDocuments().read('secondaryPreferred'),
-    Driver.countDocuments({ isActive: true, kycStatus: "approved" }).read('secondaryPreferred'),
-    User.countDocuments().read('secondaryPreferred'),
+    Driver.countDocuments({ deletedAt: null }).read('secondaryPreferred'),
+    Driver.countDocuments({ isActive: true, kycStatus: "approved", deletedAt: null }).read('secondaryPreferred'),
+    User.countDocuments({ deletedAt: null }).read('secondaryPreferred'),
     Booking.countDocuments().read('secondaryPreferred'),
-    Driver.countDocuments({ kycStatus: "pending" }).read('secondaryPreferred'),
+    Driver.countDocuments({ kycStatus: "pending", deletedAt: null }).read('secondaryPreferred'),
     Booking.countDocuments({ status: "completed" }).read('secondaryPreferred'),
     Booking.countDocuments({ status: { $in: ["cancelled", "rejected"] } }).read('secondaryPreferred'),
     Payment.aggregate([
@@ -43,7 +43,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response) => {
 
 export const getAllDrivers = async (req: AuthRequest, res: Response) => {
   const { kycStatus, page, limit } = req.query;
-  const filter: any = {};
+  const filter: any = { deletedAt: null };
   if (kycStatus) filter.kycStatus = kycStatus;
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 20, 100);
@@ -118,12 +118,13 @@ export const toggleDriverActive = async (req: AuthRequest, res: Response) => {
 
 export const getAllUsers = async (req: AuthRequest, res: Response) => {
   const { page, limit } = req.query;
+  const filter: any = { deletedAt: null };
   const pageNum = Math.max(Number(page) || 1, 1);
   const limitNum = clampLimit(limit, 20, 100);
   const skip = (pageNum - 1) * limitNum;
   const [total, users] = await Promise.all([
-    User.countDocuments(),
-    User.find().sort({ createdAt: -1 }).skip(skip).limit(limitNum),
+    User.countDocuments(filter),
+    User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
   ]);
   return ApiResponse.success(res, { users, pagination: buildPagination(total, pageNum, limitNum) }, "Users retrieved");
 };
@@ -223,4 +224,110 @@ export const getAdminHeatmap = async (req: AuthRequest, res: Response) => {
   }
 
   return ApiResponse.success(res, { heatPoints }, "Heatmap data retrieved");
+};
+
+/**
+ * GET /api/v1/admin/metrics
+ * Mongo aggregation pipeline summarizing bookings by status,
+ * revenue by week, and active driver count.
+ */
+export const getAdminMetrics = async (req: AuthRequest, res: Response) => {
+  const [bookingsByStatusAgg, revenueByWeekAgg, activeDriverCount] = await Promise.all([
+    Booking.aggregate([
+      {
+        $group: {
+          _id: "$status",
+          count: { $sum: 1 },
+          totalAmount: { $sum: "$totalAmount" },
+        },
+      },
+      {
+        $project: {
+          status: "$_id",
+          count: 1,
+          totalAmount: 1,
+          _id: 0,
+        },
+      },
+    ]),
+    Payment.aggregate([
+      { $match: { status: "completed" } },
+      {
+        $group: {
+          _id: {
+            year: { $isoWeekYear: "$createdAt" },
+            week: { $isoWeek: "$createdAt" },
+          },
+          revenue: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { "_id.year": -1, "_id.week": -1 } },
+      { $limit: 12 },
+      {
+        $project: {
+          year: "$_id.year",
+          week: "$_id.week",
+          revenue: 1,
+          count: 1,
+          _id: 0,
+        },
+      },
+    ]),
+    Driver.countDocuments({ isActive: true, kycStatus: "approved", deletedAt: null }),
+  ]);
+
+  const bookingsByStatus: Record<string, number> = {};
+  for (const item of bookingsByStatusAgg) {
+    bookingsByStatus[item.status] = item.count;
+  }
+
+  return ApiResponse.success(
+    res,
+    {
+      bookingsByStatus,
+      bookingsBreakdown: bookingsByStatusAgg,
+      revenueByWeek: revenueByWeekAgg,
+      activeDriverCount,
+    },
+    "Admin metrics retrieved successfully"
+  );
+};
+
+export const softDeleteUser = async (req: AuthRequest, res: Response) => {
+  const user = await User.findOneAndUpdate(
+    { _id: req.params.id, deletedAt: null },
+    { deletedAt: new Date(), isActive: false },
+    { new: true }
+  );
+  if (!user) return ApiResponse.error(res, "User not found or already deleted", 404);
+
+  await AuditLog.create({
+    user: (req.user as any)?._id,
+    userType: "Admin",
+    action: "SOFT_DELETE_USER",
+    details: { userId: user._id },
+    ipAddress: req.ip || "unknown",
+  }).catch(() => {});
+
+  return ApiResponse.success(res, { user }, "User deleted successfully");
+};
+
+export const softDeleteDriver = async (req: AuthRequest, res: Response) => {
+  const driver = await Driver.findOneAndUpdate(
+    { _id: req.params.id, deletedAt: null },
+    { deletedAt: new Date(), isActive: false, availability: "offline" },
+    { new: true }
+  );
+  if (!driver) return ApiResponse.error(res, "Driver not found or already deleted", 404);
+
+  await AuditLog.create({
+    user: (req.user as any)?._id,
+    userType: "Admin",
+    action: "SOFT_DELETE_DRIVER",
+    details: { driverId: driver._id },
+    ipAddress: req.ip || "unknown",
+  }).catch(() => {});
+
+  return ApiResponse.success(res, { driver }, "Driver deleted successfully");
 };

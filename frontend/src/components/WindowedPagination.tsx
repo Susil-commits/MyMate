@@ -1,9 +1,10 @@
-// eslint-disable-next-line react-refresh/only-export-components
-export function getPageList(current, total) {
+import React from "react";
+
+export function getPageList(current: number, total: number): (number | string)[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const left = Math.max(2, current - 1);
   const right = Math.min(total - 1, current + 1);
-  const range = [1];
+  const range: (number | string)[] = [1];
   if (left > 2) range.push("…");
   for (let i = left; i <= right; i++) range.push(i);
   if (right < total - 1) range.push("…");
@@ -11,12 +12,24 @@ export function getPageList(current, total) {
   return range;
 }
 
-export function WindowedPagination({ page, pages, onChange, accent = "blue" }) {
+export interface WindowedPaginationProps {
+  page: number;
+  pages: number;
+  onChange: (page: number) => void;
+  accent?: "blue" | "purple" | "green";
+}
+
+export function WindowedPagination({
+  page,
+  pages,
+  onChange,
+  accent = "blue",
+}: WindowedPaginationProps): React.ReactElement | null {
   if (pages <= 1) return null;
   const list = getPageList(page, pages);
   const btn =
-    "px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed";
-  const accentMap = {
+    "px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer";
+  const accentMap: Record<string, string> = {
     blue: "bg-blue-600 text-white shadow-sm",
     purple: "bg-purple-600 text-white shadow-sm",
     green: "bg-green-600 text-white shadow-sm",
@@ -26,23 +39,33 @@ export function WindowedPagination({ page, pages, onChange, accent = "blue" }) {
 
   return (
     <div className="mt-6 flex justify-center items-center gap-2">
-      <button disabled={page <= 1} onClick={() => onChange(page - 1)} className={`${btn} ${idleBg}`}>
+      <button
+        disabled={page <= 1}
+        onClick={() => onChange(page - 1)}
+        className={`${btn} ${idleBg}`}
+      >
         Prev
       </button>
       {list.map((p, idx) =>
         p === "…" ? (
-          <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">…</span>
+          <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">
+            …
+          </span>
         ) : (
           <button
             key={p}
-            onClick={() => onChange(p)}
+            onClick={() => onChange(Number(p))}
             className={`${btn} ${p === page ? accentBg : idleBg}`}
           >
             {p}
           </button>
         )
       )}
-      <button disabled={page >= pages} onClick={() => onChange(page + 1)} className={`${btn} ${idleBg}`}>
+      <button
+        disabled={page >= pages}
+        onClick={() => onChange(page + 1)}
+        className={`${btn} ${idleBg}`}
+      >
         Next
       </button>
     </div>
