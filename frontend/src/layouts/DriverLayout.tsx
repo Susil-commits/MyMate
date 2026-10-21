@@ -1,17 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { FaCar } from "react-icons/fa";
+import { FaUserTie } from "react-icons/fa";
 import { HiMenu, HiX } from "react-icons/hi";
 import NotificationBell from "../components/NotificationBell";
 import ThemeToggle from "../components/ThemeToggle";
 import PageTransition from "../components/PageTransition";
 
-export default function UserLayout() {
+export default function DriverLayout(): React.ReactElement {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState<boolean>(false);
 
   const handleLogout = () => {
     logout();
@@ -19,14 +19,13 @@ export default function UserLayout() {
   };
 
   const links = [
-    { to: "/drivers", label: "Find Drivers" },
-    { to: "/bookings", label: "My Bookings" },
-    { to: "/favorites", label: "Saved" },
+    { to: "/driver/dashboard", label: "Dashboard" },
+    { to: "/driver/bookings", label: "Bookings" },
     { to: "/messages", label: "Messages" },
-    { to: "/profile", label: "Profile" },
+    { to: "/driver/profile", label: "Profile" },
   ];
 
-  const isActive = (to) =>
+  const isActive = (to: string): boolean =>
     to === "/"
       ? location.pathname === "/"
       : location.pathname === to || location.pathname.startsWith(to + "/");
@@ -39,17 +38,17 @@ export default function UserLayout() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setMobileOpen(!mobileOpen)}
- className="md:hidden p-2 rounded-xl hover:text-gray-700 transition-colors"
+                className="md:hidden p-2 rounded-xl hover:text-gray-700 transition-colors cursor-pointer"
                 aria-label="Toggle menu"
               >
                 {mobileOpen ? <HiX className="w-5 h-5 text-gray-600 dark:text-gray-300" /> : <HiMenu className="w-5 h-5 text-gray-600 dark:text-gray-300" />}
               </button>
-              <Link to="/drivers" className="flex items-center gap-2 group">
-                <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <FaCar className="text-white text-sm" />
+              <Link to="/driver/dashboard" className="flex items-center gap-2 group">
+                <div className="w-9 h-9 bg-green-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <FaUserTie className="text-white text-sm" />
                 </div>
                 <span className="text-xl font-extrabold dark:text-white">
-                  <span className="text-blue-600">My</span>Mate
+                  <span className="text-green-600">My</span>Mate
                 </span>
               </Link>
             </div>
@@ -61,7 +60,7 @@ export default function UserLayout() {
                   to={link.to}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
                   }`}
                 >
@@ -70,18 +69,18 @@ export default function UserLayout() {
               ))}
             </div>
 
-<div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <ThemeToggle />
               <NotificationBell />
               <div className="hidden sm:flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white text-xs font-bold">
                   {user?.name?.charAt(0)}
                 </div>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{user?.name}</span>
               </div>
               <button
                 onClick={handleLogout}
- className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200"
+                className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200 cursor-pointer"
               >
                 Logout
               </button>
@@ -97,7 +96,7 @@ export default function UserLayout() {
                   onClick={() => setMobileOpen(false)}
                   className={`block px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(link.to)
-                      ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                       : "text-gray-600 hover:text-gray-700 dark:text-gray-300 dark:hover:text-white"
                   }`}
                 >

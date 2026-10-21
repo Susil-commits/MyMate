@@ -1,3 +1,4 @@
+import React from "react";
 import { Outlet, Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiShieldCheck } from "react-icons/hi";
@@ -5,7 +6,7 @@ import NotificationBell from "../components/NotificationBell";
 import ThemeToggle from "../components/ThemeToggle";
 import PageTransition from "../components/PageTransition";
 
-export default function AdminLayout() {
+export default function AdminLayout(): React.ReactElement {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -36,13 +37,17 @@ export default function AdminLayout() {
               </span>
             </Link>
 
-            <div className="flex items-center gap-1">
+            <div className="hidden md:flex items-center gap-1">
               {links.map((link) => (
-                <Link key={link.to} to={link.to} className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  location.pathname === link.to
- ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
- : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                }`}>
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
+                    location.pathname === link.to
+                      ? "bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                  }`}
+                >
                   {link.label}
                 </Link>
               ))}
@@ -51,7 +56,10 @@ export default function AdminLayout() {
             <div className="flex items-center gap-2">
               <ThemeToggle />
               <NotificationBell />
-              <button onClick={handleLogout} className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200">
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50 rounded-xl transition-all duration-200 cursor-pointer"
+              >
                 Logout
               </button>
             </div>
