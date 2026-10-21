@@ -1,19 +1,36 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { HiCurrencyDollar, HiClipboardList, HiCheck } from "react-icons/hi";
 import api from "../api/axios";
 import { bookingStatusColors } from "../utils/constants";
 import { SkeletonDashboard } from "../components/SkeletonLoader";
 import HeatmapDisplay from "../components/HeatmapDisplay";
-
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
+
+interface DriverBookingSummary {
+  _id: string;
+  user?: {
+    name?: string;
+  };
+  pickupLocation: string;
+  totalAmount: number;
+  status: "pending" | "accepted" | "ongoing" | "completed" | "cancelled" | "rejected";
+}
+
+interface WalletTxn {
+  _id: string;
+  type: "credit" | "debit";
+  description: string;
+  amount: number;
+  createdAt: string;
+}
 
 export default function DriverDashboard() {
   const { user: driver, loadUser } = useAuth();
   const [stats, setStats] = useState({ totalBookings: 0, completedBookings: 0, earnings: 0, pendingBookings: 0 });
-  const [recentBookings, setRecentBookings] = useState([]);
-  const [wallet, setWallet] = useState({ balance: 0, transactions: [] });
+  const [recentBookings, setRecentBookings] = useState<DriverBookingSummary[]>([]);
+  const [wallet, setWallet] = useState<{ balance: number; transactions: WalletTxn[] }>({ balance: 0, transactions: [] });
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
@@ -28,8 +45,11 @@ export default function DriverDashboard() {
         ]);
         if (!active) return;
         setStats(statsRes.data);
-        setRecentBookings(bookingsRes.data.bookings);
-        setWallet({ balance: walletRes.data.walletBalance, transactions: walletRes.data.transactions });
+        setRecentBookings(bookingsRes.data.bookings || []);
+        setWallet({
+          balance: walletRes.data.walletBalance || 0,
+          transactions: walletRes.data.transactions || [],
+        });
       } catch {
         if (active) console.error("Failed to load dashboard");
       } finally {
@@ -48,7 +68,7 @@ export default function DriverDashboard() {
     const newStatus = driver?.availability === "available" ? "offline" : "available";
     try {
       await api.put("/drivers/profile", { availability: newStatus });
-      await loadUser(); // refresh user in context
+      await loadUser();
       toast.success(`You are now ${newStatus}`);
     } catch {
       toast.error("Failed to update status");
@@ -120,7 +140,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {recentBookings?.map((booking) => (
+            {recentBookings.map((booking) => (
               <Link
                 key={booking._id}
                 to={`/bookings/${booking._id}`}
@@ -129,7 +149,7 @@ export default function DriverDashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center text-white font-bold text-lg">
-                      {booking.user?.name?.charAt(0)}
+                      {booking.user?.name?.charAt(0) || "U"}
                     </div>
                     <div>
                       <p className="font-bold text-gray-900">{booking.user?.name}</p>
@@ -157,7 +177,7 @@ export default function DriverDashboard() {
           </div>
         ) : (
           <div className="space-y-3 stagger-1">
-            {wallet?.transactions?.slice(0, 5)?.map((txn) => (
+            {wallet.transactions.slice(0, 5).map((txn) => (
               <div key={txn._id} className="bg-white rounded-2xl border border-gray-100 p-5 flex items-center justify-between card-hover">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${txn.type === "credit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
@@ -180,7 +200,14 @@ export default function DriverDashboard() {
   );
 }
 
-function StatCard({ icon, label, value, bg }) {
+interface StatCardProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  bg: string;
+}
+
+function StatCard({ icon, label, value, bg }: StatCardProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-5 card-hover">
       <div className={`w-11 h-11 ${bg} rounded-xl flex items-center justify-center text-white text-lg mb-3`}>
