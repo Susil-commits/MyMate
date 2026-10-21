@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ChangeEvent, FormEvent } from "react";
 import BackButton from "../components/BackButton";
 import Avatar from "../components/Avatar";
 import api from "../api/axios";
@@ -11,8 +11,8 @@ export default function UserProfilePage() {
   const [form, setForm] = useState({ name: "", phone: "", locality: "" });
   const [prevUser, setPrevUser] = useState(user);
   const [saving, setSaving] = useState(false);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [savingPw, setSavingPw] = useState(false);
 
@@ -21,7 +21,7 @@ export default function UserProfilePage() {
     setForm({ name: user?.name || "", phone: user?.phone || "", locality: user?.locality || "" });
   }
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -32,7 +32,7 @@ export default function UserProfilePage() {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
@@ -48,14 +48,14 @@ export default function UserProfilePage() {
       setAvatarFile(null);
       setAvatarPreview(null);
       toast.success("Profile updated");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePasswordChange = async (e) => {
+  const handlePasswordChange = async (e: FormEvent) => {
     e.preventDefault();
     if (pwForm.newPassword !== pwForm.confirmPassword) {
       toast.error("New passwords do not match");
@@ -75,7 +75,7 @@ export default function UserProfilePage() {
       await loadUser();
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Password changed successfully");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to change password");
     } finally {
       setSavingPw(false);

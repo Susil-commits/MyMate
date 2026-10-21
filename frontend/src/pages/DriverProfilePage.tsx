@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiBadgeCheck, HiCalendar, HiChat } from "react-icons/hi";
 import { FaCar, FaLanguage } from "react-icons/fa";
@@ -11,12 +11,45 @@ import { hireTypes } from "../utils/constants";
 import toast from "react-hot-toast";
 import { useAuth } from "../context/AuthContext";
 
+interface DriverReview {
+  _id: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  user?: {
+    name?: string;
+  };
+}
+
+interface DriverData {
+  _id: string;
+  name: string;
+  locality?: string;
+  nationality?: string;
+  availability: "available" | "busy" | "offline";
+  averageRating?: number;
+  totalReviews?: number;
+  experienceYears?: number;
+  documentsVerified?: boolean;
+  hourlyRate?: number;
+  dailyRate?: number;
+  vehicleTypes?: string[];
+  languages?: string[];
+  bio?: string;
+}
+
+interface PromoData {
+  code: string;
+  discountPercentage: number;
+  maxDiscount: number;
+}
+
 export default function DriverProfilePage() {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [driver, setDriver] = useState(null);
-  const [reviews, setReviews] = useState([]);
+  const [driver, setDriver] = useState<DriverData | null>(null);
+  const [reviews, setReviews] = useState<DriverReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [showBooking, setShowBooking] = useState(false);
   const [bookingForm, setBookingForm] = useState({
@@ -25,14 +58,14 @@ export default function DriverProfilePage() {
     endDate: "",
     pickupLocation: "",
     dropLocation: "",
-    stops: [],
+    stops: [] as string[],
     purpose: "",
     promoCode: "",
     isRecurring: false,
     recurringPattern: "none",
     recurringEndDate: "",
   });
-  const [promoData, setPromoData] = useState(null);
+  const [promoData, setPromoData] = useState<PromoData | null>(null);
   const [validatingPromo, setValidatingPromo] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [messaging, setMessaging] = useState(false);
@@ -45,17 +78,19 @@ export default function DriverProfilePage() {
           api.get(`/reviews/driver/${id}`),
         ]);
         setDriver(driverRes.data.driver);
-        setReviews(reviewsRes.data.reviews);
+        setReviews(reviewsRes.data.reviews || []);
       } catch {
         toast.error("Failed to load driver profile");
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+    if (id) {
+      fetchData();
+    }
   }, [id]);
 
-  const handleBooking = async (e) => {
+  const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
@@ -67,7 +102,7 @@ export default function DriverProfilePage() {
       toast.success("Booking request sent!");
       setShowBooking(false);
       navigate("/bookings");
-    } catch (err) {
+    } catch (err: any) {
       if (err.response?.status === 409 && err.response?.data?.bookingId) {
         toast("You already have an active booking with this driver", { icon: "ℹ️" });
         navigate(`/bookings/${err.response.data.bookingId}`);
@@ -86,7 +121,7 @@ export default function DriverProfilePage() {
       const { data } = await api.post("/promos/validate", { code: bookingForm.promoCode });
       setPromoData(data.promo);
       toast.success("Promo code applied!");
-    } catch (err) {
+    } catch (err: any) {
       setPromoData(null);
       toast.error(err.response?.data?.message || "Invalid promo code");
     } finally {
@@ -104,7 +139,7 @@ export default function DriverProfilePage() {
     try {
       const { data } = await api.post("/messages/conversations", { recipientId: id });
       navigate(`/messages/${data.conversation._id}`);
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Could not start conversation");
     } finally {
       setMessaging(false);
@@ -131,7 +166,7 @@ export default function DriverProfilePage() {
     );
   }
 
-  const availabilityColor = {
+  const availabilityColor: Record<string, string> = {
     available: "bg-green-100 text-green-700",
     busy: "bg-yellow-100 text-yellow-700",
     offline: "bg-gray-100 text-gray-500",
@@ -144,10 +179,10 @@ export default function DriverProfilePage() {
     if (isNaN(start.getTime()) || (end && isNaN(end.getTime()))) return 0;
     if (end && end < start) return 0;
     if (bookingForm.hireType === "temporary") {
-      const hours = end ? Math.ceil((end - start) / (1000 * 60 * 60)) : 1;
+      const hours = end ? Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60)) : 1;
       return hours * (driver.hourlyRate || 0);
     }
-    const days = end ? Math.ceil((end - start) / (1000 * 60 * 60 * 24)) : 30;
+    const days = end ? Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) : 30;
     return days * (driver.dailyRate || 0);
   })();
 
@@ -173,7 +208,7 @@ export default function DriverProfilePage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="h-32 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600" />
         <div className="px-8 pb-8">
- <div className="flex flex-col sm items-start gap-6 -mt-12">
+          <div className="flex flex-col sm:flex-row items-start gap-6 -mt-12">
             <div className="w-28 h-28 rounded-2xl bg-white shadow-lg border-4 border-white flex items-center justify-center text-4xl font-extrabold text-blue-600">
               {driver.name.charAt(0)}
             </div>
@@ -187,7 +222,7 @@ export default function DriverProfilePage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${availabilityColor[driver.availability]}`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${availabilityColor[driver.availability] || availabilityColor.offline}`}>
                     {driver.availability}
                   </span>
                   <FavoriteButton driverId={driver._id} />
@@ -220,25 +255,25 @@ export default function DriverProfilePage() {
                 {[1, 2, 3, 4, 5].map((star) => (
                   <HiStar
                     key={star}
-                    className={`w-5 h-5 ${star <= Math.round(driver.averageRating) ? "text-yellow-500" : "text-gray-300"}`}
+                    className={`w-5 h-5 ${star <= Math.round(driver.averageRating || 0) ? "text-yellow-500" : "text-gray-300"}`}
                   />
                 ))}
                 <span className="ml-2 text-lg font-bold text-gray-900">{driver.averageRating || "New"}</span>
-                <span className="text-sm text-gray-500">({driver.totalReviews} reviews)</span>
+                <span className="text-sm text-gray-500">({driver.totalReviews || 0} reviews)</span>
               </div>
             </div>
           </div>
 
- <div className="mt-8 grid grid-cols-2 md gap-4">
-            <Stat icon={<HiClock />} label="Experience" value={`${driver.experienceYears} years`} />
+          <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Stat icon={<HiClock />} label="Experience" value={`${driver.experienceYears || 0} years`} />
             <Stat icon={<HiBadgeCheck />} label="Verification" value={driver.documentsVerified ? "Verified" : "Pending"} color={driver.documentsVerified ? "text-green-600" : "text-yellow-600"} />
-            <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`₹${driver.hourlyRate}`} />
-            <Stat icon={<HiCurrencyDollar />} label="Daily" value={`₹${driver.dailyRate}`} />
+            <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`₹${driver.hourlyRate || 0}`} />
+            <Stat icon={<HiCurrencyDollar />} label="Daily" value={`₹${driver.dailyRate || 0}`} />
           </div>
 
           <div className="mt-6 flex flex-wrap gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
-              <FaCar /> {driver?.vehicleTypes?.join(", ")}
+              <FaCar /> {driver?.vehicleTypes?.join(", ") || "None"}
             </span>
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 text-gray-600 rounded-lg text-sm font-medium">
               <FaLanguage /> {driver?.languages?.join(", ") || "Not specified"}
@@ -264,7 +299,7 @@ export default function DriverProfilePage() {
                 <select
                   value={bookingForm.hireType}
                   onChange={(e) => setBookingForm({ ...bookingForm, hireType: e.target.value })}
- className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
                 >
                   {hireTypes.map((h) => (
                     <option key={h.value} value={h.value}>{h.label}</option>
@@ -274,14 +309,26 @@ export default function DriverProfilePage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">Start Date</label>
- <input type="date" required value={bookingForm.startDate} onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+                  <input
+                    type="date"
+                    required
+                    value={bookingForm.startDate}
+                    onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1.5">End Date</label>
-  <input type="date" min={bookingForm.startDate || undefined} value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+                  <input
+                    type="date"
+                    min={bookingForm.startDate || undefined}
+                    value={bookingForm.endDate}
+                    onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+                  />
                 </div>
               </div>
-              <MapSelector label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v) => setBookingForm({ ...bookingForm, pickupLocation: v })} />
+              <MapSelector label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v: string) => setBookingForm({ ...bookingForm, pickupLocation: v })} />
               
               {bookingForm.stops.map((stop, index) => (
                 <div key={index} className="flex items-end gap-2">
@@ -289,7 +336,7 @@ export default function DriverProfilePage() {
                     <MapSelector 
                       label={`Stop ${index + 1}`} 
                       value={stop} 
-                      onChange={(v) => {
+                      onChange={(v: string) => {
                         const newStops = [...bookingForm.stops];
                         newStops[index] = v;
                         setBookingForm({ ...bookingForm, stops: newStops });
@@ -314,7 +361,7 @@ export default function DriverProfilePage() {
                 + Add Stop
               </button>
 
-              <MapSelector label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v) => setBookingForm({ ...bookingForm, dropLocation: v })} />
+              <MapSelector label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v: string) => setBookingForm({ ...bookingForm, dropLocation: v })} />
               
               <div className="pt-4 border-t border-gray-100">
                 <label className="flex items-center gap-2 cursor-pointer mb-3">
@@ -342,7 +389,14 @@ export default function DriverProfilePage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-1.5">Purpose</label>
-  <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" placeholder="e.g. Airport pickup, daily commute..." />
+                <textarea
+                  required
+                  value={bookingForm.purpose}
+                  onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })}
+                  rows={2}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200"
+                  placeholder="e.g. Airport pickup, daily commute..."
+                />
               </div>
               {bookingForm.startDate && estimatedAmountWithSurge > 0 && (
                 <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
@@ -362,8 +416,8 @@ export default function DriverProfilePage() {
                   </div>
                   <p className="text-xs text-blue-500 mt-1">
                     {bookingForm.hireType === "temporary"
-                      ? `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60)) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
-                      : `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate) - new Date(bookingForm.startDate)) / (1000 * 60 * 60 * 24)) : 30} day(s) × ₹${driver.dailyRate}/day`}
+                      ? `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60)) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
+                      : `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 30} day(s) × ₹${driver.dailyRate}/day`}
                   </p>
                   
                   <div className="mt-3 flex gap-2">
@@ -391,7 +445,7 @@ export default function DriverProfilePage() {
                 </div>
               )}
               <div className="flex gap-3 pt-2">
-              <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">Cancel</button>
+                <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-3 border border-gray-200 rounded-xl font-medium text-gray-600 hover:bg-gray-50 transition-all duration-200">Cancel</button>
                 <button type="submit" disabled={submitting} className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300">
                   {submitting ? "Sending..." : "Send Request"}
                 </button>
@@ -415,9 +469,9 @@ export default function DriverProfilePage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center text-white text-sm font-bold">
-                      {review.user?.name?.charAt(0)}
+                      {review.user?.name?.charAt(0) || "U"}
                     </div>
-                    <span className="font-semibold text-gray-900">{review.user?.name}</span>
+                    <span className="font-semibold text-gray-900">{review.user?.name || "User"}</span>
                   </div>
                   <div className="flex items-center gap-0.5">
                     {Array.from({ length: 5 }).map((_, i) => (
@@ -436,7 +490,14 @@ export default function DriverProfilePage() {
   );
 }
 
-function Stat({ icon, label, value, color }) {
+interface StatProps {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  color?: string;
+}
+
+function Stat({ icon, label, value, color }: StatProps) {
   return (
     <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl">
       <span className={`${color || "text-blue-600"} text-lg`}>{icon}</span>
@@ -447,4 +508,3 @@ function Stat({ icon, label, value, color }) {
     </div>
   );
 }
-

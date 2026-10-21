@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import toast from "react-hot-toast";
@@ -16,14 +16,14 @@ export default function CompleteUserProfile() {
     return <Navigate to="/drivers" replace />;
   }
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       await completeProfile("/auth/user/complete-profile", form);
       toast.success("Profile completed!");
       navigate("/drivers");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to complete profile");
     } finally {
       setSaving(false);
@@ -40,13 +40,13 @@ export default function CompleteUserProfile() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Full Name</label>
- <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter your full name" className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Enter your full name" className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Locality (City/Area)</label>
- <input type="text" required value={form.locality} onChange={(e) => setForm({ ...form, locality: e.target.value })} placeholder="Your city or area" className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+              <input type="text" required value={form.locality} onChange={(e) => setForm({ ...form, locality: e.target.value })} placeholder="Your city or area" className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
             </div>
- <button type="submit" disabled={saving} className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300">
+            <button type="submit" disabled={saving} className="w-full py-3.5 bg-blue-600 text-white rounded-xl font-semibold hover:bg-blue-700 disabled:opacity-50 transition-all duration-300">
               {saving ? "Saving..." : "Complete Profile"}
             </button>
           </form>

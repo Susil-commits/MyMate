@@ -8,7 +8,9 @@ export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token");
   const role = searchParams.get("role");
-  const [status, setStatus] = useState(token && role ? "verifying" : "missing");
+  const [status, setStatus] = useState<"verifying" | "missing" | "success" | "error">(
+    token && role ? "verifying" : "missing"
+  );
 
   useEffect(() => {
     if (!token || !role) return;
@@ -17,7 +19,7 @@ export default function VerifyEmailPage() {
         await api.post("/auth/verify-email", { token, role });
         setStatus("success");
         toast.success("Email verified! You can now log in.");
-      } catch (err) {
+      } catch (err: any) {
         setStatus("error");
         toast.error(err.response?.data?.message || "Verification failed");
       }

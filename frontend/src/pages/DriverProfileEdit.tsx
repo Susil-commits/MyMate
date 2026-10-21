@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import BackButton from "../components/BackButton";
 import Avatar from "../components/Avatar";
 import api from "../api/axios";
@@ -7,9 +7,23 @@ import { vehicleTypes } from "../utils/constants";
 import toast from "react-hot-toast";
 import TwoFactorSettings from "../components/TwoFactorSettings";
 
+interface DriverEditForm {
+  name: string;
+  phone: string;
+  nationality: string;
+  locality: string;
+  experienceYears: string | number;
+  hourlyRate: string | number;
+  dailyRate: string | number;
+  bio: string;
+  availability: "available" | "busy" | "offline";
+  vehicleTypes: string[];
+  languages: string;
+}
+
 export default function DriverProfileEdit() {
   const { user, loadUser } = useAuth();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<DriverEditForm>({
     name: "",
     phone: "",
     nationality: "",
@@ -22,10 +36,10 @@ export default function DriverProfileEdit() {
     vehicleTypes: [],
     languages: "",
   });
-  const [prevUser, setPrevUser] = useState(user);
-  const [licenseFile, setLicenseFile] = useState(null);
-  const [avatarFile, setAvatarFile] = useState(null);
-  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [prevUser, setPrevUser] = useState<any>(user);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pwForm, setPwForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
   const [savingPw, setSavingPw] = useState(false);
@@ -33,26 +47,26 @@ export default function DriverProfileEdit() {
   if (user !== prevUser) {
     setPrevUser(user);
     setForm({
-      name: user.name || "",
-      phone: user.phone || "",
-      nationality: user.nationality || "",
-      locality: user.locality || "",
-      experienceYears: user.experienceYears || "",
-      hourlyRate: user.hourlyRate || "",
-      dailyRate: user.dailyRate || "",
-      bio: user.bio || "",
-      availability: user.availability || "available",
-      vehicleTypes: user.vehicleTypes || [],
-      languages: (user.languages || []).join(", "),
+      name: user?.name || "",
+      phone: user?.phone || "",
+      nationality: user?.nationality || "",
+      locality: user?.locality || "",
+      experienceYears: user?.experienceYears || "",
+      hourlyRate: user?.hourlyRate || "",
+      dailyRate: user?.dailyRate || "",
+      bio: user?.bio || "",
+      availability: user?.availability || "available",
+      vehicleTypes: user?.vehicleTypes || [],
+      languages: (user?.languages || []).join(", "),
     });
   }
 
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setForm({ ...form, [name]: value });
   };
 
-  const handleVehicleToggle = (type) => {
+  const handleVehicleToggle = (type: string) => {
     setForm((prev) => ({
       ...prev,
       vehicleTypes: prev.vehicleTypes.includes(type)
@@ -61,7 +75,7 @@ export default function DriverProfileEdit() {
     }));
   };
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -72,18 +86,18 @@ export default function DriverProfileEdit() {
     setAvatarPreview(URL.createObjectURL(file));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       const formData = new FormData();
       Object.entries(form).forEach(([key, val]) => {
         if (key === "vehicleTypes") {
-          val.forEach((v) => formData.append("vehicleTypes", v));
+          (val as string[]).forEach((v) => formData.append("vehicleTypes", v));
         } else if (key === "languages") {
-          formData.append("languages", val);
+          formData.append("languages", val as string);
         } else {
-          formData.append(key, val);
+          formData.append(key, String(val));
         }
       });
       if (licenseFile) {
@@ -99,14 +113,14 @@ export default function DriverProfileEdit() {
       setAvatarFile(null);
       setAvatarPreview(null);
       toast.success("Profile updated");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Update failed");
     } finally {
       setSaving(false);
     }
   };
 
-  const handlePasswordChange = async (e) => {
+  const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pwForm.newPassword !== pwForm.confirmPassword) {
       toast.error("New passwords do not match");
@@ -126,7 +140,7 @@ export default function DriverProfileEdit() {
       await loadUser();
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       toast.success("Password changed successfully");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to change password");
     } finally {
       setSavingPw(false);
@@ -183,7 +197,7 @@ export default function DriverProfileEdit() {
           </div>
         </div>
 
- <div className="grid grid-cols-1 md gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Field label="Name" name="name" value={form.name} onChange={handleChange} />
           <Field label="Phone" name="phone" value={form.phone} onChange={handleChange} />
           <Field label="Nationality" name="nationality" value={form.nationality} onChange={handleChange} />
@@ -197,7 +211,7 @@ export default function DriverProfileEdit() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Availability</label>
- <select name="availability" value={form.availability} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
+          <select name="availability" value={form.availability} onChange={handleChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200">
             <option value="available">Available</option>
             <option value="busy">Busy</option>
             <option value="offline">Offline</option>
@@ -208,12 +222,16 @@ export default function DriverProfileEdit() {
           <label className="block text-sm font-semibold text-gray-700 mb-2">Vehicle Types</label>
           <div className="flex flex-wrap gap-2">
             {vehicleTypes.map((type) => (
-              <button key={type} type="button" onClick={() => handleVehicleToggle(type)}
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleVehicleToggle(type)}
                 className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
                   form.vehicleTypes.includes(type)
                     ? "bg-green-600 text-white border-green-600 shadow-sm"
- : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}>
+                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                }`}
+              >
                 {type}
               </button>
             ))}
@@ -222,15 +240,28 @@ export default function DriverProfileEdit() {
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Update License Image</label>
- <input type="file" accept="image/*,.pdf" onChange={(e) => setLicenseFile(e.target.files[0])} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          <input
+            type="file"
+            accept="image/*,.pdf"
+            onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bio</label>
- <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" />
+          <textarea
+            name="bio"
+            value={form.bio}
+            onChange={handleChange}
+            maxLength={500}
+            rows={3}
+            placeholder="Tell customers about yourself..."
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200"
+          />
         </div>
 
- <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
+        <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
           {saving ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -268,11 +299,25 @@ export default function DriverProfileEdit() {
   );
 }
 
-function Field({ label, name, type = "text", value, onChange }) {
+interface FieldProps {
+  label: string;
+  name: string;
+  type?: string;
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+function Field({ label, name, type = "text", value, onChange }: FieldProps) {
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
- <input type={type} name={name} value={value} onChange={onChange} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+      />
     </div>
   );
 }

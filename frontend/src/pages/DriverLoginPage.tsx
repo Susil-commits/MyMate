@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed } from "react-icons/hi";
@@ -29,7 +29,7 @@ export default function DriverLoginPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [twoFactorToken, setTwoFactorToken] = useState("");
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
@@ -42,14 +42,14 @@ export default function DriverLoginPage() {
         toast.success("Welcome back, driver!");
         navigate("/driver/dashboard");
       }
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onVerify2FA = async (e) => {
+  const onVerify2FA = async (e: FormEvent) => {
     e.preventDefault();
     if (!twoFactorToken || twoFactorToken.length < 6) {
       toast.error("Please enter a valid 2FA code");
@@ -60,7 +60,7 @@ export default function DriverLoginPage() {
       await login("/2fa/verify-login", { email: loginEmail, token: twoFactorToken, role: "driver" });
       toast.success("Welcome back, driver!");
       navigate("/driver/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Verification failed");
     } finally {
       setSubmitting(false);
@@ -113,7 +113,7 @@ export default function DriverLoginPage() {
           <p className="text-gray-500 text-sm mb-8">{step === 1 ? "Manage your bookings and profile." : "Enter the code from your authenticator app."}</p>
 
           {step === 1 ? (
-            <form toolname="driver_login" tooldescription="Log in as a driver" onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
                 <div className="relative">

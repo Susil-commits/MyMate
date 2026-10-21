@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -17,15 +17,15 @@ const authParticles = Array.from({ length: 15 }, () => ({
 const particleColors = ["#2563eb", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#06b6d4", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6"];
 
 export default function ResetPasswordPage() {
-  const { token } = useParams();
+  const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { loadUser } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState("user");
+  const [role, setRole] = useState<"user" | "driver">("user");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
       await loadUser();
       toast.success("Password reset successfully");
       navigate(role === "driver" ? "/driver/dashboard" : "/drivers");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Reset failed");
     } finally {
       setLoading(false);

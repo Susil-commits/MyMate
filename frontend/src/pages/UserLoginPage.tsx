@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed } from "react-icons/hi";
@@ -12,6 +12,8 @@ const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email format"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 const authParticles = Array.from({ length: 15 }, () => ({
   left: `${Math.random() * 100}%`,
@@ -32,11 +34,11 @@ export default function UserLoginPage() {
   const [loginEmail, setLoginEmail] = useState("");
   const [twoFactorToken, setTwoFactorToken] = useState("");
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
-  const onSubmit = async (data) => {
+  const onSubmit = async (data: LoginFormData) => {
     setSubmitting(true);
     try {
       const result = await login("/auth/user/login", data);
@@ -48,14 +50,14 @@ export default function UserLoginPage() {
         toast.success("Welcome back!");
         navigate("/drivers");
       }
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Login failed");
     } finally {
       setSubmitting(false);
     }
   };
 
-  const onVerify2FA = async (e) => {
+  const onVerify2FA = async (e: FormEvent) => {
     e.preventDefault();
     if (!twoFactorToken || twoFactorToken.length < 6) {
       toast.error("Please enter a valid 2FA code");
@@ -66,7 +68,7 @@ export default function UserLoginPage() {
       await login("/2fa/verify-login", { email: loginEmail, token: twoFactorToken, role: "user" });
       toast.success("Welcome back!");
       navigate("/drivers");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Verification failed");
     } finally {
       setSubmitting(false);
@@ -97,7 +99,7 @@ export default function UserLoginPage() {
           <p className="text-gray-500 text-sm mb-8">{step === 1 ? "Sign in to find and hire drivers." : "Enter the code from your authenticator app."}</p>
 
           {step === 1 ? (
-            <form toolname="user_login" tooldescription="Log in as a user" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div>
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
                 <div className="relative">

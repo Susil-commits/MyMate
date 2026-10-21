@@ -1,13 +1,26 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { vehicleTypes } from "../utils/constants";
 import toast from "react-hot-toast";
 
+interface FormState {
+  name: string;
+  nationality: string;
+  locality: string;
+  licenseNumber: string;
+  experienceYears: string | number;
+  hourlyRate: string | number;
+  dailyRate: string | number;
+  languages: string;
+  bio: string;
+  vehicleTypes: string[];
+}
+
 export default function CompleteDriverProfile() {
   const { user, completeProfile } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<FormState>({
     name: user?.name || "",
     nationality: user?.nationality || "",
     locality: user?.locality || "",
@@ -19,16 +32,18 @@ export default function CompleteDriverProfile() {
     bio: user?.bio || "",
     vehicleTypes: user?.vehicleTypes || [],
   });
-  const [licenseFile, setLicenseFile] = useState(null);
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
   if (user?.profileCompleted) {
     return <Navigate to="/driver/dashboard" replace />;
   }
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
-  const handleVehicleToggle = (type) => {
+  const handleVehicleToggle = (type: string) => {
     setForm((prev) => ({
       ...prev,
       vehicleTypes: prev.vehicleTypes.includes(type)
@@ -37,22 +52,22 @@ export default function CompleteDriverProfile() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
       const formData = new FormData();
       Object.entries(form).forEach(([key, val]) => {
-        if (key === "vehicleTypes") val.forEach((v) => formData.append("vehicleTypes", v));
-        else if (key === "languages") formData.append("languages", val);
-        else formData.append(key, val);
+        if (key === "vehicleTypes") (val as string[]).forEach((v) => formData.append("vehicleTypes", v));
+        else if (key === "languages") formData.append("languages", val as string);
+        else formData.append(key, String(val));
       });
       if (licenseFile) formData.append("licenseImage", licenseFile);
 
       await completeProfile("/auth/driver/complete-profile", formData);
       toast.success("Profile submitted for verification!");
       navigate("/driver/dashboard");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Failed to complete profile");
     } finally {
       setSaving(false);
@@ -75,7 +90,13 @@ export default function CompleteDriverProfile() {
             <Field label="License Number" name="licenseNumber" value={form.licenseNumber} onChange={handleChange} required />
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">License Image (required)</label>
- <input type="file" accept="image/*,.pdf" required={!user?.licenseImage?.url} onChange={(e) => setLicenseFile(e.target.files[0])} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+              <input
+                type="file"
+                accept="image/*,.pdf"
+                required={!user?.licenseImage?.url}
+                onChange={(e) => setLicenseFile(e.target.files?.[0] || null)}
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+              />
             </div>
             <div className="grid grid-cols-3 gap-4">
               <Field label="Experience (yrs)" name="experienceYears" type="number" value={form.experienceYears} onChange={handleChange} required />
@@ -87,15 +108,38 @@ export default function CompleteDriverProfile() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">Vehicle Types</label>
               <div className="flex flex-wrap gap-2">
                 {vehicleTypes.map((type) => (
- <button key={type} type="button" onClick={() => handleVehicleToggle(type)} className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${form.vehicleTypes.includes(type) ? "bg-green-600 text-white border-green-600" : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"}`}>{type}</button>
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleVehicleToggle(type)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                      form.vehicleTypes.includes(type)
+                        ? "bg-green-600 text-white border-green-600"
+                        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                    }`}
+                  >
+                    {type}
+                  </button>
                 ))}
               </div>
             </div>
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">Bio</label>
-              <textarea name="bio" value={form.bio} onChange={handleChange} maxLength={500} rows={3} placeholder="Tell customers about yourself..." className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200" />
+              <textarea
+                name="bio"
+                value={form.bio}
+                onChange={handleChange}
+                maxLength={500}
+                rows={3}
+                placeholder="Tell customers about yourself..."
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all duration-200"
+              />
             </div>
-            <button type="submit" disabled={saving} className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300">
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full py-3.5 bg-green-600 text-white rounded-xl font-semibold hover:bg-green-700 disabled:opacity-50 transition-all duration-300"
+            >
               {saving ? (licenseFile ? "Submitting & AI Analyzing Document..." : "Submitting...") : "Submit for Verification"}
             </button>
             <p className="text-xs text-center text-gray-400">
@@ -108,11 +152,27 @@ export default function CompleteDriverProfile() {
   );
 }
 
-function Field({ label, name, type = "text", value, onChange, required }) {
+interface FieldProps {
+  label: string;
+  name: string;
+  type?: string;
+  value: string | number;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  required?: boolean;
+}
+
+function Field({ label, name, type = "text", value, onChange, required }: FieldProps) {
   return (
     <div>
       <label className="block text-sm font-semibold text-gray-700 mb-1.5">{label}</label>
- <input type={type} name={name} value={value} onChange={onChange} required={required} className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200" />
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        required={required}
+        className="w-full px-4 py-3 bg-white/80 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all duration-200"
+      />
     </div>
   );
 }

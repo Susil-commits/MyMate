@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed, HiPhone, HiUser } from "react-icons/hi";
@@ -38,16 +38,17 @@ export default function DriverRegisterPage() {
   const navigate = useNavigate();
   const particles = useMemo(() => generateParticles(), []);
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       await register("/auth/driver/register", form);
       toast.success("Driver account created! Please login.");
       navigate("/driver/login");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Registration failed");
     } finally {
       setSubmitting(false);
@@ -82,8 +83,8 @@ export default function DriverRegisterPage() {
             height: `${p.size}px`,
             backgroundColor: p.color,
             animation: `particleDrift ${p.duration}s ${p.delay}s infinite linear`,
-            "--x-drift": `${p.xDrift}px`,
-            "--y-drift": `${p.yDrift}px`,
+            ["--x-drift" as any]: `${p.xDrift}px`,
+            ["--y-drift" as any]: `${p.yDrift}px`,
           }}
         />
       ))}
@@ -116,7 +117,7 @@ export default function DriverRegisterPage() {
             <p className="text-gray-500">Register and start earning with MyMate.</p>
           </div>
 
-          <form toolname="driver_registration" tooldescription="Register a new driver account" onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
               <div className="relative">

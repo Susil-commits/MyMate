@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ChangeEvent, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed, HiPhone, HiUser } from "react-icons/hi";
@@ -21,16 +21,17 @@ export default function UserRegisterPage() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setForm({ ...form, [e.target.name]: e.target.value });
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     try {
       await register("/auth/user/register", form);
       toast.success("Account created! Please login.");
       navigate("/user/login");
-    } catch (err) {
+    } catch (err: any) {
       toast.error(err.response?.data?.message || "Registration failed");
     } finally {
       setSubmitting(false);
@@ -60,7 +61,7 @@ export default function UserRegisterPage() {
           <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Create Account</h1>
           <p className="text-gray-500 text-sm mb-8">Sign up to find trusted drivers near you.</p>
 
-          <form toolname="user_registration" tooldescription="Register a new user account" onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">Email</label>
               <div className="relative">
