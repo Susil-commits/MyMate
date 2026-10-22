@@ -346,6 +346,16 @@ func GetDriverBookings(c *gin.Context) {
 
 // GET /api/v1/bookings/driver/stats
 func GetDriverStats(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"totalBookings":     0,
+			"completedBookings": 0,
+			"pendingBookings":   0,
+			"earnings":          0.0,
+		})
+		return
+	}
+
 	driverObj, _ := c.Get("driver")
 	driver := driverObj.(*models.Driver)
 

@@ -121,3 +121,30 @@ func TestNotFoundRoute(t *testing.T) {
 		t.Errorf("Expected 404 for unknown route, got %d", w.Code)
 	}
 }
+
+func TestPublicDriverStatsEndpoint(t *testing.T) {
+	r := setupTestEngine()
+
+	endpoints := []string{"/api/v1/drivers/stats", "/api/drivers/stats"}
+	for _, ep := range endpoints {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, ep, nil)
+		r.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Fatalf("Expected 200 OK for %s, got %d", ep, w.Code)
+		}
+
+		var stats map[string]interface{}
+		if err := json.Unmarshal(w.Body.Bytes(), &stats); err != nil {
+			t.Fatalf("Failed to parse stats json: %v", err)
+		}
+
+		if _, ok := stats["driverCount"]; !ok {
+			t.Errorf("Expected driverCount field in %s", ep)
+		}
+		if _, ok := stats["tripCount"]; !ok {
+			t.Errorf("Expected tripCount field in %s", ep)
+		}
+	}
+}

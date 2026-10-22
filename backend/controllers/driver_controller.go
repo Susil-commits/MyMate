@@ -37,6 +37,14 @@ func GetDrivers(c *gin.Context) {
 	limit := utils.ClampLimit(c.Query("limit"), 12, 50)
 	skip := int64((page - 1) * limit)
 
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"drivers":    []models.SanitizedDriver{},
+			"pagination": utils.BuildPagination(0, page, limit),
+		})
+		return
+	}
+
 	filter := bson.M{
 		"kycStatus": "approved",
 		"isActive":  true,
@@ -149,6 +157,18 @@ func GetDrivers(c *gin.Context) {
 
 // GET /api/v1/drivers/stats
 func GetPublicStats(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"driverCount":      0,
+			"tripCount":        0,
+			"cityCount":        0,
+			"averageRating":    0.0,
+			"totalDrivers":     0,
+			"availableDrivers": 0,
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

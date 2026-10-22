@@ -25,6 +25,30 @@ type verifyDriverReq struct {
 
 // GET /api/v1/admin/stats
 func GetDashboardStats(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"data": gin.H{
+				"totalDrivers":      0,
+				"activeDrivers":     0,
+				"totalUsers":        0,
+				"totalBookings":     0,
+				"pendingKyc":        0,
+				"completedBookings": 0,
+				"cancelledBookings": 0,
+				"revenue":           0.0,
+			},
+			"totalDrivers":      0,
+			"activeDrivers":     0,
+			"totalUsers":        0,
+			"totalBookings":     0,
+			"pendingKyc":        0,
+			"completedBookings": 0,
+			"cancelledBookings": 0,
+			"revenue":           0.0,
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
