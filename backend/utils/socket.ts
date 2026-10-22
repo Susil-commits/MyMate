@@ -47,7 +47,7 @@ export const socketAuthMiddleware = (socket: AuthenticatedSocket, next: (err?: E
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string, { algorithms: ["HS256"] });
     socket.user = decoded;
     next();
   } catch (err) {

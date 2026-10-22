@@ -25,5 +25,5 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      - key: ADMIN_CODE
+      - key: ADMIN_EMAIL
         sync: false

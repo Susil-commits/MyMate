@@ -4,6 +4,7 @@ import { faker } from "@faker-js/faker";
 import User from "./models/User.js";
 import Driver from "./models/Driver.js";
 import Booking from "./models/Booking.js";
+import Admin from "./models/Admin.js";
 import connectDB from "./config/db.js";
 
 async function seedData() {
@@ -15,7 +16,16 @@ async function seedData() {
     await User.deleteMany({});
     await Driver.deleteMany({});
     await Booking.deleteMany({});
-    console.log("Cleared existing users, drivers, and bookings.");
+    await Admin.deleteMany({});
+    console.log("Cleared existing users, drivers, bookings, and admins.");
+
+    const adminEmail = (process.env.ADMIN_EMAIL || "admin@mymate.com").toLowerCase();
+    await Admin.create({
+      email: adminEmail,
+      password: "adminpassword123",
+      role: "admin",
+    });
+    console.log(`Created default admin account: ${adminEmail} (password: adminpassword123)`);
 
     const users = [];
     for (let i = 0; i < 50; i++) {

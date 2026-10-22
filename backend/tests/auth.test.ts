@@ -390,28 +390,6 @@ describe("Authentication & Authorization Test Suite (TASK 2.1)", () => {
   });
 
   describe("5. Admin Login & Auth", () => {
-    it("should succeed with correct admin code", async () => {
-      const req: any = { body: { code: "SUPER_SECRET_ADMIN_123" } };
-      const res = createMockResponse();
-
-      await adminLogin(req, res);
-
-      expect(res.statusCode).toBe(200);
-      expect(res.body.role).toBe("admin");
-      expect(res.cookies["token"]).toBeDefined();
-    });
-
-    it("should fail with incorrect admin code", async () => {
-      const req: any = { body: { code: "WRONG_CODE" } };
-      const res = createMockResponse();
-
-      await adminLogin(req, res);
-
-      expect(res.statusCode).toBe(401);
-      expect(res.body.message).toBe("Invalid admin code");
-      expect(res.cookies["token"]).toBeUndefined();
-    });
-
     it("should authenticate admin using email and password against Admin model", async () => {
       const mockAdmin: any = {
         _id: "admin_id_001",
@@ -462,6 +440,30 @@ describe("Authentication & Authorization Test Suite (TASK 2.1)", () => {
 
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe("Invalid email or password");
+    });
+
+    it("should reject admin login if admin email is not found", async () => {
+      jest.spyOn(Admin, "findOne").mockResolvedValue(null);
+
+      const req: any = {
+        body: {
+          email: "unknown@mymate.com",
+          password: "Password123!",
+        },
+      };
+      const res = createMockResponse();
+
+      await adminLogin(req, res);
+
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe("Invalid email or password");
+    });
+
+    it("should reject legacy admin code login attempts lacking email/password", async () => {
+      const req: any = { body: { code: "SUPER_SECRET_ADMIN_123" } };
+      const res = createMockResponse();
+
+      await expect(adminLogin(req, res)).rejects.toThrow();
     });
   });
 
@@ -556,6 +558,27 @@ describe("Authentication & Authorization Test Suite (TASK 2.1)", () => {
       expect(next).not.toHaveBeenCalled();
       expect(res.statusCode).toBe(401);
       expect(res.body.message).toBe("Session expired. Please log in again.");
+    });
+
+    it("protect middleware should reject tokens signed with an algorithm other than HS256", async () => {
+      const jwtLib = (await import("jsonwebtoken")).default;
+      const payload = { id: "user_test_alg", role: "user" };
+      const token = jwtLib.sign(payload, process.env.JWT_SECRET as string, {
+        algorithm: "HS384",
+      });
+
+      const req: any = {
+        cookies: { token },
+        headers: {},
+      };
+      const res = createMockResponse();
+      const next = jest.fn();
+
+      await protect(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.statusCode).toBe(401);
+      expect(res.body.message).toBe("Not authorized, token invalid");
     });
   });
 

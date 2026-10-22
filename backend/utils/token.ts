@@ -8,5 +8,5 @@ export function generateToken(account: any, role: string) {
     role === "admin"
       ? { role: "admin", id: account?._id }
       : { id: account._id, role, tv: account.tokenVersion ?? 0 };
-  return jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: TOKEN_EXPIRES_IN });
+  return jwt.sign(payload, process.env.JWT_SECRET as string, { expiresIn: TOKEN_EXPIRES_IN, algorithm: "HS256" });
 }

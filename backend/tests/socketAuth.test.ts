@@ -92,4 +92,23 @@ describe("Socket.io Authentication Middleware", () => {
     expect(err.message).toBe("Authentication error: Invalid token");
     expect(socket.user).toBeUndefined();
   });
+
+  it("should reject connection when token algorithm is not HS256", () => {
+    const token = jwt.sign({ id: "hacker" }, secret, { algorithm: "HS384" });
+    const socket = {
+      handshake: {
+        headers: { cookie: `token=${token}` },
+        auth: {},
+      },
+      user: undefined,
+    } as unknown as AuthenticatedSocket;
+
+    const next = jest.fn();
+    socketAuthMiddleware(socket, next);
+
+    expect(next).toHaveBeenCalledWith(expect.any(Error));
+    const err = (next as jest.Mock).mock.calls[0][0] as Error;
+    expect(err.message).toBe("Authentication error: Invalid token");
+    expect(socket.user).toBeUndefined();
+  });
 });

@@ -166,28 +166,15 @@ export const completeDriverProfile = async (req: AuthRequest, res: Response) => 
 };
 
 export const adminLogin = async (req: Request, res: Response) => {
-  const { email, password, code } = adminLoginSchema.parse(req.body);
+  const { email, password } = adminLoginSchema.parse(req.body);
 
-  let admin: any = null;
-
-  if (email && password) {
-    admin = await Admin.findOne({ email: String(email).toLowerCase() });
-    if (!admin || !(await admin.comparePassword(password))) {
-      return res.status(401).json({ message: "Invalid email or password" });
-    }
-  } else if (code) {
-    if (!process.env.ADMIN_CODE || code !== process.env.ADMIN_CODE) {
-      return res.status(401).json({ message: "Invalid admin code" });
-    }
-    admin = { _id: "admin_master_001", role: "admin", email: "admin@mymate.com" };
-  } else {
-    return res.status(400).json({ message: "Invalid admin credentials" });
+  const admin = await Admin.findOne({ email: String(email).toLowerCase() });
+  if (!admin || !(await admin.comparePassword(password))) {
+    return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  if (admin && typeof admin.save === "function") {
-    admin.lastLoginAt = new Date();
-    await admin.save();
-  }
+  admin.lastLoginAt = new Date();
+  await admin.save();
 
   const token = generateToken(admin, "admin");
   setTokenCookie(res, token);

@@ -1,7 +1,7 @@
 import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { HiArrowLeft, HiShieldCheck } from "react-icons/hi";
+import { HiArrowLeft, HiShieldCheck, HiMail, HiLockClosed } from "react-icons/hi";
 import toast from "react-hot-toast";
 
 const authParticles = Array.from({ length: 15 }, () => ({
@@ -19,21 +19,22 @@ const particleColors = [
 ];
 
 export default function AdminLoginPage() {
-  const [code, setCode] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!code.trim()) return toast.error("Enter admin code");
+    if (!email.trim() || !password) return toast.error("Please enter email and password");
     setSubmitting(true);
     try {
-      await login("/auth/admin/login", { code });
+      await login("/auth/admin/login", { email: email.trim().toLowerCase(), password });
       toast.success("Admin access granted");
       navigate("/admin/dashboard");
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Invalid admin code");
+      toast.error(err.response?.data?.message || "Invalid admin credentials");
     } finally {
       setSubmitting(false);
     }
@@ -88,27 +89,43 @@ export default function AdminLoginPage() {
           </div>
 
           <h1 className="text-2xl font-extrabold text-gray-900 mb-1">
-            Admin Access
+            Admin Console
           </h1>
           <p className="text-gray-500 text-sm mb-8">
-            Enter your admin code to continue.
+            Enter your admin credentials to continue.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Admin Code
+                Admin Email
               </label>
               <div className="relative">
-                <HiShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
+                <HiMail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@mymate.com"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all duration-200"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                Password
+              </label>
+              <div className="relative">
+                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
                 <input
                   type="password"
                   required
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all duration-200 font-mono tracking-widest"
-                  style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all duration-200"
                 />
               </div>
             </div>
@@ -118,7 +135,7 @@ export default function AdminLoginPage() {
               disabled={submitting}
               className="w-full py-3.5 bg-gradient-to-r from-purple-600 to-violet-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-purple-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5"
             >
-              {submitting ? "Verifying..." : "Access Admin"}
+              {submitting ? "Signing in..." : "Sign In to Admin"}
             </button>
           </form>
 

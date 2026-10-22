@@ -4,6 +4,7 @@ import Driver, { IDriver } from "../models/Driver.js";
 import { Request, Response, NextFunction } from "express";
 
 export interface AdminUser {
+  _id?: string;
   role: "admin";
 }
 
@@ -27,7 +28,7 @@ export const verifyAndResolveUser = async (
     return { user: null, userRole: null, error: "Not authorized, no token" };
   }
   try {
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string, { algorithms: ["HS256"] });
     let user: AuthUser | null = null;
 
     if (decoded.role === "user") {
@@ -37,7 +38,7 @@ export const verifyAndResolveUser = async (
       const driverDoc = await Driver.findById(decoded.id).select("-password");
       if (driverDoc) user = driverDoc;
     } else if (decoded.role === "admin") {
-      user = { role: "admin" };
+      user = { _id: decoded.id, role: "admin" };
     }
 
     if (!user) {
@@ -128,7 +129,7 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
     if (!token) {
       return next();
     }
-    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string);
+    const decoded: any = jwt.verify(token, process.env.JWT_SECRET as string, { algorithms: ["HS256"] });
 
     if (decoded.role === "user") {
       const userDoc = await User.findById(decoded.id).select("-password");
@@ -137,7 +138,7 @@ export const optionalAuth = async (req: AuthRequest, res: Response, next: NextFu
       const driverDoc = await Driver.findById(decoded.id).select("-password");
       if (driverDoc) req.user = driverDoc;
     } else if (decoded.role === "admin") {
-      req.user = { role: "admin" };
+      req.user = { _id: decoded.id, role: "admin" };
     }
 
     if (req.user) {
