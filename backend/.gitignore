@@ -7,3 +7,6 @@ uploads/
 *.key
 *.crt
 *.log
+server
+server.exe
+*.exe
