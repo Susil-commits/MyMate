@@ -2,6 +2,7 @@ import { useState, FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiShieldCheck, HiMail, HiLockClosed } from "react-icons/hi";
+import PasswordField from "../components/PasswordField";
 import toast from "react-hot-toast";
 
 const authParticles = Array.from({ length: 15 }, () => ({
@@ -113,22 +114,16 @@ export default function AdminLoginPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-purple-400" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all duration-200"
-                />
-              </div>
-            </div>
+            <PasswordField
+              id="password"
+              label="Password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              leftIcon={<HiLockClosed className="w-5 h-5 text-purple-400" />}
+              accentColor="purple"
+            />
 
             <button
               type="submit"

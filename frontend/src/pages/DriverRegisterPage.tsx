@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed, HiPhone, HiUser } from "react-icons/hi";
 import { FaUserTie } from "react-icons/fa";
+import PasswordField from "../components/PasswordField";
 import toast from "react-hot-toast";
 
 const PARTICLE_COUNT = 15;
@@ -32,7 +33,13 @@ function generateParticles() {
 }
 
 export default function DriverRegisterPage() {
-  const [form, setForm] = useState({ email: "", password: "", gender: "", phone: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    gender: "",
+    phone: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -41,11 +48,25 @@ export default function DriverRegisterPage() {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  const isConfirmTouched = form.confirmPassword.length > 0;
+  const passwordsMatch = form.password === form.confirmPassword;
+  const confirmError = isConfirmTouched && !passwordsMatch ? "Passwords do not match" : undefined;
+  const matchSuccess = isConfirmTouched && passwordsMatch && form.password.length >= 6;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setSubmitting(true);
     try {
-      await register("/auth/driver/register", form);
+      const { confirmPassword: _, ...payload } = form;
+      await register("/auth/driver/register", payload);
       toast.success("Driver account created! Please login.");
       navigate("/driver/login");
     } catch (err: any) {
@@ -135,23 +156,33 @@ export default function DriverRegisterPage() {
               </div>
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="password"
-                  type="password"
-                  name="password"
-                  required
-                  minLength={6}
-                  value={form.password}
-                  onChange={handleChange}
-                  placeholder="Min 6 characters"
-                  className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all duration-200"
-                />
-              </div>
-            </div>
+            <PasswordField
+              id="password"
+              name="password"
+              label="Password"
+              required
+              minLength={6}
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Min 6 characters"
+              leftIcon={<HiLockClosed className="w-5 h-5 text-gray-400" />}
+              accentColor="green"
+            />
+
+            <PasswordField
+              id="confirmPassword"
+              name="confirmPassword"
+              label="Confirm Password"
+              required
+              minLength={6}
+              value={form.confirmPassword}
+              onChange={handleChange}
+              placeholder="Re-enter password"
+              leftIcon={<HiLockClosed className="w-5 h-5 text-gray-400" />}
+              accentColor="green"
+              error={confirmError}
+              matchSuccess={matchSuccess}
+            />
 
             <div>
               <label htmlFor="gender" className="block text-sm font-semibold text-gray-700 mb-1.5">Gender</label>

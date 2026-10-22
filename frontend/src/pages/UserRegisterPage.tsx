@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed, HiPhone, HiUser } from "react-icons/hi";
 import { FaCar } from "react-icons/fa";
+import PasswordField from "../components/PasswordField";
 import toast from "react-hot-toast";
 
 const authParticles = Array.from({ length: 15 }, () => ({
@@ -16,7 +17,13 @@ const authParticles = Array.from({ length: 15 }, () => ({
 const particleColors = ["#2563eb", "#3b82f6", "#6366f1", "#8b5cf6", "#a855f7", "#06b6d4", "#0ea5e9", "#f59e0b", "#ec4899", "#14b8a6"];
 
 export default function UserRegisterPage() {
-  const [form, setForm] = useState({ email: "", password: "", gender: "", phone: "" });
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+    gender: "",
+    phone: "",
+  });
   const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
@@ -24,11 +31,25 @@ export default function UserRegisterPage() {
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
+  const isConfirmTouched = form.confirmPassword.length > 0;
+  const passwordsMatch = form.password === form.confirmPassword;
+  const confirmError = isConfirmTouched && !passwordsMatch ? "Passwords do not match" : undefined;
+  const matchSuccess = isConfirmTouched && passwordsMatch && form.password.length >= 6;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (form.password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
     setSubmitting(true);
     try {
-      await register("/auth/user/register", form);
+      const { confirmPassword: _, ...payload } = form;
+      await register("/auth/user/register", payload);
       toast.success("Account created! Please login.");
       navigate("/user/login");
     } catch (err: any) {
@@ -69,13 +90,32 @@ export default function UserRegisterPage() {
                 <input id="email" type="email" name="email" required value={form.email} onChange={handleChange} placeholder="your@email.com" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200" />
               </div>
             </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input id="password" type="password" name="password" required value={form.password} onChange={handleChange} placeholder="Min 6 characters" minLength={6} className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200" />
-              </div>
-            </div>
+            <PasswordField
+              id="password"
+              name="password"
+              label="Password"
+              required
+              minLength={6}
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Min 6 characters"
+              leftIcon={<HiLockClosed className="w-4.5 h-4.5 text-gray-400" />}
+              accentColor="blue"
+            />
+            <PasswordField
+              id="confirmPassword"
+              name="confirmPassword"
+              label="Confirm Password"
+              required
+              minLength={6}
+              value={form.confirmPassword}
+              onChange={handleChange}
+              placeholder="Re-enter password"
+              leftIcon={<HiLockClosed className="w-4.5 h-4.5 text-gray-400" />}
+              accentColor="blue"
+              error={confirmError}
+              matchSuccess={matchSuccess}
+            />
             <div>
               <label htmlFor="gender" className="block text-sm font-semibold text-gray-700 mb-1.5">Gender</label>
               <div className="relative">

@@ -4,6 +4,7 @@ import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiLockClosed } from "react-icons/hi";
 import { FaCar } from "react-icons/fa";
+import PasswordField from "../components/PasswordField";
 import toast from "react-hot-toast";
 
 const authParticles = Array.from({ length: 15 }, () => ({
@@ -25,8 +26,17 @@ export default function ResetPasswordPage() {
   const [role, setRole] = useState<"user" | "driver">("user");
   const [loading, setLoading] = useState(false);
 
+  const isConfirmTouched = confirmPassword.length > 0;
+  const passwordsMatch = password === confirmPassword;
+  const confirmError = isConfirmTouched && !passwordsMatch ? "Passwords do not match" : undefined;
+  const matchSuccess = isConfirmTouched && passwordsMatch && password.length >= 6;
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
@@ -90,36 +100,30 @@ export default function ResetPasswordPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">New Password</label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200"
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm Password</label>
-              <div className="relative">
-                <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-200"
-                />
-              </div>
-            </div>
+            <PasswordField
+              id="new-password"
+              label="New Password"
+              required
+              minLength={6}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              leftIcon={<HiLockClosed className="w-4.5 h-4.5 text-gray-400" />}
+              accentColor={role === "driver" ? "green" : "blue"}
+            />
+            <PasswordField
+              id="confirm-password"
+              label="Confirm Password"
+              required
+              minLength={6}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="••••••••"
+              leftIcon={<HiLockClosed className="w-4.5 h-4.5 text-gray-400" />}
+              accentColor={role === "driver" ? "green" : "blue"}
+              error={confirmError}
+              matchSuccess={matchSuccess}
+            />
             <button
               type="submit"
               disabled={loading}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { HiArrowLeft, HiMail, HiLockClosed } from "react-icons/hi";
 import { FaCar } from "react-icons/fa";
+import PasswordField from "../components/PasswordField";
 import toast from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -114,20 +115,15 @@ export default function UserLoginPage() {
                 </div>
                 {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
               </div>
-              <div>
-                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">Password</label>
-                <div className="relative">
-                  <HiLockClosed className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-gray-400" />
-                  <input 
-                    id="password"
-                    type="password" 
-                    {...register("password")} 
-                    placeholder="••••••••" 
-                    className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${errors.password ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' : 'border-gray-200 focus:ring-blue-500/20 focus:border-blue-500'} rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 outline-none transition-all duration-200`} 
-                  />
-                </div>
-                {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-              </div>
+              <PasswordField
+                id="password"
+                label="Password"
+                leftIcon={<HiLockClosed className="w-4.5 h-4.5 text-gray-400" />}
+                placeholder="••••••••"
+                error={errors.password?.message}
+                accentColor="blue"
+                {...register("password")}
+              />
               <button type="submit" disabled={submitting} className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5">
                 {submitting ? "Signing in..." : "Sign In"}
               </button>

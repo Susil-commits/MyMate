@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { vehicleTypes } from "../utils/constants";
 import toast from "react-hot-toast";
 import TwoFactorSettings from "../components/TwoFactorSettings";
+import PasswordField from "../components/PasswordField";
 
 interface DriverEditForm {
   name: string;
@@ -275,18 +276,42 @@ export default function DriverProfileEdit() {
 
       <form onSubmit={handlePasswordChange} className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-8 space-y-5">
         <h2 className="text-lg font-bold text-gray-900">Change Password</h2>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Current Password</label>
-          <input type="password" required value={pwForm.currentPassword} onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all duration-200" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">New Password</label>
-          <input type="password" required minLength={6} value={pwForm.newPassword} onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all duration-200" />
-        </div>
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm New Password</label>
-          <input type="password" required minLength={6} value={pwForm.confirmPassword} onChange={(e) => setPwForm({ ...pwForm, confirmPassword: e.target.value })} className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-500 outline-none transition-all duration-200" />
-        </div>
+        <PasswordField
+          label="Current Password"
+          required
+          value={pwForm.currentPassword}
+          onChange={(e) => setPwForm({ ...pwForm, currentPassword: e.target.value })}
+          placeholder="Enter current password"
+          accentColor="green"
+        />
+        <PasswordField
+          label="New Password"
+          required
+          minLength={6}
+          value={pwForm.newPassword}
+          onChange={(e) => setPwForm({ ...pwForm, newPassword: e.target.value })}
+          placeholder="Min 6 characters"
+          accentColor="green"
+        />
+        <PasswordField
+          label="Confirm New Password"
+          required
+          minLength={6}
+          value={pwForm.confirmPassword}
+          onChange={(e) => setPwForm({ ...pwForm, confirmPassword: e.target.value })}
+          placeholder="Re-enter new password"
+          accentColor="green"
+          error={
+            pwForm.confirmPassword && pwForm.newPassword !== pwForm.confirmPassword
+              ? "Passwords do not match"
+              : undefined
+          }
+          matchSuccess={
+            pwForm.confirmPassword.length > 0 &&
+            pwForm.newPassword === pwForm.confirmPassword &&
+            pwForm.newPassword.length >= 6
+          }
+        />
         <button type="submit" disabled={savingPw} className="w-full py-3.5 bg-gray-800 text-white rounded-xl font-semibold hover:bg-gray-900 disabled:opacity-50 transition-all duration-300">
           {savingPw ? "Changing..." : "Change Password"}
         </button>
