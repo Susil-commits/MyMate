@@ -90,9 +90,14 @@ func LoadConfig() *Config {
 		splitPct = 0.9
 	}
 
+	appEnv := getEnv("APP_ENV", "")
+	if appEnv == "" {
+		appEnv = getEnv("NODE_ENV", "development")
+	}
+
 	AppConfig = &Config{
 		Port:                  port,
-		AppEnv:                getEnv("NODE_ENV", "development"),
+		AppEnv:                appEnv,
 		MongoURI:              mongoURI,
 		JWTSecret:             jwtSecret,
 		ClientURL:             clientURL,
