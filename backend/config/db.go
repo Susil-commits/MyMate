@@ -3,6 +3,8 @@ package config
 import (
 	"context"
 	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -39,8 +41,11 @@ func ConnectDB(uris ...string) (*mongo.Client, error) {
 
 	MongoClient = client
 	dbName := "mymate"
-	if clientOpts.Auth != nil && clientOpts.Auth.AuthSource != "" {
-		dbName = clientOpts.Auth.AuthSource
+	if u, err := url.Parse(uri); err == nil {
+		path := strings.TrimPrefix(u.Path, "/")
+		if path != "" && path != "admin" {
+			dbName = path
+		}
 	}
 	DB = client.Database(dbName)
 

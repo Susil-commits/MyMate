@@ -55,7 +55,7 @@ func SetupRoutes(r *gin.Engine) {
 
 		// 1. Check MongoDB
 		mongoStart := time.Now()
-		ctxMongo, cancelMongo := context.WithTimeout(context.Background(), 2*time.Second)
+		ctxMongo, cancelMongo := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancelMongo()
 
 		if config.DB != nil {
