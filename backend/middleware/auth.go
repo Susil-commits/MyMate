@@ -41,6 +41,11 @@ func Protect() gin.HandlerFunc {
 			return
 		}
 
+		if config.DB == nil {
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+			return
+		}
+
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
@@ -173,6 +178,10 @@ func OptionalAuth() gin.HandlerFunc {
 
 		claims, err := utils.VerifyToken(token)
 		if err == nil {
+			if config.DB == nil {
+				c.Next()
+				return
+			}
 			objID, err := bson.ObjectIDFromHex(claims.ID)
 			if err == nil {
 				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

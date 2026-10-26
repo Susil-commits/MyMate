@@ -9,30 +9,48 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  // We now use httpOnly cookies for the JWT, so no need to attach the Authorization header manually.
+  // Ensure XSRF-TOKEN header is attached cross-origin if present in cookies
+  if (typeof document !== "undefined") {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    if (match && match[1]) {
+      config.headers = config.headers || {};
+      config.headers["X-XSRF-TOKEN"] = decodeURIComponent(match[1]);
+    }
+  }
   return config;
 });
+
+let isRedirecting = false;
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // For /auth/me calls, let loadUser handle the token cleanup — don't
-      // hard-redirect (avoids double-redirect + state loss on cold starts)
       const isAuthMe = error.config?.url?.includes("/auth/me");
-      if (!isAuthMe) {
-        window.dispatchEvent(new CustomEvent('unauthorized-error'));
-        // We still redirect to login page if unauthorized (401)
+      if (!isAuthMe && !error.config?.skipAuthRedirect) {
+        window.dispatchEvent(new CustomEvent("unauthorized-error"));
+
         const path = window.location.pathname;
-        if (!path.includes("/login")) {
+        const isAuthOrPublicPage =
+          path.includes("/login") ||
+          path.includes("/register") ||
+          path.includes("/forgot-password") ||
+          path.includes("/reset-password") ||
+          path === "/" ||
+          path === "/drivers";
+
+        // Only redirect automatically if on a protected route and not already redirecting
+        if (!isAuthOrPublicPage && !isRedirecting) {
+          isRedirecting = true;
           const login =
             path.startsWith("/driver") ? "/driver/login" :
             path.startsWith("/admin") ? "/admin/login" :
             "/user/login";
-          // Delay redirect to allow toast notifications and state cleanup
+
           setTimeout(() => {
+            isRedirecting = false;
             window.location.href = login;
-          }, 1000);
+          }, 800);
         }
       }
     }

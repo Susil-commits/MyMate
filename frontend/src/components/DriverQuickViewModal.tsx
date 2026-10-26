@@ -69,6 +69,20 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
     fetchData();
   }, [driverId]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (showBooking) {
+          setShowBooking(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showBooking, onClose]);
+
   const handleBooking = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -111,9 +125,9 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
   };
 
   const availabilityColor: Record<string, string> = {
-    available: "bg-green-100 text-green-700",
-    busy: "bg-yellow-100 text-yellow-700",
-    offline: "bg-gray-100 text-gray-500",
+    available: "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400",
+    busy: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400",
+    offline: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400",
   };
 
   const estimatedAmount = (() => {
@@ -123,22 +137,23 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
     if (isNaN(start.getTime()) || (end && isNaN(end.getTime()))) return 0;
     if (end && end < start) return 0;
     if (bookingForm.hireType === "temporary") {
-      const hours = end ? Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60)) : 1;
+      const hours = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60))) : 1;
       return hours * (driver.hourlyRate || 0);
     }
-    const days = end ? Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) : 30;
+    const days = end ? Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : 30;
     return days * (driver.dailyRate || 0);
   })();
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 sm:p-6 animate-fade-in" onClick={onClose}>
       <div 
-        className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative animate-scale-in"
+        className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative animate-scale-in border border-transparent dark:border-gray-800"
         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
       >
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 bg-white/50 hover:bg-white rounded-full text-gray-900 transition-colors shadow-sm"
+          className="absolute top-4 right-4 z-10 p-2 bg-white/70 hover:bg-white dark:bg-gray-800/80 dark:hover:bg-gray-800 rounded-full text-gray-900 dark:text-gray-100 transition-colors shadow-sm cursor-pointer"
+          aria-label="Close modal"
         >
           <HiX className="w-6 h-6" />
         </button>
@@ -146,27 +161,27 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
         {loading ? (
           <div className="p-12 flex flex-col items-center justify-center h-96">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 border-t-blue-600 mb-4" />
-            <p className="text-gray-500 font-medium animate-pulse">Loading Profile...</p>
+            <p className="text-gray-500 dark:text-gray-400 font-medium animate-pulse">Loading Profile...</p>
           </div>
         ) : !driver ? (
           <div className="p-12 text-center h-64 flex flex-col items-center justify-center">
-            <p className="text-gray-500 text-lg">Driver not found.</p>
+            <p className="text-gray-500 dark:text-gray-400 text-lg">Driver not found.</p>
           </div>
         ) : (
           <div className="pb-8">
             <div className="h-40 bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 rounded-t-3xl" />
             <div className="px-6 sm:px-10 -mt-16">
               <div className="flex flex-col sm:flex-row sm:items-end gap-6">
-                <div className="w-32 h-32 rounded-2xl bg-white shadow-xl border-4 border-white flex items-center justify-center text-5xl font-extrabold text-blue-600 shrink-0">
+                <div className="w-32 h-32 rounded-2xl bg-white dark:bg-gray-800 shadow-xl border-4 border-white dark:border-gray-800 flex items-center justify-center text-5xl font-extrabold text-blue-600 dark:text-blue-400 shrink-0">
                   {driver.name.charAt(0)}
                 </div>
                 
                 <div className="flex-1 pb-2">
                   <div className="flex items-start justify-between flex-wrap gap-4">
                     <div>
-                      <h1 className="text-3xl font-extrabold text-gray-900 leading-tight">{driver.name}</h1>
-                      <div className="flex items-center gap-2 mt-1.5 text-gray-500 font-medium">
-                        <HiLocationMarker className="w-5 h-5 text-gray-400" />
+                      <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white leading-tight">{driver.name}</h1>
+                      <div className="flex items-center gap-2 mt-1.5 text-gray-500 dark:text-gray-400 font-medium">
+                        <HiLocationMarker className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                         {driver.locality} &middot; {driver.nationality}
                       </div>
                     </div>
@@ -183,45 +198,45 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
                     {[1, 2, 3, 4, 5].map((star) => (
                       <HiStar
                         key={star}
-                        className={`w-5 h-5 ${star <= Math.round(driver.averageRating) ? "text-yellow-500" : "text-gray-200"}`}
+                        className={`w-5 h-5 ${star <= Math.round(driver.averageRating) ? "text-yellow-500" : "text-gray-200 dark:text-gray-700"}`}
                       />
                     ))}
-                    <span className="ml-1 text-lg font-bold text-gray-900">{driver.averageRating || "New"}</span>
-                    <span className="text-sm text-gray-500">({driver.totalReviews} reviews)</span>
+                    <span className="ml-1 text-lg font-bold text-gray-900 dark:text-white">{driver.averageRating || "New"}</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">({driver.totalReviews} reviews)</span>
                   </div>
                 </div>
               </div>
 
               <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Stat icon={<HiClock />} label="Experience" value={`${driver.experienceYears} years`} />
-                <Stat icon={<HiBadgeCheck />} label="Verification" value={driver.documentsVerified ? "Verified" : "Pending"} color={driver.documentsVerified ? "text-green-600" : "text-yellow-600"} />
+                <Stat icon={<HiBadgeCheck />} label="Verification" value={driver.documentsVerified ? "Verified" : "Pending"} color={driver.documentsVerified ? "text-green-600 dark:text-green-400" : "text-yellow-600 dark:text-yellow-400"} />
                 <Stat icon={<HiCurrencyDollar />} label="Hourly" value={`₹${driver.hourlyRate}`} />
                 <Stat icon={<HiCurrencyDollar />} label="Daily" value={`₹${driver.dailyRate}`} />
               </div>
 
               <div className="mt-8 flex flex-wrap gap-3">
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 text-gray-700 rounded-xl font-semibold">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold">
                   <FaCar className="text-blue-500" /> {driver?.vehicleTypes?.join(", ")}
                 </span>
-                <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-100 text-gray-700 rounded-xl font-semibold">
+                <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 dark:bg-gray-800/60 border border-gray-100 dark:border-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-semibold">
                   <FaLanguage className="text-blue-500" /> {driver?.languages?.join(", ") || "Not specified"}
                 </span>
               </div>
 
               {driver.bio && (
                 <div className="mt-8">
-                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">About Driver</h3>
-                  <p className="text-gray-600 leading-relaxed text-[15px]">{driver.bio}</p>
+                  <h3 className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">About Driver</h3>
+                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-[15px]">{driver.bio}</p>
                 </div>
               )}
 
-              <div className="mt-10 pt-8 border-t border-gray-100 flex gap-4">
+              <div className="mt-10 pt-8 border-t border-gray-100 dark:border-gray-800 flex gap-4">
                 <button
                   onClick={handleStartConversation}
                   disabled={messaging}
-                  className="flex-1 py-4 bg-gray-50 hover:bg-gray-100 text-gray-900 rounded-2xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-gray-50 hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white rounded-2xl font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <HiChat className="w-5 h-5 text-blue-600" />
+                  <HiChat className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   Message Driver
                 </button>
                 <button
@@ -235,7 +250,7 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
                     setShowBooking(true);
                   }}
                   disabled={driver.availability !== "available"}
-                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all hover:shadow-lg disabled:opacity-50 disabled:hover:shadow-none flex items-center justify-center gap-2"
+                  className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold transition-all hover:shadow-lg disabled:opacity-50 disabled:hover:shadow-none flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <HiCalendar className="w-5 h-5" />
                   {driver.availability === "available" ? "Book Now" : "Not Available"}
@@ -249,28 +264,29 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
       {/* Booking Form Sub-Modal */}
       {showBooking && driver && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[110] p-4 animate-fade-in" onClick={(e) => { e.stopPropagation(); setShowBooking(false); }}>
-          <div className="bg-white rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto relative animate-scale-in" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-6 sm:p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto relative animate-scale-in border border-transparent dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
              <button 
               onClick={() => setShowBooking(false)}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-50 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-full transition-colors cursor-pointer"
+              aria-label="Close booking form"
             >
               <HiX className="w-5 h-5" />
             </button>
 
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
-                <HiCalendar className="w-6 h-6 text-blue-600" />
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-950/60 flex items-center justify-center">
+                <HiCalendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <h2 className="text-2xl font-extrabold text-gray-900">Book {driver.name}</h2>
+              <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white">Book {driver.name}</h2>
             </div>
             
             <form onSubmit={handleBooking} className="space-y-5">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Hire Type</label>
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Hire Type</label>
                 <select
                   value={bookingForm.hireType}
                   onChange={(e) => setBookingForm({ ...bookingForm, hireType: e.target.value })}
-                  className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium transition-all"
+                  className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:bg-white dark:focus:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none font-medium transition-all"
                 >
                   {hireTypes.map((h) => (
                     <option key={h.value} value={h.value}>{h.label}</option>
@@ -279,36 +295,36 @@ export default function DriverQuickViewModal({ driverId, onClose }: DriverQuickV
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Start Date</label>
-                  <input type="date" required value={bookingForm.startDate} onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Start Date</label>
+                  <input type="date" required value={bookingForm.startDate} onChange={(e) => setBookingForm({ ...bookingForm, startDate: e.target.value })} className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:bg-white dark:focus:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-2">End Date</label>
-                  <input type="date" min={bookingForm.startDate || undefined} value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" />
+                  <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">End Date</label>
+                  <input type="date" min={bookingForm.startDate || undefined} value={bookingForm.endDate} onChange={(e) => setBookingForm({ ...bookingForm, endDate: e.target.value })} className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:bg-white dark:focus:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all" />
                 </div>
               </div>
               <MapSelector label="Pickup Location" value={bookingForm.pickupLocation} onChange={(v: string) => setBookingForm({ ...bookingForm, pickupLocation: v })} />
               <MapSelector label="Drop Location (optional)" value={bookingForm.dropLocation} onChange={(v: string) => setBookingForm({ ...bookingForm, dropLocation: v })} />
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Purpose</label>
-                <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none transition-all" placeholder="e.g. Airport pickup, daily commute..." />
+                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Purpose</label>
+                <textarea required value={bookingForm.purpose} onChange={(e) => setBookingForm({ ...bookingForm, purpose: e.target.value })} rows={2} className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:bg-white dark:focus:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none resize-none transition-all" placeholder="e.g. Airport pickup, daily commute..." />
               </div>
               {bookingForm.startDate && estimatedAmount > 0 && (
-                <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl">
+                <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-100 dark:border-blue-900/50 rounded-2xl">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-bold text-blue-800">Estimated Total</span>
-                    <span className="text-2xl font-extrabold text-blue-900">₹{estimatedAmount.toLocaleString("en-IN")}</span>
+                    <span className="text-sm font-bold text-blue-800 dark:text-blue-300">Estimated Total</span>
+                    <span className="text-2xl font-extrabold text-blue-900 dark:text-blue-200">₹{estimatedAmount.toLocaleString("en-IN")}</span>
                   </div>
-                  <p className="text-xs font-semibold text-blue-600/70">
+                  <p className="text-xs font-semibold text-blue-600/70 dark:text-blue-400/80">
                     {bookingForm.hireType === "temporary"
-                      ? `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60)) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
-                      : `${bookingForm.endDate ? Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60 * 24)) : 30} day(s) × ₹${driver.dailyRate}/day`}
+                      ? `${bookingForm.endDate ? Math.max(1, Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60))) : 1} hour(s) × ₹${driver.hourlyRate}/hr`
+                      : `${bookingForm.endDate ? Math.max(1, Math.ceil((new Date(bookingForm.endDate).getTime() - new Date(bookingForm.startDate).getTime()) / (1000 * 60 * 60 * 24))) : 30} day(s) × ₹${driver.dailyRate}/day`}
                   </p>
                 </div>
               )}
               <div className="flex gap-3 pt-4">
-                <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-4 border border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
-                <button type="submit" disabled={submitting} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
+                <button type="button" onClick={() => setShowBooking(false)} className="flex-1 py-4 border border-gray-200 dark:border-gray-700 rounded-xl font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer">Cancel</button>
+                <button type="submit" disabled={submitting} className="flex-1 py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm cursor-pointer">
                   {submitting ? "Sending Request..." : "Confirm Booking"}
                 </button>
               </div>
@@ -329,11 +345,11 @@ interface StatProps {
 
 function Stat({ icon, label, value, color }: StatProps) {
   return (
-    <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
-      <span className={`${color || "text-blue-600"} text-xl`}>{icon}</span>
+    <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800/60 rounded-2xl border border-gray-100 dark:border-gray-800">
+      <span className={`${color || "text-blue-600 dark:text-blue-400"} text-xl`}>{icon}</span>
       <div>
-        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{label}</p>
-        <p className="font-extrabold text-gray-900 text-sm mt-0.5">{value}</p>
+        <p className="text-xs font-bold text-gray-400 dark:text-gray-400 uppercase tracking-wider">{label}</p>
+        <p className="font-extrabold text-gray-900 dark:text-white text-sm mt-0.5">{value}</p>
       </div>
     </div>
   );

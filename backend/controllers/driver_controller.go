@@ -384,6 +384,14 @@ func UpdateDriverProfile(c *gin.Context) {
 
 // GET /api/v1/drivers/wallet
 func GetDriverWallet(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"walletBalance": 0.0,
+			"transactions":  []models.WalletTransaction{},
+		})
+		return
+	}
+
 	driverObj, exists := c.Get("driver")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
@@ -395,7 +403,7 @@ func GetDriverWallet(c *gin.Context) {
 	defer cancel()
 
 	opts := options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}).SetLimit(50)
-	cursor, err := config.DB.Collection("wallettransactions").Find(ctx, bson.M{
+	cursor, err := config.DB.Collection("wallet_transactions").Find(ctx, bson.M{
 		"owner":      driver.ID,
 		"ownerModel": "Driver",
 	}, opts)
@@ -403,6 +411,9 @@ func GetDriverWallet(c *gin.Context) {
 	var txs []models.WalletTransaction
 	if err == nil {
 		_ = cursor.All(ctx, &txs)
+	}
+	if txs == nil {
+		txs = []models.WalletTransaction{}
 	}
 
 	c.JSON(http.StatusOK, gin.H{

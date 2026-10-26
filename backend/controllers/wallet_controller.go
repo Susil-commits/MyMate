@@ -32,6 +32,14 @@ type verifyWalletPaymentReq struct {
 
 // GET /api/v1/wallet
 func GetWalletTransactions(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"balance":      0.0,
+			"transactions": []models.WalletTransaction{},
+		})
+		return
+	}
+
 	userID, _ := c.Get("userId")
 	userOID, _ := userID.(bson.ObjectID)
 	roleVal, _ := c.Get("userRole")
@@ -81,6 +89,10 @@ func GetWalletTransactions(c *gin.Context) {
 
 // POST /api/v1/wallet/order
 func CreateWalletOrder(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
 	if config.AppConfig.RazorpayKeyID == "" || config.AppConfig.RazorpayKeySecret == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Payment gateway not configured"})
 		return
@@ -90,6 +102,16 @@ func CreateWalletOrder(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid amount: " + err.Error()})
 		return
+	}
+
+	userID, _ := c.Get("userId")
+	userOID, _ := userID.(bson.ObjectID)
+	roleVal, _ := c.Get("userRole")
+	userRole, _ := roleVal.(string)
+
+	ownerModel := "User"
+	if userRole == "driver" {
+		ownerModel = "Driver"
 	}
 
 	amountPaise := int64(math.Round(req.Amount * 100))
@@ -110,6 +132,35 @@ func CreateWalletOrder(c *gin.Context) {
 	}
 	_ = json.Unmarshal(respBytes, &rzpOrder)
 
+	// Persist pending top-up payment record to prevent tampering and replay attacks
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	now := time.Now()
+	paymentRecord := models.Payment{
+		ID:                bson.NewObjectID(),
+		User:              userOID,
+		Amount:            req.Amount,
+		Currency:          "inr",
+		RazorpayOrderID:   rzpOrder.ID,
+		Status:            "pending",
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	// Store ownerModel context in payments collection
+	_, _ = config.GetCollection("payments").InsertOne(ctx, bson.M{
+		"_id":             paymentRecord.ID,
+		"user":            userOID,
+		"ownerModel":      ownerModel,
+		"amount":          req.Amount,
+		"currency":        "inr",
+		"razorpayOrderId": rzpOrder.ID,
+		"type":            "wallet_topup",
+		"status":          "pending",
+		"createdAt":       now,
+		"updatedAt":       now,
+	})
+
 	c.JSON(http.StatusOK, gin.H{
 		"orderId": rzpOrder.ID,
 		"keyId":   config.AppConfig.RazorpayKeyID,
@@ -118,6 +169,10 @@ func CreateWalletOrder(c *gin.Context) {
 
 // POST /api/v1/wallet/verify
 func VerifyWalletPayment(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
 	keySecret := config.AppConfig.RazorpayKeySecret
 	if keySecret == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Payment gateway not configured"})
@@ -154,21 +209,58 @@ func VerifyWalletPayment(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	_, err := config.GetCollection(collName).UpdateOne(ctx,
+	// Atomically verify and transition the order to completed to PREVENT REPLAY ATTACKS
+	now := time.Now()
+	var verifiedOrder struct {
+		ID     bson.ObjectID `bson:"_id"`
+		User   bson.ObjectID `bson:"user"`
+		Amount float64       `bson:"amount"`
+		Status string        `bson:"status"`
+	}
+
+	err := config.GetCollection("payments").FindOneAndUpdate(ctx,
+		bson.M{
+			"razorpayOrderId": req.RazorpayOrderID,
+			"user":            userOID,
+			"status":          "pending",
+		},
+		bson.M{
+			"$set": bson.M{
+				"status":            "completed",
+				"razorpayPaymentId": req.RazorpayPaymentID,
+				"razorpaySignature": req.RazorpaySignature,
+				"paidAt":            now,
+				"updatedAt":         now,
+			},
+		},
+		options.FindOneAndUpdate().SetReturnDocument(options.After),
+	).Decode(&verifiedOrder)
+
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Order is invalid, already verified, or not found"})
+		return
+	}
+
+	// Use the verified amount stored securely on the server (NOT the client-submitted amount!)
+	creditAmount := verifiedOrder.Amount
+	if creditAmount <= 0 {
+		creditAmount = req.Amount
+	}
+
+	_, err = config.GetCollection(collName).UpdateOne(ctx,
 		bson.M{"_id": userOID},
-		bson.M{"$inc": bson.M{"walletBalance": req.Amount}},
+		bson.M{"$inc": bson.M{"walletBalance": creditAmount}},
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update wallet balance"})
 		return
 	}
 
-	now := time.Now()
 	tx := models.WalletTransaction{
 		ID:          bson.NewObjectID(),
 		Owner:       userOID,
 		OwnerModel:  ownerModel,
-		Amount:      req.Amount,
+		Amount:      creditAmount,
 		Type:        "credit",
 		Description: "Wallet recharge via Razorpay",
 		Status:      "completed",
@@ -181,5 +273,6 @@ func VerifyWalletPayment(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Wallet recharged successfully",
+		"amount":  creditAmount,
 	})
 }

@@ -82,6 +82,9 @@ func InitSocket() *socketio.Server {
 	})
 
 	server.OnEvent("/", "join_booking", func(s socketio.Conn, bookingID string) {
+		if s.Context() == nil {
+			return
+		}
 		s.Join("booking_" + bookingID)
 	})
 
@@ -90,6 +93,9 @@ func InitSocket() *socketio.Server {
 	})
 
 	server.OnEvent("/", "join_conversation", func(s socketio.Conn, convID string) {
+		if s.Context() == nil {
+			return
+		}
 		s.Join("conv_" + convID)
 	})
 

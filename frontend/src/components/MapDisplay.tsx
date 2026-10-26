@@ -93,6 +93,16 @@ export default function MapDisplay({ pickupLocation, dropLocation, stops = [] }:
     
     const geocode = async (address: string): Promise<[number, number] | null> => {
       if (!address) return null;
+      // Fast-path: Check if address is already coordinate format "lat, lng"
+      const coordMatch = address.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+      if (coordMatch) {
+        const lat = parseFloat(coordMatch[1]);
+        const lng = parseFloat(coordMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          return [lat, lng];
+        }
+      }
+
       try {
         const response = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`);
         const data = await response.json();
@@ -143,7 +153,11 @@ export default function MapDisplay({ pickupLocation, dropLocation, stops = [] }:
   }, [pickupLocation, dropLocation, stops]);
 
   if (loading) {
-    return <div className="h-[400px] bg-gray-100 rounded-2xl flex items-center justify-center animate-pulse mt-6"><span className="text-gray-400">Loading map route...</span></div>;
+    return (
+      <div className="h-[400px] bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center animate-pulse mt-6 border border-gray-200 dark:border-gray-700">
+        <span className="text-gray-400 dark:text-gray-500 font-medium">Loading map route...</span>
+      </div>
+    );
   }
 
   if (!pickupCoords) return null;
@@ -151,7 +165,7 @@ export default function MapDisplay({ pickupLocation, dropLocation, stops = [] }:
   const centerCoords = pickupCoords;
 
   return (
-    <div className="h-[400px] w-full mt-6 rounded-2xl overflow-hidden shadow-sm border border-gray-100 z-0 relative">
+    <div className="h-[400px] w-full mt-6 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-800 z-0 relative">
       <MapContainer center={centerCoords} zoom={dropCoords ? 10 : 13} style={{ height: "100%", width: "100%" }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'

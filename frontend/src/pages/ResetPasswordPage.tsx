@@ -31,6 +31,8 @@ export default function ResetPasswordPage() {
   const confirmError = isConfirmTouched && !passwordsMatch ? "Passwords do not match" : undefined;
   const matchSuccess = isConfirmTouched && passwordsMatch && password.length >= 6;
 
+  const loginPath = role === "driver" ? "/driver/login" : "/user/login";
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (password.length < 6) {
@@ -43,8 +45,7 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     try {
-      const { data } = await api.post("/auth/reset-password", { token, password, role });
-      localStorage.setItem("token", data.token);
+      await api.post("/auth/reset-password", { token, password, role });
       await loadUser();
       toast.success("Password reset successfully");
       navigate(role === "driver" ? "/driver/dashboard" : "/drivers");
@@ -56,8 +57,8 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-white">
-      <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: "radial-gradient(circle, #2563eb 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden bg-white dark:bg-gray-950 transition-colors duration-300">
+      <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.05]" style={{ backgroundImage: "radial-gradient(circle, #2563eb 1px, transparent 1px)", backgroundSize: "36px 36px" }} />
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {authParticles.map((p, i) => (
           <div key={i} className="hero-particle" style={{ left: p.left, top: p.top, width: p.size, height: p.size, animationDelay: p.delay, animationDuration: p.duration, background: particleColors[i % particleColors.length], opacity: 0.4 }} />
@@ -67,23 +68,23 @@ export default function ResetPasswordPage() {
       </div>
 
       <div className="relative w-full max-w-md px-4 z-10 animate-fade-up">
-        <Link to="/user/login" className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors mb-8 group">
+        <Link to={loginPath} className="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors mb-8 group">
           <HiArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to login
         </Link>
 
-        <div className="bg-white rounded-3xl shadow-xl shadow-black/[0.04] border border-gray-100 p-8">
+        <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-black/[0.04] dark:shadow-black/20 border border-gray-100 dark:border-gray-800 p-8 transition-colors duration-300">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-6 shadow-lg shadow-blue-500/15">
             <FaCar className="text-white text-lg" />
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">Set New Password</h1>
-          <p className="text-gray-500 text-sm mb-8">Enter your new password below.</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-1">Set New Password</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mb-8">Enter your new password below.</p>
 
           <div className="flex gap-2 mb-6">
             <button
               type="button"
               onClick={() => setRole("user")}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                role === "user" ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                role === "user" ? "bg-blue-600 text-white shadow-sm" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
               User
@@ -91,8 +92,8 @@ export default function ResetPasswordPage() {
             <button
               type="button"
               onClick={() => setRole("driver")}
-              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                role === "driver" ? "bg-green-600 text-white shadow-sm" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 cursor-pointer ${
+                role === "driver" ? "bg-green-600 text-white shadow-sm" : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700"
               }`}
             >
               Driver
@@ -127,14 +128,14 @@ export default function ResetPasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5"
+              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-blue-600/20 disabled:opacity-50 transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
             >
               {loading ? "Resetting..." : "Reset Password"}
             </button>
           </form>
 
           <p className="text-center mt-6 text-sm text-gray-500">
-            <Link to="/user/login" className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold transition-colors group">
+            <Link to={loginPath} className="inline-flex items-center gap-1.5 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-semibold transition-colors group">
               <HiArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to login
             </Link>
           </p>

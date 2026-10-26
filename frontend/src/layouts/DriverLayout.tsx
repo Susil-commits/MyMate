@@ -22,6 +22,7 @@ export default function DriverLayout(): React.ReactElement {
     { to: "/driver/dashboard", label: "Dashboard" },
     { to: "/driver/bookings", label: "Bookings" },
     { to: "/messages", label: "Messages" },
+    { to: "/driver/wallet", label: "Wallet" },
     { to: "/driver/profile", label: "Profile" },
   ];
 

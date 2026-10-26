@@ -79,6 +79,10 @@ func callRazorpayAPI(method, endpoint string, reqPayload interface{}) ([]byte, i
 
 // POST /api/v1/payments/create-order
 func CreateOrder(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
 	if config.AppConfig.RazorpayKeyID == "" || config.AppConfig.RazorpayKeySecret == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Online payments are not configured on this server"})
 		return
@@ -184,6 +188,10 @@ func CreateOrder(c *gin.Context) {
 
 // POST /api/v1/payments/verify
 func VerifyPayment(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
 	keySecret := config.AppConfig.RazorpayKeySecret
 	if keySecret == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Online payments are not configured on this server"})
@@ -439,6 +447,11 @@ func RefundPayment(c *gin.Context) {
 
 // POST /api/v1/payments/wallet-pay
 func PayWithWallet(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
+
 	var req payWithWalletReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request: " + err.Error()})
@@ -498,6 +511,22 @@ func PayWithWallet(c *gin.Context) {
 	}
 
 	now := time.Now()
+
+	// Atomically update booking payment status (must currently be pending to prevent double spending / race conditions)
+	res, updateErr := config.GetCollection("bookings").UpdateOne(ctx,
+		bson.M{"_id": booking.ID, "paymentStatus": "pending"},
+		bson.M{"$set": bson.M{"paymentStatus": "paid", "updatedAt": now}},
+	)
+	if updateErr != nil || res.ModifiedCount == 0 {
+		// Roll back wallet deduction if booking was already paid concurrently
+		_, _ = config.GetCollection("users").UpdateOne(ctx,
+			bson.M{"_id": userOID},
+			bson.M{"$inc": bson.M{"walletBalance": booking.TotalAmount}},
+		)
+		c.JSON(http.StatusBadRequest, gin.H{"message": "This booking is already paid or cannot be processed"})
+		return
+	}
+
 	// User debit transaction
 	userTx := models.WalletTransaction{
 		ID:          bson.NewObjectID(),
@@ -512,12 +541,6 @@ func PayWithWallet(c *gin.Context) {
 		UpdatedAt:   now,
 	}
 	_, _ = config.GetCollection("wallet_transactions").InsertOne(ctx, userTx)
-
-	// Update booking payment status
-	_, _ = config.GetCollection("bookings").UpdateOne(ctx,
-		bson.M{"_id": booking.ID},
-		bson.M{"$set": bson.M{"paymentStatus": "paid", "updatedAt": now}},
-	)
 
 	// Driver Wallet credit
 	splitFraction := config.AppConfig.DriverWalletSplitPct

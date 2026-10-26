@@ -98,12 +98,12 @@ export default function WalletPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-gray-500 animate-pulse">Loading wallet...</div>;
+    return <div className="p-8 text-center text-gray-500 dark:text-gray-400 animate-pulse">Loading wallet...</div>;
   }
 
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
-      <BackButton to={user?.role === "driver" ? "/driver/dashboard" : "/dashboard"} label="Back to Dashboard" />
+      <BackButton to={user?.role === "driver" ? "/driver/dashboard" : "/bookings"} label={user?.role === "driver" ? "Back to Dashboard" : "Back to Bookings"} />
       
       <div className="flex flex-col md:flex-row gap-6 mb-8 mt-2">
         {/* Balance Card */}
@@ -117,24 +117,24 @@ export default function WalletPage() {
         </div>
 
         {/* Add Money Card */}
-        <div className="flex-1 bg-white rounded-3xl p-8 border border-gray-100 shadow-sm flex flex-col justify-center">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Add Money to Wallet</h2>
+        <div className="flex-1 bg-white dark:bg-gray-900 rounded-3xl p-8 border border-gray-100 dark:border-gray-800 shadow-sm flex flex-col justify-center">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Add Money to Wallet</h2>
           <form onSubmit={handleAddMoney} className="flex gap-3">
             <div className="relative flex-1">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">₹</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">₹</span>
               <input
                 type="number"
                 min="10"
                 value={addAmount}
                 onChange={(e) => setAddAmount(e.target.value)}
                 placeholder="Amount"
-                className="w-full pl-8 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                className="w-full pl-8 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder-gray-400 dark:placeholder-gray-500"
               />
             </div>
             <button
               type="submit"
               disabled={adding}
-              className="px-6 py-3 bg-gray-900 text-white rounded-xl font-semibold hover:bg-black transition-all flex items-center gap-2 disabled:opacity-50"
+              className="px-6 py-3 bg-gray-900 hover:bg-black dark:bg-indigo-600 dark:hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               <HiPlus /> {adding ? "Wait..." : "Add"}
             </button>
@@ -145,7 +145,7 @@ export default function WalletPage() {
                 key={amt}
                 type="button"
                 onClick={() => setAddAmount(amt.toString())}
-                className="flex-1 py-1.5 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                className="flex-1 py-1.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
               >
                 +₹{amt}
               </button>
@@ -154,30 +154,30 @@ export default function WalletPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-6">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 p-6">
         <div className="flex items-center gap-2 mb-6">
-          <HiClock className="w-5 h-5 text-gray-400" />
-          <h2 className="text-lg font-bold text-gray-900">Transaction History</h2>
+          <HiClock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Transaction History</h2>
         </div>
 
         {transactions.length === 0 ? (
-          <div className="text-center py-10 text-gray-500 bg-gray-50 rounded-2xl">
+          <div className="text-center py-10 text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
             No transactions yet. Add money to get started!
           </div>
         ) : (
           <div className="space-y-4">
             {transactions.map((txn) => (
-              <div key={txn._id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 hover:bg-gray-50 transition-colors">
+              <div key={txn._id} className="flex items-center justify-between p-4 rounded-2xl border border-gray-50 dark:border-gray-800/60 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${txn.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${txn.type === 'credit' ? 'bg-green-100 text-green-600 dark:bg-green-950/50 dark:text-green-400' : 'bg-red-100 text-red-600 dark:bg-red-950/50 dark:text-red-400'}`}>
                     {txn.type === 'credit' ? <HiArrowDown /> : <HiArrowUp />}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-900">{txn.description}</p>
-                    <p className="text-xs text-gray-500">{new Date(txn.createdAt).toLocaleString()}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{txn.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{new Date(txn.createdAt).toLocaleString()}</p>
                   </div>
                 </div>
-                <div className={`font-bold ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                <div className={`font-bold ${txn.type === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                   {txn.type === 'credit' ? '+' : '-'}{formatINR(txn.amount)}
                 </div>
               </div>

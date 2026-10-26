@@ -32,6 +32,23 @@ func (m *memoryLimiter) allow(key string, limit int, window time.Duration) bool 
 	now := time.Now()
 	cutoff := now.Add(-window)
 
+	// Periodic sweep to prevent unbounded memory growth
+	if len(m.records) > 500 {
+		for k, timestamps := range m.records {
+			var remaining []time.Time
+			for _, t := range timestamps {
+				if t.After(cutoff) {
+					remaining = append(remaining, t)
+				}
+			}
+			if len(remaining) == 0 {
+				delete(m.records, k)
+			} else {
+				m.records[k] = remaining
+			}
+		}
+	}
+
 	var valid []time.Time
 	for _, t := range m.records[key] {
 		if t.After(cutoff) {

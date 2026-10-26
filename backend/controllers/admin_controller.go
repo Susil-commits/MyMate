@@ -110,6 +110,20 @@ func GetDashboardStats(c *gin.Context) {
 
 // GET /api/v1/admin/metrics
 func GetAdminMetrics(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Admin metrics retrieved successfully",
+			"data": gin.H{
+				"bookingsByStatus":  map[string]int{},
+				"bookingsBreakdown": []interface{}{},
+				"revenueByWeek":     []interface{}{},
+				"activeDriverCount": 0,
+			},
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -217,6 +231,15 @@ func GetAdminMetrics(c *gin.Context) {
 
 // GET /api/v1/admin/heatmap
 func GetAdminHeatmap(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Heatmap data retrieved",
+			"data":    gin.H{"heatPoints": [][3]float64{}},
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -277,7 +300,6 @@ func GetAdminHeatmap(c *gin.Context) {
 
 // GET /api/v1/admin/drivers
 func GetAllDrivers(c *gin.Context) {
-	kycStatus := c.Query("kycStatus")
 	pageNum, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if pageNum < 1 {
 		pageNum = 1
@@ -285,8 +307,20 @@ func GetAllDrivers(c *gin.Context) {
 	limitNum := utils.ClampLimit(c.Query("limit"), 20, 100)
 	skip := int64((pageNum - 1) * limitNum)
 
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Drivers retrieved",
+			"data": gin.H{
+				"drivers":    []models.Driver{},
+				"pagination": utils.BuildPagination(0, pageNum, limitNum),
+			},
+		})
+		return
+	}
+
 	filter := bson.M{"deletedAt": nil}
-	if kycStatus != "" {
+	if kycStatus := c.Query("kycStatus"); kycStatus != "" {
 		filter["kycStatus"] = kycStatus
 	}
 
@@ -328,6 +362,15 @@ func GetAllDrivers(c *gin.Context) {
 
 // GET /api/v1/admin/drivers/pending
 func GetPendingDrivers(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Pending drivers retrieved",
+			"data":    gin.H{"drivers": []models.Driver{}},
+		})
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -548,6 +591,18 @@ func GetAllUsers(c *gin.Context) {
 	limitNum := utils.ClampLimit(c.Query("limit"), 20, 100)
 	skip := int64((pageNum - 1) * limitNum)
 
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Users retrieved",
+			"data": gin.H{
+				"users":      []models.User{},
+				"pagination": utils.BuildPagination(0, pageNum, limitNum),
+			},
+		})
+		return
+	}
+
 	filter := bson.M{"deletedAt": nil}
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -680,6 +735,18 @@ func GetAllBookings(c *gin.Context) {
 	limitNum := utils.ClampLimit(c.Query("limit"), 20, 100)
 	skip := int64((pageNum - 1) * limitNum)
 
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "Bookings retrieved",
+			"data": gin.H{
+				"bookings":   []models.Booking{},
+				"pagination": utils.BuildPagination(0, pageNum, limitNum),
+			},
+		})
+		return
+	}
+
 	filter := bson.M{}
 	if status != "" {
 		filter["status"] = status
@@ -737,6 +804,11 @@ func GetAllBookings(c *gin.Context) {
 
 // GET /api/v1/admin/bookings/export
 func ExportBookingsCSV(c *gin.Context) {
+	if config.DB == nil {
+		c.String(http.StatusServiceUnavailable, "Database is not connected")
+		return
+	}
+
 	c.Header("Content-Type", "text/csv")
 	c.Header("Content-Disposition", "attachment; filename=\"bookings.csv\"")
 

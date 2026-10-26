@@ -33,6 +33,14 @@ type verifyKycReq struct {
 
 // GET /api/v1/ai/recommend
 func RecommendDrivers(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"recommended": []models.SanitizedDriver{},
+			"rankedBy":    "none",
+		})
+		return
+	}
+
 	hireType := c.Query("hireType")
 	vehicleType := c.Query("vehicleType")
 	latStr := c.Query("lat")
@@ -124,23 +132,16 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
 			cleanJSON := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(aiResp, "```json", ""), "```", ""))
 			var rankedIDs []string
 			if err := json.Unmarshal([]byte(cleanJSON), &rankedIDs); err == nil && len(rankedIDs) > 0 {
-				type scoredDriver struct {
-					models.Driver
-					AIScore    int    `json:"aiScore"`
-					AIRankedBy string `json:"aiRankedBy"`
-				}
-				var rankedDrivers []scoredDriver
+				var rankedDrivers []models.SanitizedDriver
 				score := 99
 				for _, id := range rankedIDs {
 					for _, d := range drivers {
 						if d.ID.Hex() == id {
-							d.Password = ""
-							d.TwoFactorSecret = ""
-							rankedDrivers = append(rankedDrivers, scoredDriver{
-								Driver:     d,
-								AIScore:    score,
-								AIRankedBy: "gemini",
-							})
+							sanitized := models.SanitizeDriver(&d, false)
+							sc := score
+							sanitized.AIScore = &sc
+							sanitized.AIRankedBy = "gemini"
+							rankedDrivers = append(rankedDrivers, sanitized)
 							score--
 							break
 						}
@@ -162,12 +163,7 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
 	}
 
 	// Heuristic Fallback Ranking
-	type scoredDriver struct {
-		models.Driver
-		AIScore    int    `json:"aiScore"`
-		AIRankedBy string `json:"aiRankedBy"`
-	}
-	var scoredList []scoredDriver
+	var scoredList []models.SanitizedDriver
 	for _, d := range drivers {
 		s := (d.AverageRating / 5.0) * 40.0
 		expCap := math.Min(float64(d.ExperienceYears), 10.0)
@@ -180,17 +176,23 @@ Return ONLY a JSON array of the top 3 driver IDs in order. Example: ["id1","id2"
 			s += 15.0
 		}
 
-		d.Password = ""
-		d.TwoFactorSecret = ""
-		scoredList = append(scoredList, scoredDriver{
-			Driver:     d,
-			AIScore:    int(math.Round(s)),
-			AIRankedBy: "heuristic",
-		})
+		sanitized := models.SanitizeDriver(&d, false)
+		scoreInt := int(math.Round(s))
+		sanitized.AIScore = &scoreInt
+		sanitized.AIRankedBy = "heuristic"
+		scoredList = append(scoredList, sanitized)
 	}
 
 	sort.Slice(scoredList, func(i, j int) bool {
-		return scoredList[i].AIScore > scoredList[j].AIScore
+		sI := 0
+		if scoredList[i].AIScore != nil {
+			sI = *scoredList[i].AIScore
+		}
+		sJ := 0
+		if scoredList[j].AIScore != nil {
+			sJ = *scoredList[j].AIScore
+		}
+		return sI > sJ
 	})
 
 	limit := 3

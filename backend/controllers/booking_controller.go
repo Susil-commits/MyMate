@@ -52,6 +52,11 @@ func computeAmount(hireType string, start time.Time, end *time.Time, driver *mod
 
 // POST /api/v1/bookings
 func CreateBooking(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
+
 	var input CreateBookingInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Required fields: driverId, hireType, startDate, pickupLocation, purpose"})
@@ -468,6 +473,11 @@ func GetBookingByID(c *gin.Context) {
 
 // PUT /api/v1/bookings/:id/status
 func UpdateBookingStatus(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
+
 	bObjID, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid booking ID"})
@@ -505,7 +515,37 @@ func UpdateBookingStatus(c *gin.Context) {
 		return
 	}
 
-	booking.Status = body.Status
+	// State machine validation based on user role and current status
+	newStatus := body.Status
+	currentStatus := booking.Status
+
+	validTransition := false
+	if role == "admin" {
+		validTransition = true
+	} else if role == "user" {
+		// Users can only cancel pending or accepted bookings
+		if newStatus == "cancelled" && (currentStatus == "pending" || currentStatus == "accepted") {
+			validTransition = true
+		}
+	} else if role == "driver" {
+		// Drivers can accept or reject pending bookings, mark accepted as ongoing or cancelled, or ongoing as completed
+		if currentStatus == "pending" && (newStatus == "accepted" || newStatus == "rejected") {
+			validTransition = true
+		} else if currentStatus == "accepted" && (newStatus == "ongoing" || newStatus == "cancelled") {
+			validTransition = true
+		} else if currentStatus == "ongoing" && newStatus == "completed" {
+			validTransition = true
+		}
+	}
+
+	if !validTransition {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message": fmt.Sprintf("Invalid status transition from '%s' to '%s' for %s", currentStatus, newStatus, role),
+		})
+		return
+	}
+
+	booking.Status = newStatus
 	if body.CancellationReason != "" {
 		booking.CancellationReason = body.CancellationReason
 	}
@@ -538,6 +578,11 @@ func UpdateBookingStatus(c *gin.Context) {
 
 // GET /api/v1/bookings/:id/calendar
 func DownloadCalendar(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
+
 	bObjID, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid booking ID"})
@@ -551,6 +596,18 @@ func DownloadCalendar(c *gin.Context) {
 	err = config.DB.Collection("bookings").FindOne(ctx, bson.M{"_id": bObjID}).Decode(&booking)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Booking not found"})
+		return
+	}
+
+	role, _ := c.Get("userRole")
+	userID, _ := c.Get("userID")
+
+	isOwner := role == "admin" ||
+		(role == "user" && booking.User == userID) ||
+		(role == "driver" && booking.Driver == userID)
+
+	if !isOwner {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Not authorized to download this calendar"})
 		return
 	}
 
@@ -569,6 +626,11 @@ func DownloadCalendar(c *gin.Context) {
 
 // GET /api/v1/bookings/:id/invoice
 func DownloadInvoice(c *gin.Context) {
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
+		return
+	}
+
 	bObjID, err := bson.ObjectIDFromHex(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid booking ID"})
@@ -582,6 +644,18 @@ func DownloadInvoice(c *gin.Context) {
 	err = config.DB.Collection("bookings").FindOne(ctx, bson.M{"_id": bObjID}).Decode(&booking)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"message": "Booking not found"})
+		return
+	}
+
+	role, _ := c.Get("userRole")
+	userID, _ := c.Get("userID")
+
+	isOwner := role == "admin" ||
+		(role == "user" && booking.User == userID) ||
+		(role == "driver" && booking.Driver == userID)
+
+	if !isOwner {
+		c.JSON(http.StatusForbidden, gin.H{"message": "Not authorized to download this invoice"})
 		return
 	}
 

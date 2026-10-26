@@ -23,6 +23,7 @@ export default function UserLayout(): React.ReactElement {
     { to: "/bookings", label: "My Bookings" },
     { to: "/favorites", label: "Saved" },
     { to: "/messages", label: "Messages" },
+    { to: "/wallet", label: "Wallet" },
     { to: "/profile", label: "Profile" },
   ];
 
