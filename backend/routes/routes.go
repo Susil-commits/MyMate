@@ -20,13 +20,19 @@ func SetupRoutes(r *gin.Engine) {
 	// Global Middleware
 	r.Use(gin.Recovery())
 
-	// Security & correlation headers
+	// Security & correlation headers (Distributed Tracing)
 	r.Use(func(c *gin.Context) {
 		corrID := c.GetHeader("X-Correlation-Id")
 		if corrID == "" {
+			corrID = c.GetHeader("X-Request-Id")
+		}
+		if corrID == "" {
 			corrID = fmt.Sprintf("corr_%d", time.Now().UnixNano())
 		}
+		c.Set("correlationId", corrID)
+		c.Set("traceId", corrID)
 		c.Header("X-Correlation-Id", corrID)
+		c.Header("X-Request-Id", corrID)
 		c.Header("X-Content-Type-Options", "nosniff")
 		c.Header("X-Frame-Options", "DENY")
 		c.Header("X-XSS-Protection", "1; mode=block")
@@ -283,8 +289,8 @@ func registerEndpoints(rg *gin.RouterGroup) {
 	{
 		wallet.GET("", middleware.Protect(), controllers.GetWalletTransactions)
 		wallet.GET("/", middleware.Protect(), controllers.GetWalletTransactions)
-		wallet.POST("/order", middleware.Protect(), controllers.CreateWalletOrder)
-		wallet.POST("/verify", middleware.Protect(), controllers.VerifyWalletPayment)
+		wallet.POST("/order", middleware.Protect(), middleware.Idempotency(), controllers.CreateWalletOrder)
+		wallet.POST("/verify", middleware.Protect(), middleware.Idempotency(), controllers.VerifyWalletPayment)
 	}
 
 	// /promos

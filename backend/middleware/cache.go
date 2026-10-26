@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"math/rand"
 	"net/http"
 	"time"
 
@@ -78,7 +79,10 @@ func CacheMiddleware(prefix string, durationSeconds int) gin.HandlerFunc {
 			if len(bodyBytes) > 0 {
 				var js json.RawMessage
 				if json.Unmarshal(bodyBytes, &js) == nil {
-					_ = config.RedisClient.Set(ctx, key, string(bodyBytes), time.Duration(durationSeconds)*time.Second).Err()
+					baseDuration := time.Duration(durationSeconds) * time.Second
+					// Add 0-20% randomized jitter to prevent cache stampede / thundering herd
+					jitter := time.Duration(rand.Int63n(int64(baseDuration/5) + 1))
+					_ = config.RedisClient.Set(ctx, key, string(bodyBytes), baseDuration+jitter).Err()
 				}
 			}
 		}

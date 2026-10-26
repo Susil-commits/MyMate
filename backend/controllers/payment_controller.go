@@ -19,6 +19,7 @@ import (
 
 	"mymate-backend/config"
 	"mymate-backend/models"
+	"mymate-backend/utils"
 )
 
 type createOrderReq struct {
@@ -39,7 +40,7 @@ type payWithWalletReq struct {
 	BookingID string `json:"bookingId" binding:"required"`
 }
 
-// Helper: Razorpay HTTP client call
+// Helper: Razorpay HTTP client call with retry, exponential backoff & jitter
 func callRazorpayAPI(method, endpoint string, reqPayload interface{}) ([]byte, int, error) {
 	keyID := config.AppConfig.RazorpayKeyID
 	keySecret := config.AppConfig.RazorpayKeySecret
@@ -47,34 +48,59 @@ func callRazorpayAPI(method, endpoint string, reqPayload interface{}) ([]byte, i
 		return nil, http.StatusBadRequest, fmt.Errorf("online payments are not configured on this server")
 	}
 
-	var bodyReader io.Reader
+	var jsonBytes []byte
+	var err error
 	if reqPayload != nil {
-		jsonBytes, err := json.Marshal(reqPayload)
+		jsonBytes, err = json.Marshal(reqPayload)
 		if err != nil {
 			return nil, http.StatusInternalServerError, err
 		}
-		bodyReader = bytes.NewReader(jsonBytes)
 	}
 
-	req, err := http.NewRequest(method, "https://api.razorpay.com/v1"+endpoint, bodyReader)
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
-	}
-	req.SetBasicAuth(keyID, keySecret)
-	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	var respBytes []byte
+	var statusCode int
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, http.StatusBadGateway, err
-	}
-	defer resp.Body.Close()
+	retryErr := utils.RetryWithBackoff(context.Background(), utils.RetryConfig{
+		MaxAttempts:     3,
+		InitialInterval: 150 * time.Millisecond,
+		MaxInterval:     1 * time.Second,
+		Multiplier:      2.0,
+		Jitter:          true,
+	}, func(attempt int) error {
+		var bodyReader io.Reader
+		if len(jsonBytes) > 0 {
+			bodyReader = bytes.NewReader(jsonBytes)
+		}
 
-	respBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, http.StatusInternalServerError, err
+		req, err := http.NewRequest(method, "https://api.razorpay.com/v1"+endpoint, bodyReader)
+		if err != nil {
+			return err
+		}
+		req.SetBasicAuth(keyID, keySecret)
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return err // retry on network drop
+		}
+		defer resp.Body.Close()
+
+		respBytes, err = io.ReadAll(resp.Body)
+		statusCode = resp.StatusCode
+		if err != nil {
+			return err
+		}
+		if statusCode >= 500 {
+			return fmt.Errorf("razorpay gateway error: %d", statusCode) // retry on transient 5xx
+		}
+		return nil
+	})
+
+	if retryErr != nil && statusCode == 0 {
+		return nil, http.StatusBadGateway, retryErr
 	}
-	return respBytes, resp.StatusCode, nil
+	return respBytes, statusCode, nil
 }
 
 // POST /api/v1/payments/create-order

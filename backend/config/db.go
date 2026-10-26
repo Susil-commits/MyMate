@@ -28,7 +28,13 @@ func ConnectDB(uris ...string) (*mongo.Client, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	clientOpts := options.Client().ApplyURI(uri)
+	clientOpts := options.Client().ApplyURI(uri).
+		SetMaxPoolSize(100).
+		SetMinPoolSize(10).
+		SetMaxConnIdleTime(60 * time.Second).
+		SetConnectTimeout(10 * time.Second).
+		SetServerSelectionTimeout(5 * time.Second)
+
 	client, err := mongo.Connect(clientOpts)
 	if err != nil {
 		return nil, err
@@ -79,7 +85,7 @@ func initIndexes(db *mongo.Database) {
 		},
 	})
 
-	// 2. Drivers Indexes (including 2dsphere on location)
+	// 2. Drivers Indexes (including 2dsphere on location and compound search indexes)
 	_, _ = db.Collection("drivers").Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys:    bson.D{{Key: "email", Value: 1}},
@@ -99,6 +105,12 @@ func initIndexes(db *mongo.Database) {
 				{Key: "averageRating", Value: -1},
 			},
 		},
+		{
+			Keys: bson.D{
+				{Key: "locality", Value: 1},
+				{Key: "availability", Value: 1},
+			},
+		},
 	})
 
 	// 3. Bookings Indexes
@@ -111,6 +123,9 @@ func initIndexes(db *mongo.Database) {
 		},
 		{
 			Keys: bson.D{{Key: "createdAt", Value: -1}},
+		},
+		{
+			Keys: bson.D{{Key: "status", Value: 1}, {Key: "createdAt", Value: 1}},
 		},
 	})
 
@@ -156,6 +171,26 @@ func initIndexes(db *mongo.Database) {
 	_, _ = db.Collection("notifications").Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{
 			Keys: bson.D{{Key: "user", Value: 1}, {Key: "read", Value: 1}, {Key: "createdAt", Value: -1}},
+		},
+	})
+
+	// 9. Wallet Transactions Index (Optimizes wallet page & driver balance history queries)
+	_, _ = db.Collection("wallet_transactions").Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "owner", Value: 1},
+				{Key: "createdAt", Value: -1},
+			},
+		},
+	})
+
+	// 10. Messages Index (Optimizes chat retrieval per conversation)
+	_, _ = db.Collection("messages").Indexes().CreateMany(ctx, []mongo.IndexModel{
+		{
+			Keys: bson.D{
+				{Key: "conversation", Value: 1},
+				{Key: "createdAt", Value: 1},
+			},
 		},
 	})
 
