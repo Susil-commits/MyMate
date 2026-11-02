@@ -16,9 +16,26 @@
   Engineered with a high-concurrency <b>Golang (Gin)</b> backend, real-time WebSocket dispatch rooms, durable Apache Kafka event streaming, pure mathematical matchmaking (verified with Haskell proofs), and Google Gemini AI contextual intelligence.
 </p>
 
-[Architecture](#-system-architecture) • [Golang Migration](#-strategic-golang-migration) • [Product Pillars](#-product-pillars--stakeholder-ecosystem) • [Technical Moats](#-enterprise-moats--technical-defensibility) • [Quickstart](#-quickstart--local-setup) • [Deployment](#-production-deployment-matrix)
+[Architecture](#-system-architecture) • [Documentation Center](#-documentation-center) • [Golang Migration](#-strategic-golang-migration) • [Product Pillars](#-product-pillars--stakeholder-ecosystem) • [Technical Moats](#-enterprise-moats--technical-defensibility) • [Quickstart](#-quickstart--local-setup) • [Deployment](#-production-deployment-matrix)
 
 </div>
+
+---
+
+## 📚 Documentation Center
+
+Explore the comprehensive documentation suite for MyMate:
+
+| Document | Focus & Scope | Target Audience |
+|:---|:---|:---|
+| [**Executive & Technical Platform Overview**](docs/PROJECT_OVERVIEW.md) | Slide-by-slide executive briefing, problem analysis, architecture topology, and strategic roadmap. | Executives, Leads, Evaluators |
+| [**REST & WebSocket API Reference**](docs/API_DOCUMENTATION.md) | Full endpoint specifications, auth tokens, HMAC CSRF, request/response schemas, and WebSocket events. | Frontend & API Engineers |
+| [**System Architecture & Engineering Manual**](docs/ARCHITECTURE.md) | Distributed topology, Go Gin concurrency model, dual-stream messaging, Haskell proofs, and zero-trust security. | Backend & Platform Engineers |
+| [**Production Cloud Deployment Guide**](docs/DEPLOYMENT_GUIDE.md) | Step-by-step Atlas setup, Render Go deployment, Vercel PWA, environment checklists, and smoke tests. | DevOps & Site Reliability Engineers |
+| [**Frontend Engineering Manual**](frontend/README.md) | React 19 PWA guide, complete 27-page catalog, Leaflet map components, and Playwright tests. | Frontend Engineers |
+| [**Golang Backend Manual**](backend/README.md) | Go 1.24 Gin architecture, BSON models, middleware pipelines, and local development commands. | Backend Engineers |
+| [**Haskell Scoring Proof of Concept**](fp-poc/README.md) | Mathematical formalization and pure functional proofs for driver candidate ranking. | Functional & ML Engineers |
+| [**Contributing Guide**](docs/CONTRIBUTING.md) | Code of conduct, branching model, formatting standards, and PR automated quality gates. | All Contributors |
 
 ---
 
@@ -295,7 +312,11 @@ MyMate/
 │   └── package.json
 │
 ├── docs/
-│   ├── PITCH_DECK.md            # Complete Executive & Technical Pitch Deck (Scratch to Deploy)
+│   ├── PROJECT_OVERVIEW.md      # Executive & Technical Platform Overview (Scratch to Deploy)
+│   ├── API_DOCUMENTATION.md     # Comprehensive REST & WebSocket API Reference
+│   ├── ARCHITECTURE.md          # Distributed Systems & Concurrency Architecture Guide
+│   ├── DEPLOYMENT_GUIDE.md      # Step-by-Step Production Cloud Deployment Guide
+│   ├── CONTRIBUTING.md          # Contributor Guidelines, Code Style & PR Gates
 │   └── adr/
 │       ├── 001-event-infrastructure.md        # Event architecture decision record
 │       └── 002-backend-migration-to-golang.md # Golang backend migration decision record
@@ -338,7 +359,7 @@ go run main.go
 cd backend
 go run cmd/seed/main.go
 # Seeds:
-# - Admin user: nayaksushil298@gmail.com
+# - Admin user: admin@mymate.com
 # - 4 Verified Active Drivers in Mumbai / Navi Mumbai
 # - 3 Completed Historical Bookings
 ```
@@ -398,11 +419,11 @@ The application is architected for seamless cloud deployment:
 - **Option B (Docker Container)**:
   - Render automatically picks up root [`Dockerfile`](file:///c:/Users/nayak/OneDrive/Desktop/Projects/web/MyMate/Dockerfile) and compiles the Alpine container.
 - **Environment Variables**:
-  - `MONGO_URI`: `mongodb+srv://<user>:<password>@clustercoffee.hn2pcni.mongodb.net/mymate?retryWrites=true&w=majority`
+  - `MONGO_URI`: `mongodb+srv://<user>:<password>@<your-cluster>.mongodb.net/mymate?retryWrites=true&w=majority`
   - `APP_ENV`: `production`
   - `CLIENT_URL`: `https://my-mate-tawny.vercel.app`
   - `JWT_SECRET`: `<secure-random-token>`
-  - `ADMIN_EMAIL`: `nayaksushil298@gmail.com`
+  - `ADMIN_EMAIL`: `admin@mymate.com`
 
 ### 2. Frontend on Vercel (`mymate-frontend`)
 - **Root Directory**: `frontend`

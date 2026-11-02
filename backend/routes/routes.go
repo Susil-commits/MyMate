@@ -331,4 +331,13 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		ai.POST("/verify-kyc", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.VerifyKyc)
 		ai.GET("/match", middleware.Protect(), controllers.GetDriverMatch)
 	}
+
+	// /corporate (B2B Fleet & Organization Management)
+	corp := rg.Group("/corporate")
+	{
+		corp.POST("/organization", middleware.Protect(), controllers.CreateOrganization)
+		corp.GET("/organization", middleware.Protect(), controllers.GetMyOrganization)
+		corp.POST("/organization/members", middleware.Protect(), controllers.AddCorporateMember)
+		corp.GET("/organization/invoice", middleware.Protect(), controllers.GetCorporateMonthlyTaxInvoice)
+	}
 }

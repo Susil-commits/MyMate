@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"sync"
 	"time"
 
@@ -65,6 +66,12 @@ func Idempotency() gin.HandlerFunc {
 
 			val, err := config.RedisClient.Get(ctx, cacheKey).Result()
 			if err == nil && val != "" {
+				if val == "IN_FLIGHT" {
+					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+						"message": "A request with this idempotency key is currently in progress",
+					})
+					return
+				}
 				var cached CachedIdempotencyResponse
 				if json.Unmarshal([]byte(val), &cached) == nil {
 					for hKey, hVal := range cached.Headers {
@@ -76,6 +83,9 @@ func Idempotency() gin.HandlerFunc {
 					return
 				}
 			}
+
+			// Acquire 30-second in-flight lock
+			_ = config.RedisClient.Set(ctx, cacheKey, "IN_FLIGHT", 30*time.Second).Err()
 		} else {
 			// 2. Fall back to in-memory idempotency cache
 			if item, ok := memIdempotency.Load(cacheKey); ok {
@@ -124,6 +134,10 @@ func Idempotency() gin.HandlerFunc {
 					expiresAt: time.Now().Add(24 * time.Hour),
 				})
 			}
+		} else if config.RedisClient != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_ = config.RedisClient.Del(ctx, cacheKey).Err()
 		}
 	}
 }

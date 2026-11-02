@@ -1,4 +1,4 @@
-# 🚗 MyMate — Executive & Technical Pitch Deck
+# 🚗 MyMate — Executive & Technical Platform Overview
 ### Intelligent On-Demand & Contract Driver Hiring Infrastructure
 *From Scratch to Production Deployment*
 
@@ -41,7 +41,7 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   THE ELEVATOR PITCH                                   │
+│                              EXECUTIVE PLATFORM SUMMARY                                │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
 │ MyMate is an institutional-grade mobility platform that replaces fragmented, untrusted │
 │ chauffeur markets with a unified, real-time booking engine. Powered by a high-velocity │
@@ -314,12 +314,12 @@ cp .env.example backend/.env
 ### Step 2: MongoDB Atlas Cluster & Database Configuration
 1. Log in to [MongoDB Atlas](https://cloud.mongodb.com/).
 2. Create or navigate to your cluster (e.g. `ClusterCoffee`).
-3. Under **Database Access**, create a user (e.g. `susil2022_db_user`).
+3. Under **Database Access**, create a user (e.g. `<db_user>`).
    - *CRITICAL*: URL-encode special characters in passwords (e.g. `@` becomes `%40`).
 4. Under **Network Access**, add `0.0.0.0/0` (Allow access from anywhere).
 5. Copy your connection string:
    ```
-   mongodb+srv://<user>:<password>@clustercoffee.hn2pcni.mongodb.net/mymate?retryWrites=true&w=majority
+   mongodb+srv://<user>:<password>@<your-cluster>.mongodb.net/mymate?retryWrites=true&w=majority
    ```
    *(Ensure the path `/mymate` is specified so documents are written to the application database, not the auth database).*
 
@@ -328,7 +328,7 @@ cp .env.example backend/.env
 cd backend
 go run cmd/seed/main.go
 # Outputs:
-# ==> Admin created: nayaksushil298@gmail.com
+# ==> Admin created: admin@mymate.internal
 # ==> 4 Verified drivers created
 # ==> 3 Sample bookings created
 ```
@@ -342,11 +342,11 @@ go run cmd/seed/main.go
 3. In **Environment**:
    | Variable | Value |
    |:---|:---|
-   | `MONGO_URI` | `mongodb+srv://<user>:<password>@clustercoffee.hn2pcni.mongodb.net/mymate?retryWrites=true&w=majority` |
+   | `MONGO_URI` | `mongodb+srv://<user>:<password>@<your-cluster>.mongodb.net/mymate?retryWrites=true&w=majority` |
    | `APP_ENV` | `production` |
    | `CLIENT_URL` | `https://my-mate-tawny.vercel.app` |
    | `JWT_SECRET` | `<your-long-random-jwt-secret>` |
-   | `ADMIN_EMAIL` | `nayaksushil298@gmail.com` |
+   | `ADMIN_EMAIL` | `admin@mymate.internal` |
    | `RAZORPAY_KEY_ID` | `rzp_test_...` |
    | `RAZORPAY_KEY_SECRET` | `<your-razorpay-secret>` |
 4. Click **Manual Deploy** > **Clear build cache & deploy**.
@@ -369,7 +369,7 @@ go run cmd/seed/main.go
 ### Step 6: End-to-End Live Validation
 1. Visit your frontend at `https://my-mate-tawny.vercel.app`.
 2. Verify driver search returns the 4 seeded verified drivers.
-3. Test Admin Login at `/admin-login` with `nayaksushil298@gmail.com` / `Admin@12345` and admin code `admlogin8984`.
+3. Test Admin Login at `/admin-login` with your configured admin credentials and admin security code.
 4. Verify stats load cleanly on the customer landing page and driver radar.
 
 ---
@@ -394,7 +394,7 @@ go run cmd/seed/main.go
 ## Slide 12: Unit Economics & Strategic Roadmap
 
 ```
-                               FINANCIAL FLYWHEEL
+                                FINANCIAL FLYWHEEL
 ┌────────────────────────┐      ┌────────────────────────┐      ┌────────────────────────┐
 │  CUSTOMER PAYS ₹1,000  │ ───► │  DRIVER EARNS ₹900     │ ───► │  MYMATE EARNS ₹100     │
 │  (Booking Fare)        │      │  (90% Instant Wallet)  │      │  (10% Net Platform Take│

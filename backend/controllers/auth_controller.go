@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -334,16 +335,23 @@ func CompleteDriverProfile(c *gin.Context) {
 	licenseImg := driver.LicenseImage
 	file, err := c.FormFile("licenseImage")
 	if err == nil && file != nil {
-		_ = os.MkdirAll("uploads/mymate/licenses", 0755)
-		ext := filepath.Ext(file.Filename)
-		if ext == "" {
-			ext = ".jpg"
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" && ext != ".pdf" {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Only JPG, PNG, WEBP, or PDF license files are allowed"})
+			return
 		}
-		filename := filepath.Join("uploads/mymate/licenses", driver.ID.Hex()+"-"+file.Filename)
-		if saveErr := c.SaveUploadedFile(file, filename); saveErr == nil {
+		if file.Size > 5*1024*1024 {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "License image exceeds maximum 5MB size limit"})
+			return
+		}
+		_ = os.MkdirAll("uploads/mymate/licenses", 0755)
+		// Sanitize filename to eliminate path traversal and collision risks
+		safeFilename := fmt.Sprintf("%s-%d%s", driver.ID.Hex(), time.Now().UnixNano(), ext)
+		targetPath := filepath.Join("uploads/mymate/licenses", safeFilename)
+		if saveErr := c.SaveUploadedFile(file, targetPath); saveErr == nil {
 			licenseImg = models.ImageRef{
-				URL:      "/" + filepath.ToSlash(filename),
-				PublicID: "",
+				URL:      "/" + filepath.ToSlash(targetPath),
+				PublicID: safeFilename,
 			}
 		}
 	}
@@ -407,28 +415,14 @@ func AdminLogin(c *gin.Context) {
 
 	var admin models.Admin
 	err := config.DB.Collection("admins").FindOne(ctx, bson.D{{Key: "email", Value: email}}).Decode(&admin)
-
-	// If no admin in DB, create initial admin if password matches or matches ADMIN_CODE
-	if err != nil {
-		if input.Password == config.AppConfig.AdminCode || input.AdminCode == config.AppConfig.AdminCode {
-			hashed, _ := models.HashPassword(input.Password)
-			admin = models.Admin{
-				Email:     email,
-				Password:  hashed,
-				Role:      "admin",
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			}
-			res, insertErr := config.DB.Collection("admins").InsertOne(ctx, admin)
-			if insertErr == nil {
-				admin.ID = res.InsertedID.(bson.ObjectID)
-			}
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid email or password"})
-			return
-		}
-	} else if !admin.ComparePassword(input.Password) {
+	if err != nil || !admin.ComparePassword(input.Password) {
 		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid email or password"})
+		return
+	}
+
+	// If secondary admin security code is configured, verify it
+	if config.AppConfig.AdminCode != "" && input.AdminCode != "" && input.AdminCode != config.AppConfig.AdminCode {
+		c.JSON(http.StatusUnauthorized, gin.H{"message": "Invalid administrator security code"})
 		return
 	}
 

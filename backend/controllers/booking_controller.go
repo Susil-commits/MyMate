@@ -277,18 +277,43 @@ func GetUserBookings(c *gin.Context) {
 	var bookings []models.Booking
 	_ = cursor.All(ctx, &bookings)
 
-	// Populate driver summaries
-	for i := range bookings {
-		var d models.Driver
-		if err := config.DB.Collection("drivers").FindOne(ctx, bson.M{"_id": bookings[i].Driver}).Decode(&d); err == nil {
-			bookings[i].DriverObj = &models.DriverSummary{
-				ID:            d.ID,
-				Name:          d.Name,
-				Phone:         d.Phone,
-				Email:         d.Email,
-				Locality:      d.Locality,
-				Avatar:        d.Avatar,
-				AverageRating: d.AverageRating,
+	// Batch populate driver summaries (O(1) database query instead of O(N) sequential queries)
+	if len(bookings) > 0 {
+		driverIDMap := make(map[bson.ObjectID]bool)
+		for _, b := range bookings {
+			if !b.Driver.IsZero() {
+				driverIDMap[b.Driver] = true
+			}
+		}
+		var driverIDs []bson.ObjectID
+		for id := range driverIDMap {
+			driverIDs = append(driverIDs, id)
+		}
+
+		if len(driverIDs) > 0 {
+			driverCursor, dErr := config.DB.Collection("drivers").Find(ctx, bson.M{"_id": bson.M{"$in": driverIDs}})
+			if dErr == nil {
+				var drivers []models.Driver
+				if driverCursor.All(ctx, &drivers) == nil {
+					driverMap := make(map[bson.ObjectID]*models.DriverSummary)
+					for _, d := range drivers {
+						driverMap[d.ID] = &models.DriverSummary{
+							ID:            d.ID,
+							Name:          d.Name,
+							Phone:         d.Phone,
+							Email:         d.Email,
+							Locality:      d.Locality,
+							Avatar:        d.Avatar,
+							AverageRating: d.AverageRating,
+						}
+					}
+					for i := range bookings {
+						if summary, ok := driverMap[bookings[i].Driver]; ok {
+							bookings[i].DriverObj = summary
+						}
+					}
+				}
+				driverCursor.Close(ctx)
 			}
 		}
 	}
@@ -329,16 +354,41 @@ func GetDriverBookings(c *gin.Context) {
 	var bookings []models.Booking
 	_ = cursor.All(ctx, &bookings)
 
-	// Populate user summaries
-	for i := range bookings {
-		var u models.User
-		if err := config.DB.Collection("users").FindOne(ctx, bson.M{"_id": bookings[i].User}).Decode(&u); err == nil {
-			bookings[i].UserObj = &models.UserSummary{
-				ID:     u.ID,
-				Name:   u.Name,
-				Phone:  u.Phone,
-				Email:  u.Email,
-				Avatar: u.Avatar,
+	// Batch populate user summaries (O(1) database query instead of O(N) sequential queries)
+	if len(bookings) > 0 {
+		userIDMap := make(map[bson.ObjectID]bool)
+		for _, b := range bookings {
+			if !b.User.IsZero() {
+				userIDMap[b.User] = true
+			}
+		}
+		var userIDs []bson.ObjectID
+		for id := range userIDMap {
+			userIDs = append(userIDs, id)
+		}
+
+		if len(userIDs) > 0 {
+			userCursor, uErr := config.DB.Collection("users").Find(ctx, bson.M{"_id": bson.M{"$in": userIDs}})
+			if uErr == nil {
+				var users []models.User
+				if userCursor.All(ctx, &users) == nil {
+					userMap := make(map[bson.ObjectID]*models.UserSummary)
+					for _, u := range users {
+						userMap[u.ID] = &models.UserSummary{
+							ID:     u.ID,
+							Name:   u.Name,
+							Phone:  u.Phone,
+							Email:  u.Email,
+							Avatar: u.Avatar,
+						}
+					}
+					for i := range bookings {
+						if summary, ok := userMap[bookings[i].User]; ok {
+							bookings[i].UserObj = summary
+						}
+					}
+				}
+				userCursor.Close(ctx)
 			}
 		}
 	}
@@ -551,8 +601,9 @@ func UpdateBookingStatus(c *gin.Context) {
 	}
 	booking.UpdatedAt = time.Now()
 
-	_, err = config.DB.Collection("bookings").UpdateOne(ctx,
-		bson.M{"_id": booking.ID},
+	// Atomic Compare-And-Swap (CAS) update to eliminate TOCTOU state race conditions
+	res, err := config.DB.Collection("bookings").UpdateOne(ctx,
+		bson.M{"_id": booking.ID, "status": currentStatus},
 		bson.M{"$set": bson.M{
 			"status":             booking.Status,
 			"cancellationReason": booking.CancellationReason,
@@ -561,6 +612,10 @@ func UpdateBookingStatus(c *gin.Context) {
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update booking status"})
+		return
+	}
+	if res.MatchedCount == 0 {
+		c.JSON(http.StatusConflict, gin.H{"message": "Booking status was updated concurrently. Please refresh."})
 		return
 	}
 

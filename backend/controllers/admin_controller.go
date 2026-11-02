@@ -773,21 +773,66 @@ func GetAllBookings(c *gin.Context) {
 		bookings = []models.Booking{}
 	}
 
-	// Populate user & driver
-	for i := range bookings {
-		var u models.User
-		if err := config.GetCollection("users").FindOne(ctx, bson.M{"_id": bookings[i].User}).Decode(&u); err == nil {
-			bookings[i].UserObj = &models.UserSummary{
-				ID:   u.ID,
-				Name: u.Name,
+	// Batch populate user & driver summaries (eliminating O(N) queries)
+	if len(bookings) > 0 {
+		userIDsMap := make(map[bson.ObjectID]bool)
+		driverIDsMap := make(map[bson.ObjectID]bool)
+		for _, b := range bookings {
+			if !b.User.IsZero() {
+				userIDsMap[b.User] = true
+			}
+			if !b.Driver.IsZero() {
+				driverIDsMap[b.Driver] = true
 			}
 		}
 
-		var d models.Driver
-		if err := config.GetCollection("drivers").FindOne(ctx, bson.M{"_id": bookings[i].Driver}).Decode(&d); err == nil {
-			bookings[i].DriverObj = &models.DriverSummary{
-				ID:   d.ID,
-				Name: d.Name,
+		var userIDs []bson.ObjectID
+		for id := range userIDsMap {
+			userIDs = append(userIDs, id)
+		}
+		var driverIDs []bson.ObjectID
+		for id := range driverIDsMap {
+			driverIDs = append(driverIDs, id)
+		}
+
+		userMap := make(map[bson.ObjectID]*models.UserSummary)
+		if len(userIDs) > 0 {
+			if uCursor, err := config.GetCollection("users").Find(ctx, bson.M{"_id": bson.M{"$in": userIDs}}); err == nil {
+				var users []models.User
+				if uCursor.All(ctx, &users) == nil {
+					for _, u := range users {
+						userMap[u.ID] = &models.UserSummary{
+							ID:   u.ID,
+							Name: u.Name,
+						}
+					}
+				}
+				uCursor.Close(ctx)
+			}
+		}
+
+		driverMap := make(map[bson.ObjectID]*models.DriverSummary)
+		if len(driverIDs) > 0 {
+			if dCursor, err := config.GetCollection("drivers").Find(ctx, bson.M{"_id": bson.M{"$in": driverIDs}}); err == nil {
+				var drivers []models.Driver
+				if dCursor.All(ctx, &drivers) == nil {
+					for _, d := range drivers {
+						driverMap[d.ID] = &models.DriverSummary{
+							ID:   d.ID,
+							Name: d.Name,
+						}
+					}
+				}
+				dCursor.Close(ctx)
+			}
+		}
+
+		for i := range bookings {
+			if uSum, ok := userMap[bookings[i].User]; ok {
+				bookings[i].UserObj = uSum
+			}
+			if dSum, ok := driverMap[bookings[i].Driver]; ok {
+				bookings[i].DriverObj = dSum
 			}
 		}
 	}
@@ -829,19 +874,28 @@ func ExportBookingsCSV(c *gin.Context) {
 	// Header
 	_ = writer.Write([]string{"ID", "User", "Driver", "Status", "Amount", "Date"})
 
+	userCache := make(map[bson.ObjectID]string)
+	driverCache := make(map[bson.ObjectID]string)
+
 	for cursor.Next(ctx) {
 		var b models.Booking
 		if err := cursor.Decode(&b); err == nil {
-			userName := ""
-			driverName := ""
-
-			var u models.User
-			if err := config.GetCollection("users").FindOne(ctx, bson.M{"_id": b.User}).Decode(&u); err == nil {
-				userName = u.Name
+			userName, foundUser := userCache[b.User]
+			if !foundUser {
+				var u models.User
+				if err := config.GetCollection("users").FindOne(ctx, bson.M{"_id": b.User}).Decode(&u); err == nil {
+					userName = u.Name
+				}
+				userCache[b.User] = userName
 			}
-			var d models.Driver
-			if err := config.GetCollection("drivers").FindOne(ctx, bson.M{"_id": b.Driver}).Decode(&d); err == nil {
-				driverName = d.Name
+
+			driverName, foundDriver := driverCache[b.Driver]
+			if !foundDriver {
+				var d models.Driver
+				if err := config.GetCollection("drivers").FindOne(ctx, bson.M{"_id": b.Driver}).Decode(&d); err == nil {
+					driverName = d.Name
+				}
+				driverCache[b.Driver] = driverName
 			}
 
 			_ = writer.Write([]string{

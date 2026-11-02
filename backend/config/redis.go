@@ -40,3 +40,46 @@ func ConnectRedis(redisURL string, disabled bool) *redis.Client {
 	log.Println("[Redis] Connected successfully.")
 	return RedisClient
 }
+
+// PublishWSMessage publishes a broadcast event to Redis Pub/Sub channel
+func PublishWSMessage(ctx context.Context, channel string, payload interface{}) error {
+	if RedisClient == nil {
+		return nil
+	}
+	return RedisClient.Publish(ctx, channel, payload).Err()
+}
+
+// SubscribeWSChannel subscribes to a Redis channel for multi-pod WebSocket synchronization
+func SubscribeWSChannel(ctx context.Context, channel string) *redis.PubSub {
+	if RedisClient == nil {
+		return nil
+	}
+	return RedisClient.Subscribe(ctx, channel)
+}
+
+// GeoAddDriver updates driver GPS coordinates in the Redis GEO spatial set
+func GeoAddDriver(ctx context.Context, key string, lng, lat float64, driverID string) error {
+	if RedisClient == nil {
+		return nil
+	}
+	return RedisClient.GeoAdd(ctx, key, &redis.GeoLocation{
+		Name:      driverID,
+		Longitude: lng,
+		Latitude:  lat,
+	}).Err()
+}
+
+// GeoSearchNearbyDrivers finds drivers within radiusKm using Redis GEORadius
+func GeoSearchNearbyDrivers(ctx context.Context, key string, userLng, userLat, radiusKm float64, count int) ([]redis.GeoLocation, error) {
+	if RedisClient == nil {
+		return nil, nil
+	}
+	query := &redis.GeoRadiusQuery{
+		Radius:   radiusKm,
+		Unit:     "km",
+		WithDist: true,
+		Count:    count,
+		Sort:     "ASC",
+	}
+	return RedisClient.GeoRadius(ctx, key, userLng, userLat, query).Result()
+}

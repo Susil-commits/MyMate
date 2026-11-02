@@ -12,6 +12,8 @@ RUN go mod download && go mod verify
 
 # Copy backend source code
 COPY backend/ .
+# Ensure ca.pem exists even if omitted from git checkout
+RUN touch /app/ca.pem
 
 # Compile optimized static binary
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-w -s" -o /app/server main.go
@@ -25,7 +27,7 @@ WORKDIR /app
 
 # Copy compiled binary from builder
 COPY --from=builder /app/server /app/server
-COPY backend/ca.pem /app/ca.pem
+COPY --from=builder /app/ca.pem /app/ca.pem
 
 # Create uploads folder for file uploads
 RUN mkdir -p /app/uploads

@@ -73,3 +73,25 @@ func TestGetCsrfToken_Controller(t *testing.T) {
 		t.Errorf("Expected non-empty csrfToken in controller response")
 	}
 }
+
+func TestAdminLogin_Validation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	config.AppConfig = &config.Config{
+		JWTSecret: "test_secret_for_controller_tests",
+		AppEnv:    "test",
+		AdminCode: "test_adm_code_secret",
+	}
+
+	r := gin.New()
+	r.POST("/api/auth/admin/login", controllers.AdminLogin)
+
+	// 1. Missing fields should return 400 Bad Request
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/auth/admin/login", bytes.NewBuffer([]byte(`{}`)))
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("Expected 400 Bad Request for empty admin login, got %d", w.Code)
+	}
+}

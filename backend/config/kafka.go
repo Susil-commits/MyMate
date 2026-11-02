@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl/plain"
+	"github.com/segmentio/kafka-go/sasl/scram"
 )
 
 const (
@@ -59,9 +61,27 @@ func InitKafka() {
 	}
 
 	if cfg.KafkaSASLUsername != "" && cfg.KafkaSASLPassword != "" {
-		dialer.SASLMechanism = plain.Mechanism{
-			Username: cfg.KafkaSASLUsername,
-			Password: cfg.KafkaSASLPassword,
+		mech := strings.ToLower(cfg.KafkaSASLMechanism)
+		if strings.Contains(mech, "scram") {
+			algo := scram.SHA256
+			if strings.Contains(mech, "512") {
+				algo = scram.SHA512
+			}
+			scramMech, err := scram.Mechanism(algo, cfg.KafkaSASLUsername, cfg.KafkaSASLPassword)
+			if err == nil {
+				dialer.SASLMechanism = scramMech
+			} else {
+				log.Printf("[Kafka Warning] SCRAM auth init error: %v, falling back to plain", err)
+				dialer.SASLMechanism = plain.Mechanism{
+					Username: cfg.KafkaSASLUsername,
+					Password: cfg.KafkaSASLPassword,
+				}
+			}
+		} else {
+			dialer.SASLMechanism = plain.Mechanism{
+				Username: cfg.KafkaSASLUsername,
+				Password: cfg.KafkaSASLPassword,
+			}
 		}
 	}
 
@@ -79,6 +99,48 @@ func InitKafka() {
 
 	kafkaActive = true
 	log.Printf("[Kafka] Producer initialized for brokers: %v", cfg.KafkaBrokers)
+
+	// Initialize Kafka Consumer Group Reader for asynchronous domain events
+	go StartKafkaConsumer(dialer)
+}
+
+// StartKafkaConsumer initializes and runs the background Kafka consumer worker
+func StartKafkaConsumer(dialer *kafka.Dialer) {
+	cfg := AppConfig
+	if cfg == nil || !cfg.KafkaEnabled || len(cfg.KafkaBrokers) == 0 {
+		return
+	}
+
+	topics := []string{TopicBookingCreated, TopicPaymentCompleted}
+	for _, topic := range topics {
+		go func(t string) {
+			reader := kafka.NewReader(kafka.ReaderConfig{
+				Brokers:     cfg.KafkaBrokers,
+				GroupID:     cfg.KafkaGroupID,
+				Topic:       t,
+				MinBytes:    10e3, // 10KB
+				MaxBytes:    10e6, // 10MB
+				MaxWait:     500 * time.Millisecond,
+				Dialer:      dialer,
+				StartOffset: kafka.LastOffset,
+			})
+			defer reader.Close()
+
+			log.Printf("[Kafka Consumer] Listening on topic: %s (Group: %s)", t, cfg.KafkaGroupID)
+
+			for {
+				msg, err := reader.ReadMessage(context.Background())
+				if err != nil {
+					// Reader closed or timeout
+					break
+				}
+
+				// Asynchronous event processing
+				log.Printf("[Kafka Consumer Event Received] Topic: %s | Partition: %d | Offset: %d | Key: %s",
+					msg.Topic, msg.Partition, msg.Offset, string(msg.Key))
+			}
+		}(topic)
+	}
 }
 
 func PublishKafkaEvent(topic, key string, payload interface{}) {

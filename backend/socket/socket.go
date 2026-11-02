@@ -2,6 +2,7 @@ package socket
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
@@ -38,7 +39,24 @@ func InitSocket() *socketio.Server {
 	pt := polling.Default
 	wt := websocket.Default
 	wt.CheckOrigin = func(req *http.Request) bool {
-		return true
+		origin := req.Header.Get("Origin")
+		if origin == "" {
+			return true // Allow non-browser clients (native mobile apps, server probes)
+		}
+		if config.AppConfig != nil && config.AppConfig.AppEnv != "production" {
+			if strings.HasPrefix(origin, "http://localhost") || strings.HasPrefix(origin, "http://127.0.0.1") {
+				return true
+			}
+		}
+		if config.AppConfig != nil && config.AppConfig.ClientURL != "" {
+			if strings.HasPrefix(origin, config.AppConfig.ClientURL) {
+				return true
+			}
+		}
+		if strings.HasSuffix(origin, ".vercel.app") {
+			return true
+		}
+		return false
 	}
 
 	opts := &engineio.Options{
@@ -137,6 +155,13 @@ func InitSocket() *socketio.Server {
 			}
 		}
 
+		// Sub-millisecond Redis GEO write (eliminates high-frequency MongoDB write saturation)
+		if driverID != "" && config.RedisClient != nil {
+			ctxGeo, cancelGeo := context.WithTimeout(context.Background(), 1*time.Second)
+			_ = config.GeoAddDriver(ctxGeo, "drivers:active", data.Lng, data.Lat, driverID)
+			cancelGeo()
+		}
+
 		server.BroadcastToRoom("/", "booking_"+data.BookingID, "location_update", map[string]interface{}{
 			"driverId":  driverID,
 			"lat":       data.Lat,
@@ -218,7 +243,66 @@ func InitSocket() *socketio.Server {
 	}()
 
 	Server = server
+
+	// Initialize horizontal multi-pod Redis Pub/Sub synchronization
+	startRedisWSClusterListener()
+
 	return Server
+}
+
+type ClusterWSPacket struct {
+	Room  string      `json:"room"`
+	Event string      `json:"event"`
+	Data  interface{} `json:"data"`
+}
+
+const WSClusterChannel = "mymate:ws:broadcast"
+
+func startRedisWSClusterListener() {
+	if config.RedisClient == nil {
+		return
+	}
+	ctx := context.Background()
+	pubsub := config.SubscribeWSChannel(ctx, WSClusterChannel)
+	if pubsub == nil {
+		return
+	}
+
+	go func() {
+		ch := pubsub.Channel()
+		log.Println("[Socket Cluster] Connected to Redis Pub/Sub multi-pod bridge")
+		for msg := range ch {
+			var packet ClusterWSPacket
+			if err := json.Unmarshal([]byte(msg.Payload), &packet); err == nil && Server != nil {
+				Server.BroadcastToRoom("/", packet.Room, packet.Event, packet.Data)
+			}
+		}
+	}()
+}
+
+// BroadcastCluster delivers the event to local WebSocket connections and relays to other cluster pods via Redis
+func BroadcastCluster(room, event string, data interface{}) {
+	if Server == nil {
+		return
+	}
+	// 1. Broadcast to clients connected to this pod
+	Server.BroadcastToRoom("/", room, event, data)
+
+	// 2. Publish to Redis Pub/Sub for other pods in the cluster
+	if config.RedisClient != nil {
+		packet := ClusterWSPacket{
+			Room:  room,
+			Event: event,
+			Data:  data,
+		}
+		if bytesData, err := json.Marshal(packet); err == nil {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				defer cancel()
+				_ = config.PublishWSMessage(ctx, WSClusterChannel, string(bytesData))
+			}()
+		}
+	}
 }
 
 func Handler() gin.HandlerFunc {
@@ -230,20 +314,14 @@ func Handler() gin.HandlerFunc {
 }
 
 func EmitBookingUpdate(bookingID string, data interface{}) {
-	if Server != nil {
-		Server.BroadcastToRoom("/", "booking_"+bookingID, "booking_update", data)
-	}
+	BroadcastCluster("booking_"+bookingID, "booking_update", data)
 }
 
 func EmitNotification(userID string, data interface{}) {
-	if Server != nil {
-		Server.BroadcastToRoom("/", userID, "new_notification", data)
-		Server.BroadcastToRoom("/", userID, "notification", data)
-	}
+	BroadcastCluster(userID, "new_notification", data)
+	BroadcastCluster(userID, "notification", data)
 }
 
 func EmitChatMessage(convID string, message interface{}) {
-	if Server != nil {
-		Server.BroadcastToRoom("/", "conv_"+convID, "receive_message", message)
-	}
+	BroadcastCluster("conv_"+convID, "receive_message", message)
 }

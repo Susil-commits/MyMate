@@ -2,6 +2,8 @@
 
 High-performance, enterprise-grade backend infrastructure for the MyMate On-Demand Driver Hiring Platform, written in **Golang 1.24** using the **Gin Gonic** web framework.
 
+[REST & WebSocket API Reference](../docs/API_DOCUMENTATION.md) • [System Architecture](../docs/ARCHITECTURE.md) • [Deployment Guide](../docs/DEPLOYMENT_GUIDE.md) • [Platform Overview](../docs/PROJECT_OVERVIEW.md)
+
 ---
 
 ## 🏗️ Architectural Overview
@@ -97,12 +99,12 @@ APP_ENV=development                   # development | production | test
 CLIENT_URL=http://localhost:5173       # Comma-separated allowed frontend origins
 
 # Persistence (MongoDB Atlas)
-MONGO_URI=mongodb+srv://<user>:<password>@clustercoffee.hn2pcni.mongodb.net/mymate?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://<user>:<password>@<your-cluster>.mongodb.net/mymate?retryWrites=true&w=majority
 
 # Authentication & Security
 JWT_SECRET=super_secret_jwt_random_key_here
-ADMIN_CODE=admlogin8984
-ADMIN_EMAIL=nayaksushil298@gmail.com
+ADMIN_CODE=your_secure_admin_passkey
+ADMIN_EMAIL=admin@mymate.com
 
 # Fintech (Razorpay)
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxxxxx
@@ -132,7 +134,7 @@ The server will bind to `http://localhost:5000` with hot database connection ver
 go run cmd/seed/main.go
 ```
 This populates MongoDB with:
-- **Admin**: `nayaksushil298@gmail.com`
+- **Admin**: `admin@mymate.com`
 - **4 Active Drivers**: Verified driving partners in Mumbai & Navi Mumbai with sample ratings and coordinates.
 - **3 Completed Bookings**: Generates revenue metrics and completed trip statistics for the dashboard.
 

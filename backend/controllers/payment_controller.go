@@ -306,11 +306,15 @@ func ReconcilePayment(payment *models.Payment, paymentMethod string) {
 		return
 	}
 
-	// 1. Update booking paymentStatus = paid
-	_, _ = config.GetCollection("bookings").UpdateOne(ctx,
-		bson.M{"_id": booking.ID},
+	// 1. Atomically update booking paymentStatus = paid ONLY if currently pending/unpaid
+	res, updateErr := config.GetCollection("bookings").UpdateOne(ctx,
+		bson.M{"_id": booking.ID, "paymentStatus": bson.M{"$ne": "paid"}},
 		bson.M{"$set": bson.M{"paymentStatus": "paid", "updatedAt": time.Now()}},
 	)
+	if updateErr != nil || res.ModifiedCount == 0 {
+		// Already reconciled concurrently by client verification or webhook
+		return
+	}
 
 	// 2. Driver Wallet credit
 	splitFraction := config.AppConfig.DriverWalletSplitPct

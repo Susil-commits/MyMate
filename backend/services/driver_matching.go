@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"math"
+	"sort"
 	"time"
 
 	"mymate-backend/config"
@@ -10,6 +11,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 type DriverCandidate struct {
@@ -46,43 +48,84 @@ func FindBestDrivers(userLat, userLng float64, limit int) []DriverCandidate {
 
 	var candidates []DriverCandidate
 
-	// Attempt MongoDB $geoNear aggregation
-	pipeline := mongo.Pipeline{
-		bson.D{{Key: "$geoNear", Value: bson.D{
-			{Key: "near", Value: bson.D{
-				{Key: "type", Value: "Point"},
-				{Key: "coordinates", Value: []float64{userLng, userLat}},
-			}},
-			{Key: "distanceField", Value: "distanceMeters"},
-			{Key: "spherical", Value: true},
-			{Key: "query", Value: bson.D{
-				{Key: "kycStatus", Value: "approved"},
-				{Key: "isActive", Value: true},
-				{Key: "deletedAt", Value: nil},
-			}},
-		}}},
-		bson.D{{Key: "$limit", Value: 50}},
+	// Tier 1: Sub-2ms Redis GEO spatial lookup
+	if config.RedisClient != nil {
+		redisLocs, geoErr := config.GeoSearchNearbyDrivers(ctx, "drivers:active", userLng, userLat, 15.0, 50)
+		if geoErr == nil && len(redisLocs) > 0 {
+			var dOIDs []bson.ObjectID
+			distMap := make(map[string]float64)
+			for _, loc := range redisLocs {
+				if oid, err := bson.ObjectIDFromHex(loc.Name); err == nil {
+					dOIDs = append(dOIDs, oid)
+					distMap[loc.Name] = math.Round(loc.Dist*100) / 100
+				}
+			}
+
+			if len(dOIDs) > 0 {
+				cursor, dErr := config.DB.Collection("drivers").Find(ctx, bson.M{
+					"_id":       bson.M{"$in": dOIDs},
+					"kycStatus": "approved",
+					"isActive":  true,
+					"deletedAt": nil,
+				})
+				if dErr == nil {
+					var drivers []models.Driver
+					if cursor.All(ctx, &drivers) == nil {
+						for _, d := range drivers {
+							candidates = append(candidates, DriverCandidate{
+								DriverID:          d.ID.Hex(),
+								DistanceKm:        distMap[d.ID.Hex()],
+								Rating:            d.AverageRating,
+								AcceptRatePercent: 85,
+								IdleMinutes:       15,
+							})
+						}
+					}
+					cursor.Close(ctx)
+				}
+			}
+		}
 	}
 
-	cursor, err := config.DB.Collection("drivers").Aggregate(ctx, pipeline)
-	if err == nil {
-		defer cursor.Close(ctx)
-		var results []struct {
-			ID             bson.ObjectID   `bson:"_id"`
-			Location       models.GeoPoint `bson:"location"`
-			AverageRating  float64         `bson:"averageRating"`
-			DistanceMeters float64         `bson:"distanceMeters"`
+	// Tier 2: Attempt MongoDB $geoNear aggregation if Redis returned empty
+	if len(candidates) == 0 {
+		pipeline := mongo.Pipeline{
+			bson.D{{Key: "$geoNear", Value: bson.D{
+				{Key: "near", Value: bson.D{
+					{Key: "type", Value: "Point"},
+					{Key: "coordinates", Value: []float64{userLng, userLat}},
+				}},
+				{Key: "distanceField", Value: "distanceMeters"},
+				{Key: "spherical", Value: true},
+				{Key: "query", Value: bson.D{
+					{Key: "kycStatus", Value: "approved"},
+					{Key: "isActive", Value: true},
+					{Key: "deletedAt", Value: nil},
+				}},
+			}}},
+			bson.D{{Key: "$limit", Value: 50}},
 		}
-		if err := cursor.All(ctx, &results); err == nil && len(results) > 0 {
-			for _, r := range results {
-				distKm := math.Round((r.DistanceMeters/1000.0)*100) / 100
-				candidates = append(candidates, DriverCandidate{
-					DriverID:          r.ID.Hex(),
-					DistanceKm:        distKm,
-					Rating:            r.AverageRating,
-					AcceptRatePercent: 85,
-					IdleMinutes:       15,
-				})
+
+		cursor, err := config.DB.Collection("drivers").Aggregate(ctx, pipeline)
+		if err == nil {
+			defer cursor.Close(ctx)
+			var results []struct {
+				ID             bson.ObjectID   `bson:"_id"`
+				Location       models.GeoPoint `bson:"location"`
+				AverageRating  float64         `bson:"averageRating"`
+				DistanceMeters float64         `bson:"distanceMeters"`
+			}
+			if err := cursor.All(ctx, &results); err == nil && len(results) > 0 {
+				for _, r := range results {
+					distKm := math.Round((r.DistanceMeters/1000.0)*100) / 100
+					candidates = append(candidates, DriverCandidate{
+						DriverID:          r.ID.Hex(),
+						DistanceKm:        distKm,
+						Rating:            r.AverageRating,
+						AcceptRatePercent: 85,
+						IdleMinutes:       15,
+					})
+				}
 			}
 		}
 	}
@@ -94,7 +137,8 @@ func FindBestDrivers(userLat, userLng float64, limit int) []DriverCandidate {
 			{Key: "isActive", Value: true},
 			{Key: "deletedAt", Value: nil},
 		}
-		cursor, err := config.DB.Collection("drivers").Find(ctx, filter)
+		fallbackOpts := options.Find().SetLimit(100)
+		cursor, err := config.DB.Collection("drivers").Find(ctx, filter, fallbackOpts)
 		if err == nil {
 			defer cursor.Close(ctx)
 			var drivers []models.Driver
@@ -129,14 +173,10 @@ func FindBestDrivers(userLat, userLng float64, limit int) []DriverCandidate {
 		)
 	}
 
-	// Sort descending by score
-	for i := 0; i < len(candidates)-1; i++ {
-		for j := i + 1; j < len(candidates); j++ {
-			if candidates[j].Score > candidates[i].Score {
-				candidates[i], candidates[j] = candidates[j], candidates[i]
-			}
-		}
-	}
+	// Sort descending by score using O(N log N) quicksort
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].Score > candidates[j].Score
+	})
 
 	if limit > len(candidates) {
 		limit = len(candidates)
