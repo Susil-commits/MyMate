@@ -67,3 +67,4 @@ func PrometheusMiddleware() gin.HandlerFunc {
 		HttpRequestDuration.WithLabelValues(c.Request.Method, path).Observe(duration)
 	}
 }
+

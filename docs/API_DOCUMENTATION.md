@@ -23,7 +23,9 @@ Comprehensive technical specification for the **MyMate Backend API Gateway**, po
 - [Driver & User Wallet (`/wallet`)](#-driver--user-wallet-wallet)
 - [Promotional Discount Codes (`/promos`)](#-promotional-discount-codes-promos)
 - [Enterprise Admin Governance (`/admin`)](#-enterprise-admin-governance-admin)
+- [B2B Corporate Fleet & Invoicing (`/corporate`)](#-b2b-corporate-fleet--invoicing-corporate)
 - [AI Intelligence & Contextual Re-Ranking (`/ai`)](#-ai-intelligence--contextual-re-ranking-ai)
+- [Prometheus Telemetry & Metrics (`/metrics`)](#-prometheus-telemetry--metrics-metrics)
 - [Real-Time WebSocket Protocol](#-real-time-websocket-protocol)
 
 ---
@@ -500,6 +502,75 @@ POST /api/v1/ai/verify-kyc
 ```
 *Auth: Admin Only*  
 Passes driving license document image URLs to the Gemini Multimodal Vision API to automatically extract license number, expiry date, driver name, and state vehicle authority endorsements.
+
+---
+
+## 🏢 B2B Corporate Fleet & Invoicing (`/corporate`)
+
+Manage enterprise organizations, multi-employee fleet booking attribution, cost center analytics, and monthly consolidated Indian GST tax invoices.
+
+### Register Corporate Organization
+```http
+POST /api/v1/corporate/organization
+```
+*Auth: User (Bearer / Cookie)*
+
+**Request Payload:**
+```json
+{
+  "name": "Acme Global Solutions Pvt Ltd",
+  "gstin": "27AAAAA0000A1Z5",
+  "billingEmail": "fleet-billing@acmeglobal.com",
+  "phone": "+919876543210",
+  "address": "DLF Cyber City, Sector 24, Gurugram, Haryana - 122002",
+  "monthlyBudget": 150000,
+  "costCenters": ["Executive", "Sales", "Operations", "Client Logistics"]
+}
+```
+
+### Get Corporate Account Details & Member Roster
+```http
+GET /api/v1/corporate/organization
+```
+*Auth: User / Corporate Member*  
+Returns organization profile, spending vs. monthly budget cap, and populated employee roster with contact details.
+
+### Enroll Corporate Member
+```http
+POST /api/v1/corporate/organization/members
+```
+*Auth: Corporate Admin Only*
+
+**Request Payload:**
+```json
+{
+  "email": "employee@acmeglobal.com"
+}
+```
+
+### Monthly GST Tax Invoice Generator
+```http
+GET /api/v1/corporate/organization/invoice?month=2026-11
+```
+*Auth: User / Corporate Member*  
+Aggregates all rides completed by authorized organization members during the specified month. Returns itemized taxable value, SAC Code `9964`, 9% CGST + 9% SGST (18% Integrated GST), and net amount payable for Input Tax Credit (ITC) reconciliation.
+
+---
+
+## 📊 Prometheus Telemetry & Metrics (`/metrics`)
+
+Standard Prometheus exposition endpoint exposing real-time Go runtime statistics and MyMate platform metrics for scraping by Prometheus, Grafana, or Datadog agent.
+
+```http
+GET /metrics
+```
+*Auth: Public / Scrape Agent*
+
+**Key Metric Series:**
+- `mymate_http_requests_total{method="...", path="...", status="..."}`: Total HTTP requests processed.
+- `mymate_http_request_duration_seconds{method="...", path="..."}`: Request latency histogram.
+- `mymate_active_websocket_connections`: Gauge tracking active client WebSocket connections across the cluster.
+- `mymate_database_query_duration_seconds{storage="...", operation="..."}`: MongoDB and Redis execution latency.
 
 ---
 
