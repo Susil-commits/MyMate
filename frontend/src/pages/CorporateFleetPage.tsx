@@ -14,6 +14,7 @@ import {
   HiTrendingUp,
   HiTrash,
   HiInformationCircle,
+  HiCalendar,
 } from "react-icons/hi";
 import api from "../api/axios";
 import { useAuth } from "../context/AuthContext";
@@ -71,6 +72,26 @@ interface MemberProfile {
   createdAt?: string;
 }
 
+interface ShiftRoster {
+  id: string;
+  driverId: string;
+  driverName: string;
+  driverAvatar?: string;
+  driverPhone?: string;
+  title: string;
+  costCenter: string;
+  startDate: string;
+  endDate: string;
+  dailyStartTime: string;
+  dailyEndTime: string;
+  daysOfWeek: string[];
+  dailyRate: number;
+  totalEstimatedDays: number;
+  totalAmount: number;
+  status: "confirmed" | "active" | "completed" | "cancelled";
+  pickupLocation: string;
+}
+
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 export default function CorporateFleetPage(): React.ReactElement {
@@ -78,7 +99,25 @@ export default function CorporateFleetPage(): React.ReactElement {
   const [loading, setLoading] = useState<boolean>(true);
   const [org, setOrg] = useState<Organization | null>(null);
   const [membersList, setMembersList] = useState<MemberProfile[]>([]);
-  const [activeTab, setActiveTab] = useState<"overview" | "roster" | "invoices">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "roster" | "shifts" | "invoices">("overview");
+
+  // Shifts state
+  const [shifts, setShifts] = useState<ShiftRoster[]>([]);
+  const [loadingShifts, setLoadingShifts] = useState<boolean>(false);
+  const [showShiftModal, setShowShiftModal] = useState<boolean>(false);
+  const [availableDrivers, setAvailableDrivers] = useState<any[]>([]);
+  const [shiftForm, setShiftForm] = useState({
+    driverId: "",
+    title: "Executive Daily Chauffeur",
+    costCenter: "Executive",
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+    dailyStartTime: "09:00",
+    dailyEndTime: "18:00",
+    daysOfWeek: ["Mon", "Tue", "Wed", "Thu", "Fri"],
+    pickupLocation: "",
+  });
+  const [schedulingShift, setSchedulingShift] = useState<boolean>(false);
 
   // Registration form state
   const [regForm, setRegForm] = useState({
@@ -231,6 +270,69 @@ export default function CorporateFleetPage(): React.ReactElement {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const fetchShifts = async () => {
+    setLoadingShifts(true);
+    try {
+      const { data } = await api.get("/corporate/organization/shifts");
+      setShifts(data.shifts || []);
+    } catch (err: any) {
+      console.error("Failed to load shifts:", err);
+    } finally {
+      setLoadingShifts(false);
+    }
+  };
+
+  const loadDriversForShift = async () => {
+    try {
+      const { data } = await api.get("/drivers?limit=20");
+      setAvailableDrivers(data.drivers || []);
+      if (data.drivers?.length > 0 && !shiftForm.driverId) {
+        const first = data.drivers[0];
+        setShiftForm((prev) => ({ ...prev, driverId: first._id || first.id }));
+      }
+    } catch {
+      // Non-fatal
+    }
+  };
+
+  useEffect(() => {
+    if (org && activeTab === "shifts") {
+      fetchShifts();
+      loadDriversForShift();
+    }
+  }, [org, activeTab]);
+
+  const handleCreateShift = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!shiftForm.driverId || !shiftForm.pickupLocation.trim()) {
+      toast.error("Please select a driver and specify pickup location");
+      return;
+    }
+
+    setSchedulingShift(true);
+    try {
+      const { data } = await api.post("/corporate/organization/shifts", shiftForm);
+      toast.success(data.message || "Chauffeur shift scheduled successfully!");
+      setShowShiftModal(false);
+      await fetchShifts();
+    } catch (err: any) {
+      const msg = err.response?.data?.message || "Failed to schedule shift";
+      toast.error(msg);
+    } finally {
+      setSchedulingShift(false);
+    }
+  };
+
+  const handleCancelShift = async (shiftId: string) => {
+    try {
+      await api.put(`/corporate/organization/shifts/${shiftId}/cancel`);
+      toast.success("Shift cancelled and driver slot released");
+      await fetchShifts();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to cancel shift");
+    }
   };
 
   if (loading) {
@@ -507,6 +609,17 @@ export default function CorporateFleetPage(): React.ReactElement {
           Employee Roster ({org.members?.length || 0})
         </button>
         <button
+          onClick={() => setActiveTab("shifts")}
+          className={`pb-3 text-sm font-semibold flex items-center gap-2 transition border-b-2 cursor-pointer ${
+            activeTab === "shifts"
+              ? "border-blue-600 text-blue-600 dark:text-blue-400"
+              : "border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400"
+          }`}
+        >
+          <HiCalendar className="w-4 h-4" />
+          Chauffeur Shifts ({shifts.length})
+        </button>
+        <button
           onClick={() => setActiveTab("invoices")}
           className={`pb-3 text-sm font-semibold flex items-center gap-2 transition border-b-2 cursor-pointer ${
             activeTab === "invoices"
@@ -724,7 +837,305 @@ export default function CorporateFleetPage(): React.ReactElement {
         </div>
       )}
 
-      {/* Tab 3: Monthly GST Tax Invoice */}
+      {/* Tab 3: Chauffeur Shifts Rostering */}
+      {activeTab === "shifts" && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div>
+              <h3 className="text-base font-bold text-gray-900 dark:text-white">
+                Scheduled Chauffeur Rosters
+              </h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Dedicated driver assignments with automatic conflict detection and multi-day recurring dispatch.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowShiftModal(true)}
+              className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition shadow-md flex items-center gap-2 cursor-pointer whitespace-nowrap"
+            >
+              <HiPlus className="w-4 h-4" />
+              Schedule Chauffeur
+            </button>
+          </div>
+
+          {loadingShifts ? (
+            <div className="flex flex-col items-center justify-center p-12 gap-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <p className="text-xs text-gray-500">Loading corporate roster...</p>
+            </div>
+          ) : shifts.length === 0 ? (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-12 text-center space-y-3">
+              <HiCalendar className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto" />
+              <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                No Chauffeur Shifts Scheduled Yet
+              </p>
+              <p className="text-xs text-gray-400 max-w-md mx-auto">
+                Schedule recurring multi-day drivers for executives, sales roadshows, or departmental logistics.
+              </p>
+              <button
+                onClick={() => setShowShiftModal(true)}
+                className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300 rounded-xl text-xs font-bold hover:bg-blue-100 transition cursor-pointer"
+              >
+                + Schedule First Shift
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {shifts.map((s) => (
+                <div
+                  key={s.id}
+                  className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5 shadow-sm space-y-4 hover:shadow-md transition"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {s.driverAvatar ? (
+                        <img
+                          src={s.driverAvatar}
+                          alt={s.driverName}
+                          className="w-11 h-11 rounded-full object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold flex items-center justify-center text-sm">
+                          {s.driverName.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-sm">
+                          {s.driverName}
+                        </h4>
+                        <p className="text-xs text-gray-400">{s.title}</p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wider ${
+                        s.status === "confirmed"
+                          ? "bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          : s.status === "active"
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : "bg-gray-100 text-gray-500 dark:bg-gray-800"
+                      }`}
+                    >
+                      {s.status}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl">
+                    <div>
+                      <span className="text-gray-400 block text-[11px]">DATE WINDOW</span>
+                      <strong className="text-gray-900 dark:text-white">
+                        {new Date(s.startDate).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })}{" "}
+                        –{" "}
+                        {new Date(s.endDate).toLocaleDateString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                        })}
+                      </strong>
+                    </div>
+                    <div>
+                      <span className="text-gray-400 block text-[11px]">DAILY HOURS</span>
+                      <strong className="text-gray-900 dark:text-white">
+                        {s.dailyStartTime} – {s.dailyEndTime}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between text-xs pt-1 border-t border-gray-100 dark:border-gray-800">
+                    <span className="text-gray-500">
+                      Cost Center: <strong className="text-blue-600">{s.costCenter}</strong>
+                    </span>
+                    <span className="font-extrabold text-gray-900 dark:text-white text-sm">
+                      {formatINR(s.totalAmount)}{" "}
+                      <span className="text-[11px] font-normal text-gray-400">
+                        ({s.totalEstimatedDays} days)
+                      </span>
+                    </span>
+                  </div>
+
+                  {s.status === "confirmed" && (
+                    <div className="flex justify-end pt-1">
+                      <button
+                        onClick={() => handleCancelShift(s.id)}
+                        className="text-xs text-red-500 hover:text-red-700 font-semibold cursor-pointer"
+                      >
+                        Cancel Shift & Release Slot
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Schedule Chauffeur Modal */}
+          {showShiftModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-gray-100 dark:border-gray-800 space-y-5 relative max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-800 pb-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <HiCalendar className="w-5 h-5 text-blue-600" />
+                    Schedule Chauffeur Shift
+                  </h3>
+                  <button
+                    onClick={() => setShowShiftModal(false)}
+                    className="text-gray-400 hover:text-gray-600 text-lg cursor-pointer"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <form onSubmit={handleCreateShift} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Select Driver *
+                    </label>
+                    <select
+                      value={shiftForm.driverId}
+                      onChange={(e) => setShiftForm({ ...shiftForm, driverId: e.target.value })}
+                      required
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                    >
+                      {availableDrivers.map((d: any) => (
+                        <option key={d._id || d.id} value={d._id || d.id}>
+                          {d.name} ({d.locality || "Delhi-NCR"}) &middot; ₹{d.dailyRate || 1800}/day
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Shift Title *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={shiftForm.title}
+                        onChange={(e) => setShiftForm({ ...shiftForm, title: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Cost Center *
+                      </label>
+                      <select
+                        value={shiftForm.costCenter}
+                        onChange={(e) =>
+                          setShiftForm({ ...shiftForm, costCenter: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                      >
+                        {org.costCenters?.map((cc) => (
+                          <option key={cc} value={cc}>
+                            {cc}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Start Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={shiftForm.startDate}
+                        onChange={(e) =>
+                          setShiftForm({ ...shiftForm, startDate: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        End Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={shiftForm.endDate}
+                        onChange={(e) => setShiftForm({ ...shiftForm, endDate: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Daily Start Time
+                      </label>
+                      <input
+                        type="time"
+                        value={shiftForm.dailyStartTime}
+                        onChange={(e) =>
+                          setShiftForm({ ...shiftForm, dailyStartTime: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                        Daily End Time
+                      </label>
+                      <input
+                        type="time"
+                        value={shiftForm.dailyEndTime}
+                        onChange={(e) =>
+                          setShiftForm({ ...shiftForm, dailyEndTime: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      Primary Pickup / Dispatch Location *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Acme HQ, Tower B, Cyber City, Gurugram"
+                      value={shiftForm.pickupLocation}
+                      onChange={(e) =>
+                        setShiftForm({ ...shiftForm, pickupLocation: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs text-gray-900 dark:text-white outline-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-100 dark:border-gray-800">
+                    <button
+                      type="button"
+                      onClick={() => setShowShiftModal(false)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={schedulingShift}
+                      className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition disabled:opacity-50 cursor-pointer"
+                    >
+                      {schedulingShift ? "Checking Conflicts & Rostering..." : "Confirm Shift"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab 4: Monthly GST Tax Invoice */}
       {activeTab === "invoices" && (
         <div className="space-y-6">
           <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">

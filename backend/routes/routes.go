@@ -43,6 +43,7 @@ func SetupRoutes(r *gin.Engine) {
 		c.Next()
 	})
 
+	r.Use(telemetry.StructuredLogger())
 	r.Use(middleware.CORSMiddleware())
 
 	// Static uploads directory
@@ -210,6 +211,7 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		drivers.GET("/", controllers.GetDrivers)
 		drivers.GET("/stats", controllers.GetPublicStats)
 		drivers.GET("/radar", controllers.GetNearbyDriversRadar)
+		drivers.GET("/shifts", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverShifts)
 		drivers.GET("/wallet", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverWallet)
 		drivers.PUT("/profile", middleware.Protect(), middleware.AuthorizeDriver(), controllers.UpdateDriverProfile)
 		drivers.GET("/:id", controllers.GetDriverByID)
@@ -346,5 +348,8 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		corp.GET("/organization", middleware.Protect(), controllers.GetMyOrganization)
 		corp.POST("/organization/members", middleware.Protect(), controllers.AddCorporateMember)
 		corp.GET("/organization/invoice", middleware.Protect(), controllers.GetCorporateMonthlyTaxInvoice)
+		corp.POST("/organization/shifts", middleware.Protect(), controllers.CreateShiftRoster)
+		corp.GET("/organization/shifts", middleware.Protect(), controllers.GetOrganizationShifts)
+		corp.PUT("/organization/shifts/:id/cancel", middleware.Protect(), controllers.CancelShiftRoster)
 	}
 }

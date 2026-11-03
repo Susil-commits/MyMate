@@ -555,6 +555,49 @@ GET /api/v1/corporate/organization/invoice?month=2026-11
 *Auth: User / Corporate Member*  
 Aggregates all rides completed by authorized organization members during the specified month. Returns itemized taxable value, SAC Code `9964`, 9% CGST + 9% SGST (18% Integrated GST), and net amount payable for Input Tax Credit (ITC) reconciliation.
 
+### Schedule Dedicated Chauffeur Shift
+```http
+POST /api/v1/corporate/organization/shifts
+```
+*Auth: Corporate Member*  
+Schedules a multi-day recurring chauffeur shift for the company with automatic atomic conflict detection.
+
+**Request Payload:**
+```json
+{
+  "driverId": "664fa1e2b5c7e1234567890a",
+  "title": "Senior Executive Chauffeur",
+  "costCenter": "Executive",
+  "startDate": "2026-11-10",
+  "endDate": "2026-11-20",
+  "dailyStartTime": "09:00",
+  "dailyEndTime": "18:00",
+  "daysOfWeek": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+  "pickupLocation": "Acme HQ, Tower B, Cyber City, Gurugram"
+}
+```
+
+### List Organization Shifts
+```http
+GET /api/v1/corporate/organization/shifts
+```
+*Auth: Corporate Member*  
+Retrieves active and scheduled shifts for the organization.
+
+### Cancel Shift Roster
+```http
+PUT /api/v1/corporate/organization/shifts/:id/cancel
+```
+*Auth: Corporate Member*  
+Cancels a scheduled shift and immediately releases the driver's schedule slot.
+
+### Driver Assigned Shifts
+```http
+GET /api/v1/drivers/shifts
+```
+*Auth: Driver Only*  
+Lists all confirmed and active corporate shifts assigned to the authenticated driver.
+
 ---
 
 ## 📊 Prometheus Telemetry & Metrics (`/metrics`)

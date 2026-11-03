@@ -233,6 +233,17 @@ func CreateBooking(c *gin.Context) {
 		"link":  "/bookings/" + primary.ID.Hex(),
 	})
 
+	socket.BroadcastCluster(driver.ID.Hex(), "new_dispatch_offer", gin.H{
+		"bookingId":      primary.ID.Hex(),
+		"customerName":   user.Name,
+		"pickupLocation": primary.PickupLocation,
+		"dropLocation":   primary.DropLocation,
+		"hireType":       primary.HireType,
+		"totalAmount":    primary.TotalAmount,
+		"startDate":      primary.StartDate,
+		"expiresIn":      45,
+	})
+
 	config.PublishKafkaEvent(config.TopicBookingCreated, primary.ID.Hex(), gin.H{
 		"bookingId":   primary.ID.Hex(),
 		"driverId":    driver.ID.Hex(),
