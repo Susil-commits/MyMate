@@ -88,3 +88,4 @@ func LogError(msg string, err error, args ...any) {
 		Logger.Error(msg, allArgs...)
 	}
 }
+
