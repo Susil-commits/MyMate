@@ -22,6 +22,7 @@ export default function UserLayout(): React.ReactElement {
     { to: "/drivers", label: "Find Drivers" },
     { to: "/bookings", label: "My Bookings" },
     { to: "/favorites", label: "Saved" },
+    { to: "/corporate", label: "Corporate Fleet" },
     { to: "/messages", label: "Messages" },
     { to: "/wallet", label: "Wallet" },
     { to: "/profile", label: "Profile" },

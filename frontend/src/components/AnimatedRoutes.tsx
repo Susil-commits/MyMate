@@ -36,6 +36,7 @@ const ResetPasswordPage = lazyWithRetry(() => import("../pages/ResetPasswordPage
 const VerifyEmailPage = lazyWithRetry(() => import("../pages/VerifyEmailPage"));
 const NotFoundPage = lazyWithRetry(() => import("../pages/NotFoundPage"));
 const WalletPage = lazyWithRetry(() => import("../pages/WalletPage"));
+const CorporateFleetPage = lazyWithRetry(() => import("../pages/CorporateFleetPage"));
 
 import { OptionalRoute } from "./OptionalRoute";
 import ErrorBoundary from "./ErrorBoundary";
@@ -97,6 +98,7 @@ export default function AnimatedRoutes() {
             <Route path="/complete-profile" element={<PageWrapper><CompleteUserProfile /></PageWrapper>} />
             <Route path="/bookings" element={<PageWrapper><BookingsPage /></PageWrapper>} />
             <Route path="/favorites" element={<PageWrapper><FavoritesPage /></PageWrapper>} />
+            <Route path="/corporate" element={<PageWrapper><CorporateFleetPage /></PageWrapper>} />
             <Route path="/profile" element={<PageWrapper><UserProfilePage /></PageWrapper>} />
             <Route path="/wallet" element={<PageWrapper><WalletPage /></PageWrapper>} />
           </Route>
