@@ -157,14 +157,14 @@ func GetMyOrganization(c *gin.Context) {
 
 // POST /api/v1/corporate/organization/members
 func AddCorporateMember(c *gin.Context) {
-	if config.DB == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
-		return
-	}
-
 	var input AddMemberInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Valid email is required"})
+		return
+	}
+
+	if config.DB == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
 		return
 	}
 

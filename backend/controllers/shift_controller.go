@@ -37,6 +37,13 @@ func CreateShiftRoster(c *gin.Context) {
 		return
 	}
 
+	// Validate date formats and boundaries
+	startDate, endDate, err := ParseShiftDates(input.StartDate, input.EndDate)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		return
+	}
+
 	if config.DB == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"message": "Database is not connected"})
 		return
@@ -50,7 +57,7 @@ func CreateShiftRoster(c *gin.Context) {
 
 	// 1. Verify caller has an active corporate organization
 	var org models.Organization
-	err := config.GetCollection("organizations").FindOne(ctx, bson.M{
+	err = config.GetCollection("organizations").FindOne(ctx, bson.M{
 		"$or": bson.A{
 			bson.M{"adminUser": userOID},
 			bson.M{"members": userOID},
@@ -81,27 +88,12 @@ func CreateShiftRoster(c *gin.Context) {
 		return
 	}
 
-	// 3. Parse date range
-	startDate, err1 := time.Parse("2006-01-02", strings.TrimSpace(input.StartDate))
-	if err1 != nil {
-		startDate, _ = time.Parse(time.RFC3339, input.StartDate)
-	}
-	endDate, err2 := time.Parse("2006-01-02", strings.TrimSpace(input.EndDate))
-	if err2 != nil {
-		endDate, _ = time.Parse(time.RFC3339, input.EndDate)
-	}
-
-	if startDate.After(endDate) {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Shift start date cannot be after end date"})
-		return
-	}
-
 	daysOfWeek := input.DaysOfWeek
 	if len(daysOfWeek) == 0 {
 		daysOfWeek = []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
 	}
 
-	// 4. Atomic Conflict Detection: Check if driver is already committed to an overlapping shift
+	// 3. Atomic Conflict Detection: Check if driver is already committed to an overlapping shift
 	conflictFilter := bson.M{
 		"driverId":  driverOID,
 		"status":    bson.M{"$in": bson.A{"confirmed", "active"}},
@@ -117,38 +109,17 @@ func CreateShiftRoster(c *gin.Context) {
 
 		// Check intersecting days of week
 		for _, es := range existingShifts {
-			for _, reqDay := range daysOfWeek {
-				for _, existDay := range es.DaysOfWeek {
-					if strings.EqualFold(reqDay, existDay) {
-						c.JSON(http.StatusConflict, gin.H{
-							"message": fmt.Sprintf("Driver %s is already rostered for shift '%s' on %s during this date range", driver.Name, es.Title, reqDay),
-						})
-						return
-					}
-				}
+			if hasOverlap, overlappingDay := FindFirstIntersectingDay(daysOfWeek, es.DaysOfWeek); hasOverlap {
+				c.JSON(http.StatusConflict, gin.H{
+					"message": fmt.Sprintf("Driver %s is already rostered for shift '%s' on %s during this date range", driver.Name, es.Title, overlappingDay),
+				})
+				return
 			}
 		}
 	}
 
-	// 5. Calculate total working days in the window
-	dayMap := make(map[string]bool)
-	for _, d := range daysOfWeek {
-		dayMap[strings.ToLower(d)[:3]] = true
-	}
-
-	workingDays := 0
-	curr := startDate
-	for !curr.After(endDate) {
-		weekdayShort := strings.ToLower(curr.Weekday().String()[:3])
-		if dayMap[weekdayShort] {
-			workingDays++
-		}
-		curr = curr.AddDate(0, 0, 1)
-	}
-
-	if workingDays == 0 {
-		workingDays = 1
-	}
+	// 4. Calculate total working days in the window
+	workingDays := CalculateShiftWorkingDays(startDate, endDate, daysOfWeek)
 
 	dailyRate := driver.DailyRate
 	if dailyRate <= 0 {
@@ -347,4 +318,85 @@ func CancelShiftRoster(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Shift cancelled successfully and driver slot released"})
+}
+
+// ParseShiftDates parses startDate and endDate strings in YYYY-MM-DD or RFC3339 formats.
+// Returns an error if parsing fails or if startDate is strictly after endDate.
+func ParseShiftDates(startStr, endStr string) (time.Time, time.Time, error) {
+	startClean := strings.TrimSpace(startStr)
+	endClean := strings.TrimSpace(endStr)
+	if startClean == "" || endClean == "" {
+		return time.Time{}, time.Time{}, fmt.Errorf("startDate and endDate are required")
+	}
+
+	startDate, err1 := time.Parse("2006-01-02", startClean)
+	if err1 != nil {
+		startDate, err1 = time.Parse(time.RFC3339, startClean)
+	}
+	if err1 != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid startDate format (expected YYYY-MM-DD or RFC3339)")
+	}
+
+	endDate, err2 := time.Parse("2006-01-02", endClean)
+	if err2 != nil {
+		endDate, err2 = time.Parse(time.RFC3339, endClean)
+	}
+	if err2 != nil {
+		return time.Time{}, time.Time{}, fmt.Errorf("invalid endDate format (expected YYYY-MM-DD or RFC3339)")
+	}
+
+	if startDate.After(endDate) {
+		return time.Time{}, time.Time{}, fmt.Errorf("shift start date cannot be after end date")
+	}
+
+	return startDate, endDate, nil
+}
+
+// CalculateShiftWorkingDays computes the number of matching weekdays between startDate and endDate (inclusive).
+func CalculateShiftWorkingDays(startDate, endDate time.Time, daysOfWeek []string) int {
+	if len(daysOfWeek) == 0 {
+		daysOfWeek = []string{"Mon", "Tue", "Wed", "Thu", "Fri"}
+	}
+	dayMap := make(map[string]bool)
+	for _, d := range daysOfWeek {
+		trimmed := strings.ToLower(strings.TrimSpace(d))
+		if len(trimmed) >= 3 {
+			dayMap[trimmed[:3]] = true
+		}
+	}
+
+	workingDays := 0
+	curr := startDate
+	for !curr.After(endDate) {
+		weekdayShort := strings.ToLower(curr.Weekday().String()[:3])
+		if dayMap[weekdayShort] {
+			workingDays++
+		}
+		curr = curr.AddDate(0, 0, 1)
+	}
+
+	if workingDays == 0 {
+		workingDays = 1
+	}
+	return workingDays
+}
+
+// FindFirstIntersectingDay checks if any weekday in requestedDays overlaps with existingDays (case-insensitive, 3-char prefix match).
+func FindFirstIntersectingDay(requestedDays, existingDays []string) (bool, string) {
+	for _, reqDay := range requestedDays {
+		r := strings.ToLower(strings.TrimSpace(reqDay))
+		if len(r) < 3 {
+			continue
+		}
+		for _, existDay := range existingDays {
+			e := strings.ToLower(strings.TrimSpace(existDay))
+			if len(e) < 3 {
+				continue
+			}
+			if r[:3] == e[:3] {
+				return true, reqDay
+			}
+		}
+	}
+	return false, ""
 }

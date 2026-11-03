@@ -170,21 +170,91 @@ func TestPrometheusMetricsEndpoint(t *testing.T) {
 func TestDriversRadarEndpoint_Validation(t *testing.T) {
 	r := setupTestEngine()
 
-	// Missing lat & lng -> should return 400 Bad Request
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/drivers/radar", nil)
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("Expected 400 Bad Request for missing coordinates, got %d", w.Code)
+	// Table-driven coordinate boundary and query validation scenarios
+	scenarios := []struct {
+		name         string
+		queryString  string
+		expectedCode int
+	}{
+		{
+			name:         "Missing all parameters",
+			queryString:  "",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Missing lng parameter",
+			queryString:  "?lat=28.4595",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Missing lat parameter",
+			queryString:  "?lng=77.0266",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Latitude greater than 90 deg north pole",
+			queryString:  "?lat=90.0001&lng=77.0266",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Latitude less than -90 deg south pole",
+			queryString:  "?lat=-90.0001&lng=77.0266",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Longitude greater than 180 deg antimeridian",
+			queryString:  "?lat=28.4595&lng=180.0001",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Longitude less than -180 deg antimeridian",
+			queryString:  "?lat=28.4595&lng=-180.0001",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Non-numeric latitude string",
+			queryString:  "?lat=invalid_lat&lng=77.0266",
+			expectedCode: http.StatusBadRequest,
+		},
+		{
+			name:         "Valid coordinates with default radius",
+			queryString:  "?lat=28.4595&lng=77.0266",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "Valid coordinates with custom radius 15km",
+			queryString:  "?lat=28.4595&lng=77.0266&radius=15",
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:         "Valid coordinates with max clamped radius 100km",
+			queryString:  "?lat=19.0760&lng=72.8777&radius=100",
+			expectedCode: http.StatusOK,
+		},
 	}
 
-	// Valid coordinates (offline DB test fallback)
-	w2 := httptest.NewRecorder()
-	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/drivers/radar?lat=28.4595&lng=77.0266&radius=15", nil)
-	r.ServeHTTP(w2, req2)
+	for _, tt := range scenarios {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/drivers/radar"+tt.queryString, nil)
+			r.ServeHTTP(w, req)
 
-	if w2.Code != http.StatusOK {
-		t.Fatalf("Expected 200 OK for valid coordinates, got %d", w2.Code)
+			if w.Code != tt.expectedCode {
+				t.Errorf("Scenario %q failed: expected status %d, got %d", tt.name, tt.expectedCode, w.Code)
+			}
+
+			if tt.expectedCode == http.StatusOK {
+				var resp map[string]interface{}
+				if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+					t.Fatalf("Failed to parse response JSON: %v", err)
+				}
+				if _, ok := resp["center"]; !ok {
+					t.Errorf("Expected 'center' in radar response")
+				}
+				if _, ok := resp["radiusKm"]; !ok {
+					t.Errorf("Expected 'radiusKm' in radar response")
+				}
+			}
+		})
 	}
 }
