@@ -213,6 +213,8 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		drivers.GET("/radar", controllers.GetNearbyDriversRadar)
 		drivers.GET("/shifts", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverShifts)
 		drivers.GET("/wallet", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverWallet)
+		drivers.POST("/payout/request", middleware.Protect(), middleware.AuthorizeDriver(), middleware.PaymentLimiter(), middleware.Idempotency(), controllers.RequestDriverPayout)
+		drivers.GET("/payouts", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverPayouts)
 		drivers.PUT("/profile", middleware.Protect(), middleware.AuthorizeDriver(), controllers.UpdateDriverProfile)
 		drivers.GET("/:id", controllers.GetDriverByID)
 	}
@@ -227,6 +229,7 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		bookings.GET("/driver/stats", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverStats)
 		bookings.GET("/:id", middleware.Protect(), controllers.GetBookingByID)
 		bookings.PUT("/:id/status", middleware.Protect(), middleware.Idempotency(), controllers.UpdateBookingStatus)
+		bookings.POST("/:id/sos", middleware.Protect(), middleware.AuthorizeUserOrDriver(), controllers.TriggerEmergencySOS)
 		bookings.GET("/:id/calendar", middleware.Protect(), controllers.DownloadCalendar)
 		bookings.GET("/:id/calendar.ics", middleware.Protect(), controllers.DownloadCalendar)
 		bookings.GET("/:id/invoice", middleware.Protect(), controllers.DownloadInvoice)
@@ -329,6 +332,10 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		admin.GET("/bookings", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.GetAllBookings)
 		admin.GET("/bookings/export", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.ExportBookingsCSV)
 		admin.GET("/audit-logs", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.GetAuditLogs)
+		admin.GET("/payouts", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.AdminGetAllPayouts)
+		admin.PUT("/payouts/:id/status", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.AdminUpdatePayoutStatus)
+		admin.GET("/incidents", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.AdminGetIncidents)
+		admin.PUT("/incidents/:id/resolve", middleware.Protect(), middleware.AuthorizeAdmin(), controllers.AdminResolveIncident)
 	}
 
 	// /ai

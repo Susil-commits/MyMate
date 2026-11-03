@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle } from "react-icons/hi";
+import { HiStar, HiCalendar, HiLocationMarker, HiUser, HiCash, HiCheckCircle, HiExclamation, HiPhone, HiX } from "react-icons/hi";
 import BackButton from "../components/BackButton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import MapDisplay from "../components/MapDisplay";
@@ -205,6 +205,10 @@ export default function BookingDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [sosAlert, setSosAlert] = useState<any>(null);
+  const [showSosModal, setShowSosModal] = useState(false);
+  const [sosReason, setSosReason] = useState("Medical Emergency");
+  const [triggeringSos, setTriggeringSos] = useState(false);
   const { socket, isConnected } = useSocket() || {};
 
   useEffect(() => {
@@ -217,11 +221,20 @@ export default function BookingDetailPage() {
         setBooking(updatedBooking);
       }
     };
+
+    const handleSOS = (alert: any) => {
+      if (alert.bookingId === id) {
+        setSosAlert(alert);
+        toast.error("EMERGENCY SOS ALERT ACTIVATED FOR THIS TRIP", { duration: 10000 });
+      }
+    };
     
     socket.on("booking_update", handleUpdate);
+    socket.on("emergency_sos_alert", handleSOS);
     
     return () => {
       socket.off("booking_update", handleUpdate);
+      socket.off("emergency_sos_alert", handleSOS);
       socket.emit("leave_booking", id);
     };
   }, [id, socket]);
@@ -393,12 +406,73 @@ export default function BookingDetailPage() {
     }
   };
 
+  const handleTriggerSos = async () => {
+    setTriggeringSos(true);
+    let lat = 0;
+    let lng = 0;
+    if ("geolocation" in navigator) {
+      try {
+        const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
+        });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } catch (e) {
+        console.warn("Could not fetch GPS coords for SOS", e);
+      }
+    }
+
+    try {
+      const { data } = await api.post(`/bookings/${id}/sos`, {
+        reason: sosReason,
+        lat,
+        lng,
+        locality: booking?.pickupLocation || "",
+      });
+      toast.error("EMERGENCY SOS ALERT DISPATCHED TO AUTHORITIES!", { duration: 8000 });
+      setSosAlert(data.incident);
+      setShowSosModal(false);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || "Failed to trigger SOS alert");
+    } finally {
+      setTriggeringSos(false);
+    }
+  };
+
   return (
     <div className="max-w-3xl mx-auto">
       <BackButton to={backTo} label="Back to Bookings" />
+
+      {/* Active Emergency SOS Alert Banner */}
+      {(sosAlert || booking.sosTriggered) && (
+        <div className="mb-6 p-5 bg-red-600 text-white rounded-2xl shadow-xl flex items-start gap-4 animate-pulse border-2 border-red-400">
+          <HiExclamation className="w-8 h-8 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-black text-lg tracking-wide">🚨 EMERGENCY SOS ACTIVATED FOR THIS TRIP</p>
+            <p className="text-sm text-red-100 mt-1">
+              Live GPS coordinates and vehicle telemetry have been dispatched to the 24/7 Security Desk and local authorities. Stay calm; assistance is on the way.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-white bg-red-700/80 px-3.5 py-2 rounded-xl">
+              <span>National Emergency: 112</span>
+              <span>Police: 100</span>
+              <span>Ambulance: 102</span>
+              <span>MyMate Security Hotline: +91-1800-MYMATE-SOS</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <h1 className="text-3xl font-extrabold text-gray-900">Booking Details</h1>
         <div className="flex items-center gap-2 flex-wrap">
+          {["accepted", "ongoing"].includes(booking.status) && (
+            <button
+              onClick={() => setShowSosModal(true)}
+              className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-extrabold flex items-center gap-1.5 shadow-md shadow-red-500/30 animate-pulse transition-all cursor-pointer"
+            >
+              🚨 SOS
+            </button>
+          )}
           {!isConnected && booking.status === "ongoing" && (
             <span className="flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full text-xs font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -557,6 +631,73 @@ export default function BookingDetailPage() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Emergency SOS Confirmation Modal */}
+      {showSosModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-6 sm:p-8 max-w-md w-full border-2 border-red-500 shadow-2xl relative">
+            <button
+              onClick={() => setShowSosModal(false)}
+              className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <HiX className="w-6 h-6" />
+            </button>
+
+            <div className="flex items-center gap-2 text-red-600 mb-2">
+              <HiExclamation className="w-7 h-7" />
+              <h3 className="text-xl font-black">Emergency SOS Dispatch</h3>
+            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-300 mb-4">
+              Triggering SOS immediately alerts the 24/7 MyMate Security Desk, transmits real-time GPS telemetry, and notifies emergency dispatchers.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-200 mb-1">
+                  Reason for Emergency
+                </label>
+                <select
+                  value={sosReason}
+                  onChange={(e) => setSosReason(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-900 dark:text-white outline-none focus:ring-2 focus:ring-red-500"
+                >
+                  <option value="Medical Emergency">Medical Emergency</option>
+                  <option value="Threat / Hostile Altercation">Threat / Hostile Altercation</option>
+                  <option value="Suspicious Route / Safety Issue">Suspicious Route / Safety Issue</option>
+                  <option value="Vehicle Breakdown on Highway">Vehicle Breakdown on Highway</option>
+                  <option value="Accident / Collision">Accident / Collision</option>
+                  <option value="Other Emergency">Other Emergency</option>
+                </select>
+              </div>
+
+              <div className="p-3 bg-red-50 dark:bg-red-950/30 rounded-xl border border-red-200 dark:border-red-900/40 text-xs text-red-800 dark:text-red-300 space-y-1">
+                <p className="font-bold">Trip Security Information:</p>
+                <p>• Driver: {booking.driver?.name || "Assigned Driver"}</p>
+                <p>• Pickup: {booking.pickupLocation}</p>
+                <p>• Drop: {booking.dropLocation}</p>
+              </div>
+
+              <button
+                type="button"
+                disabled={triggeringSos}
+                onClick={handleTriggerSos}
+                className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-black text-sm tracking-wide shadow-lg shadow-red-600/40 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {triggeringSos ? "Broadcasting Emergency..." : "🚨 BROADCAST SOS NOW"}
+              </button>
+
+              <div className="text-center pt-2">
+                <a
+                  href="tel:112"
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-1"
+                >
+                  <HiPhone className="w-3.5 h-3.5" /> Direct Call Police / Emergency: 112
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <ConfirmDialog

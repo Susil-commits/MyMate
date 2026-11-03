@@ -647,3 +647,122 @@ const socket = io('https://mymate-965m.onrender.com', {
 | `LOCATION_UPDATE` | Driver ➔ Server ➔ `booking_<id>` | `{ bookingId, lat, lng, bearing, speed }` | High-frequency GPS ping for live map interpolation. |
 | `CHAT_MESSAGE` | Bidirectional | `{ bookingId, senderId, text, timestamp }` | Direct in-trip passenger/driver chat message. |
 | `BOOKING_STATUS` | Server ➔ Room | `{ bookingId, status, timestamp }` | State changes (`ongoing`, `completed`, `cancelled`). |
+| `emergency_sos_alert` | Server ➔ Cluster | `{ incidentId, bookingId, riderName, driverName, coordinates }` | Urgent SOS alert broadcast to Admin, Security Desk, and trip parties. |
+
+---
+
+## 💸 Automated Driver Instant Payout Engine (`/drivers/payout`)
+
+Drivers receive 85% of trip and chauffeur shift earnings atomically into their platform wallet upon ride completion. The payout engine enables instant settlement directly to their verified Indian UPI Virtual Payment Address (VPA) or Bank Account (IMPS/NEFT).
+
+### 1. Request Driver Instant Payout
+```http
+POST /api/v1/drivers/payout/request
+```
+*Auth: Driver Only*  
+*Headers*: `Idempotency-Key: <uuid>`
+
+**Request Body (UPI Transfer):**
+```json
+{
+  "amount": 2500.00,
+  "method": "upi",
+  "upiId": "driver.rajesh@okhdfcbank"
+}
+```
+
+**Request Body (Bank Account Transfer):**
+```json
+{
+  "amount": 8000.00,
+  "method": "bank_transfer",
+  "accountHolder": "Rajesh Kumar",
+  "accountNumber": "123456789012",
+  "ifscCode": "HDFC0001234"
+}
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "message": "Payout requested successfully",
+  "payout": {
+    "id": "67278fae8812c3b4a5678901",
+    "driverId": "664fa1e2b5c7e1234567890a",
+    "amount": 2500.0,
+    "method": "upi",
+    "upiId": "driver.rajesh@okhdfcbank",
+    "referenceId": "pout_1793717200_a1b2c3d4e5f6",
+    "status": "processed",
+    "gatewayFee": 0.0,
+    "netDisbursed": 2500.0,
+    "createdAt": "2026-11-03T20:00:00Z"
+  }
+}
+```
+
+### 2. Driver Payouts History
+```http
+GET /api/v1/drivers/payouts?limit=20
+```
+*Auth: Driver Only*  
+Returns an audit list of all payout disbursements with processing references and timestamps.
+
+### 3. Admin All Payouts Management
+```http
+GET /api/v1/admin/payouts?status=pending&limit=50
+PUT /api/v1/admin/payouts/:id/status
+```
+*Auth: Admin Only*  
+Inspect and approve/reject high-value payouts with automatic atomic wallet balance refund on rejection.
+
+---
+
+## 🚨 In-Ride Emergency SOS & Incident Dispatch (`/bookings/:id/sos`)
+
+Enables instantaneous safety dispatch for passengers and chauffeurs during active or accepted rides.
+
+### 1. Trigger Emergency SOS
+```http
+POST /api/v1/bookings/:id/sos
+```
+*Auth: User or Driver (Authorized booking party)*
+
+**Request Payload:**
+```json
+{
+  "reason": "Medical Emergency",
+  "lat": 28.4595,
+  "lng": 77.0266,
+  "locality": "Cyber Hub, Gurugram"
+}
+```
+
+**Response (`200 OK`):**
+```json
+{
+  "message": "EMERGENCY SOS DISPATCHED: Authorities and Security Team Notified",
+  "incident": {
+    "id": "672791be8812c3b4a5678902",
+    "bookingId": "671cb290884b849201948b99",
+    "triggeredByModel": "User",
+    "riderName": "Amit Sharma",
+    "riderPhone": "+919876543210",
+    "driverName": "Rajesh Kumar",
+    "driverPhone": "+919123456780",
+    "vehicleNumber": "DL01AB1234",
+    "coordinates": [77.0266, 28.4595],
+    "status": "triggered"
+  },
+  "emergencyHotline": "112 (National Emergency), +91-1800-MYMATE-SOS"
+}
+```
+
+### 2. Admin Real-Time Incident Management
+```http
+GET /api/v1/admin/incidents?status=triggered
+PUT /api/v1/admin/incidents/:id/resolve
+```
+*Auth: Admin Only*  
+Live control room endpoint for security dispatchers to acknowledge incidents, dispatch emergency responders, and record resolution notes.
+
