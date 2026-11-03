@@ -45,6 +45,11 @@ interface MonthlyTaxInvoice {
   gstin: string;
   billingEmail: string;
   address: string;
+  providerName?: string;
+  providerGstin?: string;
+  providerPan?: string;
+  providerAddress?: string;
+  sacCode?: string;
   totalTrips: number;
   taxableValue: number;
   cgst: number;
@@ -55,12 +60,24 @@ interface MonthlyTaxInvoice {
   generatedAt: string;
 }
 
+interface MemberProfile {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  locality?: string;
+  avatar?: string;
+  isAdmin: boolean;
+  createdAt?: string;
+}
+
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
 
 export default function CorporateFleetPage(): React.ReactElement {
   const { user } = useAuth();
   const [loading, setLoading] = useState<boolean>(true);
   const [org, setOrg] = useState<Organization | null>(null);
+  const [membersList, setMembersList] = useState<MemberProfile[]>([]);
   const [activeTab, setActiveTab] = useState<"overview" | "roster" | "invoices">("overview");
 
   // Registration form state
@@ -96,8 +113,10 @@ export default function CorporateFleetPage(): React.ReactElement {
       const { data } = await api.get("/corporate/organization");
       if (data && data.organization) {
         setOrg(data.organization);
+        setMembersList(data.membersList || []);
       } else {
         setOrg(null);
+        setMembersList([]);
       }
     } catch (err: unknown) {
       // 404 indicates user has no registered corporate account yet
@@ -622,25 +641,40 @@ export default function CorporateFleetPage(): React.ReactElement {
               </h3>
             </div>
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
-              {org.members?.map((memberId, idx) => {
-                const isAdmin = memberId === org.adminUser;
-                return (
-                  <div key={memberId} className="px-6 py-4 flex items-center justify-between">
+              {membersList.length > 0 ? (
+                membersList.map((member, idx) => (
+                  <div key={member.id} className="px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-xs">
-                        #{idx + 1}
-                      </div>
+                      {member.avatar ? (
+                        <img
+                          src={member.avatar}
+                          alt={member.name}
+                          className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm">
+                          {member.name ? member.name.charAt(0).toUpperCase() : `#${idx + 1}`}
+                        </div>
+                      )}
                       <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white font-mono">
-                          User ID: {memberId}
-                        </p>
-                        <p className="text-xs text-gray-400">
-                          {isAdmin ? "Account Administrator (Full Access)" : "Authorized Corporate Passenger"}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold text-gray-900 dark:text-white">
+                            {member.name || `Member #${idx + 1}`}
+                          </p>
+                          {member.locality && (
+                            <span className="text-[11px] px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500">
+                              {member.locality}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-gray-400 mt-0.5">
+                          <span>{member.email}</span>
+                          {member.phone && <span>• {member.phone}</span>}
+                        </div>
                       </div>
                     </div>
                     <div>
-                      {isAdmin ? (
+                      {member.isAdmin ? (
                         <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
                           Admin
                         </span>
@@ -651,8 +685,40 @@ export default function CorporateFleetPage(): React.ReactElement {
                       )}
                     </div>
                   </div>
-                );
-              })}
+                ))
+              ) : (
+                org.members?.map((memberId, idx) => {
+                  const isAdmin = memberId === org.adminUser;
+                  return (
+                    <div key={memberId} className="px-6 py-4 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 flex items-center justify-center font-bold text-xs">
+                          #{idx + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white font-mono">
+                            User ID: {memberId}
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {isAdmin ? "Account Administrator (Full Access)" : "Authorized Corporate Passenger"}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        {isAdmin ? (
+                          <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+                            Admin
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                            Active Member
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -708,11 +774,13 @@ export default function CorporateFleetPage(): React.ReactElement {
                     </span>
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    MyMate Technologies India Private Limited
+                    {invoice.providerName || "MyMate Technologies India Private Limited"}
                     <br />
-                    SAC Code: 9964 (Passenger Transport Vehicle Rental Services)
+                    SAC Code: {invoice.sacCode || "9964"} (Passenger Transport Vehicle Rental Services)
                     <br />
-                    GSTIN: 27AABCM9999Z1Z8 | PAN: AABCM9999Z
+                    GSTIN: {invoice.providerGstin || "27AABCM9999Z1Z8"} | PAN: {invoice.providerPan || "AABCM9999Z"}
+                    <br />
+                    {invoice.providerAddress || "DLF Cyber City, Sector 24, Gurugram, Haryana - 122002"}
                   </p>
                 </div>
 
@@ -840,3 +908,4 @@ export default function CorporateFleetPage(): React.ReactElement {
     </div>
   );
 }
+

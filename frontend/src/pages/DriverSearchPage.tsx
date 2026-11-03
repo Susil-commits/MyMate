@@ -2,12 +2,13 @@ import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useInView } from "react-intersection-observer";
-import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiSearch, HiX } from "react-icons/hi";
+import { HiStar, HiLocationMarker, HiClock, HiCurrencyDollar, HiSearch, HiX, HiViewGrid, HiMap } from "react-icons/hi";
 import api from "../api/axios";
 import { useDebounce } from "../hooks/useDebounce";
 import { hireTypes, vehicleTypes } from "../utils/constants";
 import { SkeletonList } from "../components/SkeletonLoader";
 import DriverQuickViewModal from "../components/DriverQuickViewModal";
+import DriverRadarMap from "../components/DriverRadarMap";
 
 const sortOptions = [
   { value: "rating", label: "Top Rated" },
@@ -53,6 +54,7 @@ export default function DriverSearchPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "radar">("list");
   const { ref: observerRef, inView } = useInView({ threshold: 0.1 });
 
   const [filters, setFilters] = useState<FilterState>({
@@ -183,6 +185,31 @@ export default function DriverSearchPage() {
             <p className="text-sm text-gray-500 mt-1">{pagination.total} drivers available</p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "list"
+                    ? "bg-white dark:bg-gray-900 text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                <HiViewGrid className="w-4 h-4" />
+                Grid View
+              </button>
+              <button
+                onClick={() => setViewMode("radar")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "radar"
+                    ? "bg-white dark:bg-gray-900 text-blue-600 shadow-sm"
+                    : "text-gray-500 hover:text-gray-900 dark:hover:text-white"
+                }`}
+              >
+                <HiMap className="w-4 h-4" />
+                Live Radar Map
+              </button>
+            </div>
+
             <button
               onClick={async () => {
                 try {
@@ -215,7 +242,11 @@ export default function DriverSearchPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 animate-slide-in-left">
+        {viewMode === "radar" ? (
+          <DriverRadarMap onSelectDriver={(id) => setSelectedDriverId(id)} />
+        ) : (
+          <>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 animate-slide-in-left">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <HiSearch className="w-5 h-5 text-gray-400" />
@@ -450,9 +481,11 @@ export default function DriverSearchPage() {
             )}
           </>
         )}
-      </div>
+      </>
+    )}
+  </div>
 
-      {selectedDriverId && (
+  {selectedDriverId && (
         <DriverQuickViewModal
           driverId={selectedDriverId}
           onClose={() => setSelectedDriverId(null)}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -13,6 +14,7 @@ import (
 	"mymate-backend/config"
 	"mymate-backend/middleware"
 	"mymate-backend/models"
+	"mymate-backend/services"
 	"mymate-backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -152,6 +154,216 @@ func GetDrivers(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"drivers":    sanitized,
 		"pagination": utils.BuildPagination(total, page, limit),
+	})
+}
+
+type RadarDriver struct {
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Avatar          string   `json:"avatar"`
+	Locality        string   `json:"locality"`
+	AverageRating   float64  `json:"averageRating"`
+	TotalReviews    int      `json:"totalReviews"`
+	VehicleTypes    []string `json:"vehicleTypes"`
+	HourlyRate      float64  `json:"hourlyRate"`
+	DailyRate       float64  `json:"dailyRate"`
+	ExperienceYears float64  `json:"experienceYears"`
+	DistanceKm      float64  `json:"distanceKm"`
+	EtaMins         int      `json:"etaMins"`
+	Lat             float64  `json:"lat"`
+	Lng             float64  `json:"lng"`
+	Status          string   `json:"status"`
+}
+
+// GET /api/v1/drivers/radar
+func GetNearbyDriversRadar(c *gin.Context) {
+	latStr := c.Query("lat")
+	lngStr := c.Query("lng")
+	if latStr == "" || lngStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Query parameters 'lat' and 'lng' are required for spatial radar"})
+		return
+	}
+
+	userLat, errLat := strconv.ParseFloat(latStr, 64)
+	userLng, errLng := strconv.ParseFloat(lngStr, 64)
+	if errLat != nil || errLng != nil || userLat < -90 || userLat > 90 || userLng < -180 || userLng > 180 {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid latitude or longitude coordinates"})
+		return
+	}
+
+	radiusKm := 25.0
+	if rStr := c.Query("radius"); rStr != "" {
+		if r, err := strconv.ParseFloat(rStr, 64); err == nil && r > 0 && r <= 100 {
+			radiusKm = r
+		}
+	}
+
+	limit := utils.ClampLimit(c.Query("limit"), 20, 50)
+	vehicleFilter := c.Query("vehicleType")
+
+	if config.DB == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"center":   gin.H{"lat": userLat, "lng": userLng},
+			"radiusKm": radiusKm,
+			"total":    0,
+			"drivers":  []RadarDriver{},
+			"source":   "none",
+		})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var radarDrivers []RadarDriver
+	source := "mongodb_geo"
+
+	// 1. Check Redis GEO first for active live online drivers
+	if config.RedisClient != nil {
+		geoLocs, err := config.GeoSearchNearbyDrivers(ctx, "drivers:active", userLng, userLat, radiusKm, limit)
+		if err == nil && len(geoLocs) > 0 {
+			source = "redis_geo"
+			driverDistMap := make(map[string]float64)
+			var oids []bson.ObjectID
+			for _, gl := range geoLocs {
+				driverDistMap[gl.Name] = gl.Dist
+				if oid, err := bson.ObjectIDFromHex(gl.Name); err == nil {
+					oids = append(oids, oid)
+				}
+			}
+
+			if len(oids) > 0 {
+				filter := bson.M{
+					"_id":       bson.M{"$in": oids},
+					"kycStatus": "approved",
+					"isActive":  true,
+					"deletedAt": nil,
+				}
+				if vehicleFilter != "" {
+					filter["vehicleTypes"] = vehicleFilter
+				}
+
+				cursor, err := config.DB.Collection("drivers").Find(ctx, filter)
+				if err == nil {
+					var docs []models.Driver
+					_ = cursor.All(ctx, &docs)
+					for _, d := range docs {
+						dist := driverDistMap[d.ID.Hex()]
+						eta := int(math.Round((dist / 30.0) * 60.0)) + 3
+						if dist < 0.5 {
+							eta = 2
+						}
+						lat := 0.0
+						lng := 0.0
+						if len(d.Location.Coordinates) >= 2 {
+							lng = d.Location.Coordinates[0]
+							lat = d.Location.Coordinates[1]
+						}
+						radarDrivers = append(radarDrivers, RadarDriver{
+							ID:              d.ID.Hex(),
+							Name:            d.Name,
+							Avatar:          d.Avatar.URL,
+							Locality:        d.Locality,
+							AverageRating:   d.AverageRating,
+							TotalReviews:    d.TotalReviews,
+							VehicleTypes:    d.VehicleTypes,
+							HourlyRate:      d.HourlyRate,
+							DailyRate:       d.DailyRate,
+							ExperienceYears: d.ExperienceYears,
+							DistanceKm:      math.Round(dist*100) / 100,
+							EtaMins:         eta,
+							Lat:             lat,
+							Lng:             lng,
+							Status:          "online",
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Fallback to MongoDB if Redis GEO yielded no results (e.g. initial boot or offline pool)
+	if len(radarDrivers) == 0 {
+		source = "mongodb_geo"
+		filter := bson.M{
+			"kycStatus":            "approved",
+			"isActive":             true,
+			"deletedAt":            nil,
+			"location.coordinates": bson.M{"$exists": true, "$ne": nil},
+		}
+		if vehicleFilter != "" {
+			filter["vehicleTypes"] = vehicleFilter
+		}
+
+		cursor, err := config.DB.Collection("drivers").Find(ctx, filter, options.Find().SetLimit(100))
+		if err == nil {
+			var docs []models.Driver
+			_ = cursor.All(ctx, &docs)
+
+			type distCandidate struct {
+				driver models.Driver
+				dist   float64
+				lat    float64
+				lng    float64
+			}
+			var candidates []distCandidate
+
+			for _, d := range docs {
+				if len(d.Location.Coordinates) >= 2 {
+					dLng := d.Location.Coordinates[0]
+					dLat := d.Location.Coordinates[1]
+					if dLat != 0 || dLng != 0 {
+						dist := services.HaversineKm(userLat, userLng, dLat, dLng)
+						if dist <= radiusKm {
+							candidates = append(candidates, distCandidate{
+								driver: d,
+								dist:   dist,
+								lat:    dLat,
+								lng:    dLng,
+							})
+						}
+					}
+				}
+			}
+
+			sort.Slice(candidates, func(i, j int) bool {
+				return candidates[i].dist < candidates[j].dist
+			})
+
+			for i := 0; i < len(candidates) && i < limit; i++ {
+				c := candidates[i]
+				d := c.driver
+				eta := int(math.Round((c.dist / 30.0) * 60.0)) + 3
+				if c.dist < 0.5 {
+					eta = 2
+				}
+				radarDrivers = append(radarDrivers, RadarDriver{
+					ID:              d.ID.Hex(),
+					Name:            d.Name,
+					Avatar:          d.Avatar.URL,
+					Locality:        d.Locality,
+					AverageRating:   d.AverageRating,
+					TotalReviews:    d.TotalReviews,
+					VehicleTypes:    d.VehicleTypes,
+					HourlyRate:      d.HourlyRate,
+					DailyRate:       d.DailyRate,
+					ExperienceYears: d.ExperienceYears,
+					DistanceKm:      math.Round(c.dist*100) / 100,
+					EtaMins:         eta,
+					Lat:             c.lat,
+					Lng:             c.lng,
+					Status:          "active",
+				})
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"center":   gin.H{"lat": userLat, "lng": userLng},
+		"radiusKm": radiusKm,
+		"total":    len(radarDrivers),
+		"drivers":  radarDrivers,
+		"source":   source,
 	})
 }
 

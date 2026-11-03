@@ -46,6 +46,11 @@ type Config struct {
 	RedisURL                   string
 	DisableRedis               bool
 	DriverWalletSplitPct       float64
+	CompanyLegalName           string
+	CompanyGSTIN               string
+	CompanyPAN                 string
+	CompanyAddress             string
+	CompanySAC                 string
 }
 
 var AppConfig *Config
@@ -132,6 +137,11 @@ func LoadConfig() *Config {
 		RedisURL:              getEnv("REDIS_URL", "redis://localhost:6379"),
 		DisableRedis:          getEnv("DISABLE_REDIS", "false") == "true",
 		DriverWalletSplitPct:  splitPct,
+		CompanyLegalName:      getEnv("PLATFORM_COMPANY_NAME", "MyMate Technologies India Private Limited"),
+		CompanyGSTIN:          getEnv("PLATFORM_COMPANY_GSTIN", "27AABCM9999Z1Z8"),
+		CompanyPAN:            getEnv("PLATFORM_COMPANY_PAN", "AABCM9999Z"),
+		CompanyAddress:        getEnv("PLATFORM_COMPANY_ADDRESS", "DLF Cyber City, Sector 24, Gurugram, Haryana - 122002"),
+		CompanySAC:            getEnv("PLATFORM_COMPANY_SAC", "9964"),
 	}
 
 	if AppConfig.MongoURI == "" && AppConfig.AppEnv != "test" {

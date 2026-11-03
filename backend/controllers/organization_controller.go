@@ -128,7 +128,31 @@ func GetMyOrganization(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"organization": org})
+	var memberProfiles []gin.H
+	if len(org.Members) > 0 {
+		userCursor, err := config.GetCollection("users").Find(ctx, bson.M{"_id": bson.M{"$in": org.Members}})
+		if err == nil {
+			var users []models.User
+			_ = userCursor.All(ctx, &users)
+			for _, u := range users {
+				memberProfiles = append(memberProfiles, gin.H{
+					"id":        u.ID.Hex(),
+					"name":      u.Name,
+					"email":     u.Email,
+					"phone":     u.Phone,
+					"locality":  u.Locality,
+					"avatar":    u.Avatar.URL,
+					"isAdmin":   u.ID == org.AdminUser,
+					"createdAt": u.CreatedAt,
+				})
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"organization": org,
+		"membersList":  memberProfiles,
+	})
 }
 
 // POST /api/v1/corporate/organization/members
@@ -236,20 +260,31 @@ func GetCorporateMonthlyTaxInvoice(c *gin.Context) {
 	cgst := gstAmount / 2.0
 	sgst := gstAmount / 2.0
 
+	providerName := config.AppConfig.CompanyLegalName
+	providerGstin := config.AppConfig.CompanyGSTIN
+	providerPan := config.AppConfig.CompanyPAN
+	providerAddress := config.AppConfig.CompanyAddress
+	sacCode := config.AppConfig.CompanySAC
+
 	c.JSON(http.StatusOK, gin.H{
-		"invoiceNumber":  fmt.Sprintf("CORP-INV-%s-%s", org.ID.Hex()[:6], startTime.Format("200601")),
-		"billingMonth":   monthStr,
-		"organization":   org.Name,
-		"gstin":          org.GSTIN,
-		"billingEmail":   org.BillingEmail,
-		"address":        org.Address,
-		"totalTrips":     len(bookings),
-		"taxableValue":   math.Round(taxableValue*100) / 100,
-		"cgst":           math.Round(cgst*100) / 100,
-		"sgst":           math.Round(sgst*100) / 100,
-		"totalGst":       math.Round(gstAmount*100) / 100,
-		"totalAmountINR": math.Round(totalFares*100) / 100,
-		"currency":       "INR",
-		"generatedAt":    time.Now().UTC().Format(time.RFC3339),
+		"invoiceNumber":   fmt.Sprintf("CORP-INV-%s-%s", org.ID.Hex()[:6], startTime.Format("200601")),
+		"billingMonth":    monthStr,
+		"organization":    org.Name,
+		"gstin":           org.GSTIN,
+		"billingEmail":    org.BillingEmail,
+		"address":         org.Address,
+		"providerName":    providerName,
+		"providerGstin":   providerGstin,
+		"providerPan":     providerPan,
+		"providerAddress": providerAddress,
+		"sacCode":         sacCode,
+		"totalTrips":      len(bookings),
+		"taxableValue":    math.Round(taxableValue*100) / 100,
+		"cgst":            math.Round(cgst*100) / 100,
+		"sgst":            math.Round(sgst*100) / 100,
+		"totalGst":        math.Round(gstAmount*100) / 100,
+		"totalAmountINR":  math.Round(totalFares*100) / 100,
+		"currency":        "INR",
+		"generatedAt":     time.Now().UTC().Format(time.RFC3339),
 	})
 }

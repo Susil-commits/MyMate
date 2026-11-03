@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"mymate-backend/config"
 	"mymate-backend/controllers"
 	"mymate-backend/middleware"
 	"mymate-backend/socket"
+	"mymate-backend/telemetry"
 )
 
 var startTime = time.Now()
@@ -19,6 +21,7 @@ var startTime = time.Now()
 func SetupRoutes(r *gin.Engine) {
 	// Global Middleware
 	r.Use(gin.Recovery())
+	r.Use(telemetry.PrometheusMiddleware())
 
 	// Security & correlation headers (Distributed Tracing)
 	r.Use(func(c *gin.Context) {
@@ -44,6 +47,9 @@ func SetupRoutes(r *gin.Engine) {
 
 	// Static uploads directory
 	r.Static("/uploads", "./uploads")
+
+	// Standard Prometheus Scrape Endpoint
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
 
 	// Liveness Check
 	r.GET("/health", func(c *gin.Context) {
@@ -203,6 +209,7 @@ func registerEndpoints(rg *gin.RouterGroup) {
 		drivers.GET("", controllers.GetDrivers)
 		drivers.GET("/", controllers.GetDrivers)
 		drivers.GET("/stats", controllers.GetPublicStats)
+		drivers.GET("/radar", controllers.GetNearbyDriversRadar)
 		drivers.GET("/wallet", middleware.Protect(), middleware.AuthorizeDriver(), controllers.GetDriverWallet)
 		drivers.PUT("/profile", middleware.Protect(), middleware.AuthorizeDriver(), controllers.UpdateDriverProfile)
 		drivers.GET("/:id", controllers.GetDriverByID)

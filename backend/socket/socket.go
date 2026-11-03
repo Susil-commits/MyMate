@@ -12,6 +12,7 @@ import (
 	"mymate-backend/config"
 	"mymate-backend/models"
 	"mymate-backend/services"
+	"mymate-backend/telemetry"
 	"mymate-backend/utils"
 
 	"github.com/gin-gonic/gin"
@@ -69,6 +70,7 @@ func InitSocket() *socketio.Server {
 	server := socketio.NewServer(opts)
 
 	server.OnConnect("/", func(s socketio.Conn) error {
+		telemetry.ActiveWebSockets.Inc()
 		rawCookie := s.RemoteHeader().Get("Cookie")
 		token := ""
 		if rawCookie != "" {
@@ -233,6 +235,7 @@ func InitSocket() *socketio.Server {
 	})
 
 	server.OnDisconnect("/", func(s socketio.Conn, reason string) {
+		telemetry.ActiveWebSockets.Dec()
 		log.Printf("[Socket] Disconnected: %s (%s)", s.ID(), reason)
 	})
 

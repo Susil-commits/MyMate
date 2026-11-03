@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -146,5 +147,44 @@ func TestPublicDriverStatsEndpoint(t *testing.T) {
 		if _, ok := stats["tripCount"]; !ok {
 			t.Errorf("Expected tripCount field in %s", ep)
 		}
+	}
+}
+
+func TestPrometheusMetricsEndpoint(t *testing.T) {
+	r := setupTestEngine()
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for /metrics, got %d", w.Code)
+	}
+
+	bodyStr := w.Body.String()
+	if !strings.Contains(bodyStr, "mymate_http_requests_total") && !strings.Contains(bodyStr, "go_goroutines") {
+		t.Errorf("Expected Prometheus metrics output to contain go or mymate metrics")
+	}
+}
+
+func TestDriversRadarEndpoint_Validation(t *testing.T) {
+	r := setupTestEngine()
+
+	// Missing lat & lng -> should return 400 Bad Request
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/drivers/radar", nil)
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("Expected 400 Bad Request for missing coordinates, got %d", w.Code)
+	}
+
+	// Valid coordinates (offline DB test fallback)
+	w2 := httptest.NewRecorder()
+	req2 := httptest.NewRequest(http.MethodGet, "/api/v1/drivers/radar?lat=28.4595&lng=77.0266&radius=15", nil)
+	r.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("Expected 200 OK for valid coordinates, got %d", w2.Code)
 	}
 }
