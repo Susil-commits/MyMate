@@ -59,3 +59,4 @@ func TestTriggerEmergencySOS_OfflineAndValidation(t *testing.T) {
 		t.Errorf("Expected emergencyHotline in SOS response, got %v", resp["emergencyHotline"])
 	}
 }
+

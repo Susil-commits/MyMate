@@ -26,3 +26,4 @@ type PayoutRequest struct {
 	ProcessedAt   *time.Time    `bson:"processedAt,omitempty" json:"processedAt,omitempty"`
 	UpdatedAt     time.Time     `bson:"updatedAt" json:"updatedAt"`
 }
+
