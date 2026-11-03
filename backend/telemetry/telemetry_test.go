@@ -204,3 +204,4 @@ func TestPrometheusMiddleware_SkipsScrapeEndpoint(t *testing.T) {
 		t.Errorf("Expected /metrics request to be skipped by Prometheus middleware, but got counter value %v", m.Counter.GetValue())
 	}
 }
+
